@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: 패키지 설치
-        run: pip install yfinance
+        run: pip install yfinance feedparser anthropic
 
       - name: 주식 시황 메일 발송
         env:
