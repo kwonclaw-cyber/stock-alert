@@ -1,5 +1,8 @@
 import yfinance as yf
+import feedparser
+import anthropic
 import smtplib
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
@@ -34,22 +37,24 @@ def get_change(ticker, period="2d"):
 
 def arrow_html(pct):
     if pct >= 0:
-        return f'<span style="color:#e03131;">▲</span>'
+        return '<span style="color:#e03131;">▲</span>'
     else:
-        return f'<span style="color:#1971c2;">▼</span>'
+        return '<span style="color:#1971c2;">▼</span>'
 
-def get_index_rows():
+def get_index_data():
     tickers = {
         "나스닥": "^IXIC",
         "나스닥 선물 (야간)": "NQ=F",
         "S&P 500": "^GSPC",
         "다우존스": "^DJI",
     }
+    result = {}
     rows = ""
     for name, ticker in tickers.items():
         curr, change, pct = get_change(ticker)
         if curr is None:
             continue
+        result[name] = pct
         arrow = arrow_html(pct)
         color = "#e03131" if pct >= 0 else "#1971c2"
         rows += f"""
@@ -60,10 +65,44 @@ def get_index_rows():
             {arrow} {abs(change):,.2f} ({abs(pct):.2f}%)
           </td>
         </tr>"""
-    return rows
+    return rows, result
 
-def get_theme_rows():
+def get_news_data():
+    sources = [
+        ("Reuters 비즈니스", "https://feeds.reuters.com/reuters/businessNews"),
+        ("CNBC",            "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
+        ("MarketWatch",     "http://feeds.marketwatch.com/marketwatch/topstories/"),
+    ]
+    all_news = []
+    items_html = ""
+    for source_name, url in sources:
+        feed = feedparser.parse(url)
+        entries = feed.entries[:3]
+        if not entries:
+            continue
+        items_html += f'<tr><td colspan="2" style="padding:8px 12px; background:#f8f9fa; font-weight:bold; font-size:13px; color:#555;">{source_name}</td></tr>'
+        for entry in entries:
+            title   = entry.get("title", "").strip()
+            link    = entry.get("link", "#")
+            summary = entry.get("summary", "")
+            # HTML 태그 제거 후 100자 요약
+            summary = re.sub(r"<[^>]+>", "", summary).strip()
+            summary = summary[:100] + "..." if len(summary) > 100 else summary
+            all_news.append(f"- {title}: {summary}")
+            items_html += f"""
+            <tr>
+              <td style="padding:5px 12px 2px 20px; font-size:13px;">
+                • <a href="{link}" style="color:#1c7ed6; text-decoration:none; font-weight:bold;">{title}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:2px 12px 8px 28px; font-size:12px; color:#666;">{summary}</td>
+            </tr>"""
+    return items_html, all_news
+
+def get_theme_data():
     data = []
+    rows = ""
     for name, info in THEMES.items():
         _, _, pct = get_change(info["us"])
         if pct is None:
@@ -71,7 +110,6 @@ def get_theme_rows():
         data.append((name, pct, info["kr"]))
     data.sort(key=lambda x: x[1], reverse=True)
 
-    rows = ""
     for name, pct, kr_stocks in data:
         arrow = arrow_html(pct)
         color = "#e03131" if pct >= 0 else "#1971c2"
@@ -84,17 +122,54 @@ def get_theme_rows():
           </td>
           <td style="padding:6px 12px; color:#555; font-size:13px;">{stock_names}</td>
         </tr>"""
-    return rows
+    return rows, data
+
+def get_ai_analysis(index_data, theme_data, news_list):
+    index_text = "\n".join([f"- {k}: {v:+.2f}%" for k, v in index_data.items()])
+    theme_text = "\n".join([f"- {name}: {pct:+.2f}%" for name, pct, _ in theme_data])
+    news_text  = "\n".join(news_list[:9])
+
+    prompt = f"""다음은 오늘 미국 주식 시장 데이터입니다. 한국 투자자 관점에서 분석해주세요.
+
+[주요 지수]
+{index_text}
+
+[테마별 등락]
+{theme_text}
+
+[주요 뉴스]
+{news_text}
+
+다음 형식으로 한국어로 작성해주세요:
+
+1. **시장 총평** (2~3문장): 간밤 미국 시장 전반적인 흐름 요약
+2. **주목할 테마** (2~3개): 오늘 한국 시장에서 주목할 테마와 이유
+3. **리스크 요인** (1~2개): 오늘 주의해야 할 위험 요소
+4. **오늘의 한 줄 전략**: 오늘 한국 주식 투자 방향 한 문장"""
+
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    text = message.content[0].text
+
+    # 마크다운 볼드(**text**) → HTML <strong>
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    # 줄바꿈 → <br>
+    text = text.replace("\n", "<br>")
+    return text
 
 def send_email(subject, html_body):
-    sender = os.environ["GMAIL_ADDRESS"]
+    sender   = os.environ["GMAIL_ADDRESS"]
     password = os.environ["GMAIL_APP_PASSWORD"]
     receiver = os.environ["GMAIL_ADDRESS"]
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = receiver
+    msg["From"]    = sender
+    msg["To"]      = receiver
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -102,6 +177,11 @@ def send_email(subject, html_body):
         server.sendmail(sender, receiver, msg.as_string())
 
 if __name__ == "__main__":
+    index_rows, index_data = get_index_data()
+    theme_rows, theme_data = get_theme_data()
+    news_html, news_list   = get_news_data()
+    analysis               = get_ai_analysis(index_data, theme_data, news_list)
+
     html = f"""
     <html><body style="font-family:Arial,sans-serif; max-width:700px; margin:auto; color:#222;">
       <h2 style="border-bottom:2px solid #333; padding-bottom:8px;">
@@ -117,7 +197,7 @@ if __name__ == "__main__":
             <th style="padding:6px 12px; text-align:right;">등락</th>
           </tr>
         </thead>
-        <tbody>{get_index_rows()}</tbody>
+        <tbody>{index_rows}</tbody>
       </table>
 
       <h3 style="margin-top:24px;">🗂️ 테마별 등락 &amp; 국내 관련 종목</h3>
@@ -129,8 +209,18 @@ if __name__ == "__main__":
             <th style="padding:6px 12px; text-align:left;">국내 관련 종목</th>
           </tr>
         </thead>
-        <tbody>{get_theme_rows()}</tbody>
+        <tbody>{theme_rows}</tbody>
       </table>
+
+      <h3 style="margin-top:24px;">📰 주요 뉴스</h3>
+      <table style="border-collapse:collapse; width:100%;">
+        <tbody>{news_html}</tbody>
+      </table>
+
+      <h3 style="margin-top:24px;">🧠 AI 시장 분석 &amp; 오늘의 전략</h3>
+      <div style="background:#f8f9fa; border-left:4px solid #1c7ed6; padding:16px 20px; font-size:14px; line-height:1.8;">
+        {analysis}
+      </div>
 
       <p style="margin-top:24px; font-size:12px; color:#aaa;">
         본 메일은 자동 발송됩니다. 투자 참고용이며 투자 권유가 아닙니다.
