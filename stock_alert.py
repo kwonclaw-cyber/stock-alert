@@ -180,7 +180,6 @@ if __name__ == "__main__":
     index_rows, index_data = get_index_data()
     theme_rows, theme_data = get_theme_data()
     news_html, news_list   = get_news_data()
-    analysis               = get_ai_analysis(index_data, theme_data, news_list)
 
     html = f"""
     <html><body style="font-family:Arial,sans-serif; max-width:700px; margin:auto; color:#222;">
