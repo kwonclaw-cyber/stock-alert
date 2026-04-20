@@ -216,10 +216,7 @@ if __name__ == "__main__":
         <tbody>{news_html}</tbody>
       </table>
 
-      <h3 style="margin-top:24px;">🧠 AI 시장 분석 &amp; 오늘의 전략</h3>
-      <div style="background:#f8f9fa; border-left:4px solid #1c7ed6; padding:16px 20px; font-size:14px; line-height:1.8;">
-        {analysis}
-      </div>
+
 
       <p style="margin-top:24px; font-size:12px; color:#aaa;">
         본 메일은 자동 발송됩니다. 투자 참고용이며 투자 권유가 아닙니다.
