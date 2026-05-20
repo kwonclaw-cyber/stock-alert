@@ -13,7 +13,8 @@ from playwright.sync_api import sync_playwright
 
 KST = timezone(timedelta(hours=9))
 LOGIN_URL = "https://www.matetech.co.kr/login"
-SALES_URL = "https://www.matetech.co.kr/service/saa0060/sales/analysis/order-path"
+CHANNEL_URL = "https://www.matetech.co.kr/service/saa0060/sales/analysis/order-path"
+STORE_URL = "https://www.matetech.co.kr/service/saa0010/sales/analysis/term"
 
 
 def load_accounts():
@@ -109,10 +110,39 @@ def _query_and_download(page, start: date, end: date) -> str:
     return tmp.name
 
 
-def fetch_sales_data(username: str, password: str, report_type: str):
-    """한 번 로그인으로 현재 + 비교 기간 두 엑셀 다운로드.
+def _check_store_split(page):
+    """기간별 매출분석 페이지의 '매장별 분리 (일자기준)' 체크박스 활성화."""
+    try:
+        page.evaluate(
+            """
+            () => {
+                const labels = document.querySelectorAll('label, span, div');
+                for (const el of labels) {
+                    const txt = (el.textContent || '').trim();
+                    if (txt === '매장별 분리 (일자기준)' || txt.startsWith('매장별 분리 (일자기준)')) {
+                        const cb = el.querySelector('input[type=checkbox]')
+                                || (el.previousElementSibling && el.previousElementSibling.querySelector && el.previousElementSibling.querySelector('input[type=checkbox]'))
+                                || (el.parentElement && el.parentElement.querySelector('input[type=checkbox]'));
+                        if (cb && !cb.checked) {
+                            cb.click();
+                            cb.dispatchEvent(new Event('change', {bubbles: true}));
+                        }
+                        return 'checked';
+                    }
+                }
+                // fallback: try clicking first checkbox in the period section
+                return 'not_found';
+            }
+            """
+        )
+    except Exception as e:
+        print(f"  매장별 분리 체크 실패 (계속 진행): {e}")
 
-    Returns: (cur_excel_path, prev_excel_path, cur_range, prev_range)
+
+def fetch_sales_data(username: str, password: str, report_type: str):
+    """한 번 로그인으로 채널별/매장별 × 현재/비교 = 엑셀 4개 다운로드.
+
+    Returns: (cur_channel, prev_channel, cur_store, prev_store, cur_range, prev_range)
     """
     cur_range, prev_range = get_date_ranges(report_type)
 
@@ -127,22 +157,36 @@ def fetch_sales_data(username: str, password: str, report_type: str):
         page.click("#member-btn")
         page.wait_for_load_state("networkidle")
 
-        page.goto(SALES_URL)
+        # 1) 채널별 매출 (주문경로별)
+        page.goto(CHANNEL_URL)
         page.wait_for_load_state("networkidle")
 
-        print(f"  현재 기간 조회: {cur_range[0]} ~ {cur_range[1]}")
-        cur_excel = _query_and_download(page, cur_range[0], cur_range[1])
+        print(f"  [채널] 현재 기간 조회: {cur_range[0]} ~ {cur_range[1]}")
+        cur_channel = _query_and_download(page, cur_range[0], cur_range[1])
 
-        print(f"  비교 기간 조회: {prev_range[0]} ~ {prev_range[1]}")
-        prev_excel = _query_and_download(page, prev_range[0], prev_range[1])
+        print(f"  [채널] 비교 기간 조회: {prev_range[0]} ~ {prev_range[1]}")
+        prev_channel = _query_and_download(page, prev_range[0], prev_range[1])
+
+        # 2) 매장별 매출 (기간별 매출분석)
+        page.goto(STORE_URL)
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
+        _check_store_split(page)
+        page.wait_for_timeout(300)
+
+        print(f"  [매장] 현재 기간 조회: {cur_range[0]} ~ {cur_range[1]}")
+        cur_store = _query_and_download(page, cur_range[0], cur_range[1])
+
+        print(f"  [매장] 비교 기간 조회: {prev_range[0]} ~ {prev_range[1]}")
+        prev_store = _query_and_download(page, prev_range[0], prev_range[1])
 
         browser.close()
 
-    return cur_excel, prev_excel, cur_range, prev_range
+    return cur_channel, prev_channel, cur_store, prev_store, cur_range, prev_range
 
 
 def parse_excel(filepath: str):
-    """엑셀 4행 이후가 데이터 (1~2행 헤더, 3행 합계 라벨)."""
+    """주문경로별 매출분석 엑셀. 4행 이후가 데이터 (1~2행 헤더, 3행 합계 라벨)."""
     wb = openpyxl.load_workbook(filepath, data_only=True)
     ws = wb.active
 
@@ -158,6 +202,46 @@ def parse_excel(filepath: str):
             "amount": int(row[5] or 0),
         })
     return rows
+
+
+def parse_store_excel(filepath: str):
+    """기간별 매장별 분리 엑셀. 4행 이후가 데이터.
+    컬럼: 분기/월/일자, 일자, 매장코드, 매장명, 건수, 실매출액, ...
+    """
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb.active
+
+    rows = []
+    for row in ws.iter_rows(min_row=4, values_only=True):
+        if not row or len(row) < 6:
+            continue
+        store_code = row[2]
+        store_name = row[3]
+        if not store_code or not store_name:
+            continue
+        rows.append({
+            "store_code": str(store_code).strip(),
+            "store_name": str(store_name).strip(),
+            "count": int(row[4] or 0),
+            "amount": int(row[5] or 0),
+        })
+    return rows
+
+
+def aggregate_stores(rows):
+    """매장코드 기준으로 합산 (여러 일자 누적). Returns: {code: {name, count, amount}}"""
+    by_store = {}
+    for r in rows:
+        code = r["store_code"]
+        if code not in by_store:
+            by_store[code] = {
+                "store_name": r["store_name"],
+                "count": 0,
+                "amount": 0,
+            }
+        by_store[code]["count"] += r["count"]
+        by_store[code]["amount"] += r["amount"]
+    return by_store
 
 
 def aggregate(rows):
@@ -274,6 +358,64 @@ def render_brand_section(b, compare_label):
           <td style="padding:6px 12px; text-align:right;">{diff_html(d['amount'], prev_amount)}</td>
         </tr>"""
 
+    # 매장별 TOP 10
+    cur_stores = b.get("cur_stores", {})
+    prev_stores = b.get("prev_stores", {})
+    top10 = sorted(cur_stores.values(), key=lambda x: -x["amount"])[:10]
+    top10_rows = ""
+    for s in top10:
+        prev_amount = 0
+        for code, ps in prev_stores.items():
+            if ps["store_name"] == s["store_name"]:
+                prev_amount = ps["amount"]
+                break
+        top10_rows += f"""
+        <tr>
+          <td style="padding:6px 12px;">{s['store_name']}</td>
+          <td style="padding:6px 12px; text-align:right;">{s['count']:,}</td>
+          <td style="padding:6px 12px; text-align:right; font-weight:bold;">{format_won(s['amount'])}</td>
+          <td style="padding:6px 12px; text-align:right;">{diff_html(s['amount'], prev_amount)}</td>
+        </tr>"""
+    top10_section = ""
+    if top10_rows:
+        top10_section = f"""
+      <h4 style="margin-top:20px; color:#1971c2;">매장 매출 TOP 10</h4>
+      <table style="border-collapse:collapse; width:100%; margin-top:8px;">
+        <thead>
+          <tr style="background:#f1f3f5;">
+            <th style="padding:6px 12px; text-align:left;">매장명</th>
+            <th style="padding:6px 12px; text-align:right;">건수</th>
+            <th style="padding:6px 12px; text-align:right;">매출액</th>
+            <th style="padding:6px 12px; text-align:right;">{compare_label} 대비</th>
+          </tr>
+        </thead>
+        <tbody>{top10_rows}</tbody>
+      </table>
+        """
+
+    # 미운영(매출 0) 매장: 현재 기간 데이터에서 매출 0인 매장 또는, 비교 기간에는 있었는데 현재 사라진 매장
+    inactive = []
+    cur_names = {s["store_name"] for s in cur_stores.values() if s["amount"] > 0}
+    for code, s in cur_stores.items():
+        if s["amount"] == 0:
+            inactive.append(s["store_name"])
+    # 비교 기간에는 매출 있었는데 현재 0/없음
+    for code, ps in prev_stores.items():
+        if ps["amount"] > 0 and ps["store_name"] not in cur_names:
+            if ps["store_name"] not in inactive:
+                inactive.append(ps["store_name"])
+
+    inactive_section = ""
+    if inactive:
+        chips = "".join(
+            f'<span style="display:inline-block; padding:4px 10px; margin:3px; background:#fff5f5; border:1px solid #ffc9c9; border-radius:12px; font-size:13px; color:#c92a2a;">{n}</span>'
+            for n in sorted(inactive)
+        )
+        inactive_section = f"""
+      <h4 style="margin-top:20px; color:#c92a2a;">미운영 매장 ({len(inactive)}개)</h4>
+      <div style="margin-top:8px;">{chips}</div>
+        """
+
     return f"""
       <h3 style="margin-top:32px; padding:8px 12px; background:#e7f5ff; border-left:4px solid #1971c2;">
         [{b['brand']}]
@@ -298,7 +440,8 @@ def render_brand_section(b, compare_label):
         </tbody>
       </table>
 
-      <table style="border-collapse:collapse; width:100%; margin-top:12px;">
+      <h4 style="margin-top:20px; color:#1971c2;">채널별 매출</h4>
+      <table style="border-collapse:collapse; width:100%; margin-top:8px;">
         <thead>
           <tr style="background:#f1f3f5;">
             <th style="padding:6px 12px; text-align:left;">채널</th>
@@ -310,6 +453,10 @@ def render_brand_section(b, compare_label):
         </thead>
         <tbody>{channel_rows}</tbody>
       </table>
+
+      {top10_section}
+
+      {inactive_section}
     """
 
 
@@ -413,19 +560,32 @@ if __name__ == "__main__":
 
     for acc in accounts:
         print(f"\n--- {acc['brand']} ({acc['username']}) 처리 시작 ---")
-        cur_excel, prev_excel, cur_range, prev_range = fetch_sales_data(
-            acc["username"], acc["password"], report_type
-        )
-        print(f"엑셀 2개 다운로드 완료")
+        try:
+            cur_ch, prev_ch, cur_st, prev_st, cur_range, prev_range = fetch_sales_data(
+                acc["username"], acc["password"], report_type
+            )
+            print(f"엑셀 4개 다운로드 완료 (채널 2개 + 매장 2개)")
+        except Exception as e:
+            print(f"  데이터 수집 실패: {e}")
+            continue
 
-        cur_rows = parse_excel(cur_excel)
-        prev_rows = parse_excel(prev_excel)
-        print(f"엑셀 파싱 완료: 현재 {len(cur_rows)}행, 비교 {len(prev_rows)}행")
-
+        # 채널별
+        cur_rows = parse_excel(cur_ch)
+        prev_rows = parse_excel(prev_ch)
         cur_summary, cur_total_count, cur_total_amount = aggregate(cur_rows)
         prev_summary, prev_total_count, prev_total_amount = aggregate(prev_rows)
-        print(f"집계 완료: 현재 {cur_total_count:,}건/{cur_total_amount:,}원, "
+        print(f"  [채널] 현재 {cur_total_count:,}건/{cur_total_amount:,}원, "
               f"비교 {prev_total_count:,}건/{prev_total_amount:,}원")
+
+        # 매장별 (실패해도 빈 dict로 진행)
+        try:
+            cur_stores = aggregate_stores(parse_store_excel(cur_st))
+            prev_stores = aggregate_stores(parse_store_excel(prev_st))
+            print(f"  [매장] 현재 {len(cur_stores)}개 매장, 비교 {len(prev_stores)}개 매장")
+        except Exception as e:
+            print(f"  매장별 파싱 실패: {e}")
+            cur_stores = {}
+            prev_stores = {}
 
         brand_blocks.append({
             "brand": acc["brand"],
@@ -435,6 +595,8 @@ if __name__ == "__main__":
             "prev_summary": prev_summary,
             "prev_total_count": prev_total_count,
             "prev_total_amount": prev_total_amount,
+            "cur_stores": cur_stores,
+            "prev_stores": prev_stores,
         })
         grand_cur["count"] += cur_total_count
         grand_cur["amount"] += cur_total_amount
