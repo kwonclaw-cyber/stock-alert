@@ -329,8 +329,15 @@ if __name__ == "__main__":
 
     print(f"\n전체 합계: {grand_total_count:,}건 / {grand_total_amount:,}원")
 
-    ai_text = get_ai_analysis(report_type, brand_blocks, grand_total_count, grand_total_amount)
-    print("AI 분석 완료")
+    try:
+        ai_text = get_ai_analysis(report_type, brand_blocks, grand_total_count, grand_total_amount)
+        print("AI 분석 완료")
+    except Exception as e:
+        print(f"AI 분석 실패 (메일은 계속 발송): {e}")
+        ai_text = (
+            f"<span style='color:#aaa;'>AI 분석을 가져오지 못했습니다.<br>"
+            f"({type(e).__name__}: {str(e)[:200]})</span>"
+        )
 
     html = render_html(report_type, brand_blocks, grand_total_count, grand_total_amount, ai_text, now_str)
     brand_names = " / ".join(b["brand"] for b in brand_blocks)
