@@ -24,17 +24,23 @@ def load_accounts():
     ... 계정 개수만큼 N을 늘려서 추가
     """
     accounts = []
-    if "MATETECH_USERNAME" in os.environ and "MATETECH_PASSWORD" in os.environ:
+    u = os.environ.get("MATETECH_USERNAME", "").strip()
+    p = os.environ.get("MATETECH_PASSWORD", "").strip()
+    if u and p:
         accounts.append({
-            "username": os.environ["MATETECH_USERNAME"],
-            "password": os.environ["MATETECH_PASSWORD"],
+            "username": u,
+            "password": p,
             "brand": os.environ.get("MATETECH_BRAND", "").strip() or "브랜드 1",
         })
     i = 2
-    while f"MATETECH_USERNAME_{i}" in os.environ:
+    while True:
+        u = os.environ.get(f"MATETECH_USERNAME_{i}", "").strip()
+        p = os.environ.get(f"MATETECH_PASSWORD_{i}", "").strip()
+        if not (u and p):
+            break
         accounts.append({
-            "username": os.environ[f"MATETECH_USERNAME_{i}"],
-            "password": os.environ[f"MATETECH_PASSWORD_{i}"],
+            "username": u,
+            "password": p,
             "brand": os.environ.get(f"MATETECH_BRAND_{i}", "").strip() or f"브랜드 {i}",
         })
         i += 1
@@ -62,15 +68,15 @@ def fetch_sales_excel(username: str, password: str, report_type: str) -> str:
         page.goto(SALES_URL)
         page.wait_for_load_state("networkidle")
 
-        page.get_by_role("button", name=period_label).click()
+        page.get_by_role("button", name=period_label, exact=True).click()
         page.wait_for_timeout(500)
 
-        page.get_by_role("button", name="검색").click()
+        page.get_by_role("button", name="검색", exact=True).click()
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)
 
         with page.expect_download() as dl_info:
-            page.get_by_role("button", name="엑셀 다운로드").click()
+            page.get_by_role("button", name="엑셀 다운로드", exact=True).click()
         download = dl_info.value
 
         tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
