@@ -1,0 +1,57 @@
+name: 매출 리포트 메일 발송
+
+on:
+  schedule:
+    # 일간 리포트: 매일 KST 09:00 (UTC 00:00)
+    - cron: "0 0 * * *"
+    # 주간 리포트: 매주 월요일 KST 09:00 (UTC 00:00 Mon)
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: "리포트 타입 (daily 또는 weekly)"
+        required: true
+        default: "daily"
+        type: choice
+        options:
+          - daily
+          - weekly
+
+jobs:
+  send-sales-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 패키지 설치
+        run: |
+          pip install playwright openpyxl anthropic
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: 리포트 타입 결정
+        id: rt
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.report_type }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 0 * * 1" ]; then
+            echo "type=weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=daily" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 매출 리포트 메일 발송
+        env:
+          MATETECH_USERNAME: ${{ secrets.MATETECH_USERNAME }}
+          MATETECH_PASSWORD: ${{ secrets.MATETECH_PASSWORD }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPORT_TYPE: ${{ steps.rt.outputs.type }}
+        run: python sales_report.py
