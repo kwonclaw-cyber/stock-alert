@@ -50,6 +50,13 @@ jobs:
         env:
           MATETECH_USERNAME: ${{ secrets.MATETECH_USERNAME }}
           MATETECH_PASSWORD: ${{ secrets.MATETECH_PASSWORD }}
+          MATETECH_BRAND: ${{ secrets.MATETECH_BRAND }}
+          MATETECH_USERNAME_2: ${{ secrets.MATETECH_USERNAME_2 }}
+          MATETECH_PASSWORD_2: ${{ secrets.MATETECH_PASSWORD_2 }}
+          MATETECH_BRAND_2: ${{ secrets.MATETECH_BRAND_2 }}
+          MATETECH_USERNAME_3: ${{ secrets.MATETECH_USERNAME_3 }}
+          MATETECH_PASSWORD_3: ${{ secrets.MATETECH_PASSWORD_3 }}
+          MATETECH_BRAND_3: ${{ secrets.MATETECH_BRAND_3 }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
