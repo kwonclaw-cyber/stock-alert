@@ -2,10 +2,10 @@ name: 매출 리포트 메일 발송
 
 on:
   schedule:
-    # 일간 리포트: 매일 KST 09:00 (UTC 00:00)
-    - cron: "0 0 * * *"
-    # 주간 리포트: 매주 월요일 KST 09:00 (UTC 00:00 Mon)
-    - cron: "0 0 * * 1"
+    # 일간 리포트: 매일 KST 08:30 (UTC 23:30 전날) — 30분 버퍼
+    - cron: "30 23 * * *"
+    # 주간 리포트: 매주 월요일 KST 08:30 (UTC 23:30 일요일)
+    - cron: "30 23 * * 0"
   workflow_dispatch:
     inputs:
       report_type:
