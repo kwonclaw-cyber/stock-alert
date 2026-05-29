@@ -150,6 +150,20 @@
       </div>
     </div>
     <div class="card">
+      <h2>구글 시트로 일괄 등록</h2>
+      <div class="note">구글 스프레드시트에서 <b>셀 범위를 복사</b>해 아래에 붙여넣거나, CSV 내용을 붙여넣으세요.
+        열 순서: <b>매장명 · 대표자 · 연락처 · 과세여부 · 금액 · 메모</b> (첫 줄이 머리글이면 자동 인식). 과세여부는 비우면 세금계산서로 처리됩니다.</div>
+      <textarea id="bulkInput" style="width:100%;min-height:120px;padding:10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px" placeholder="육식사관학교 강남점	이용석	010-1234-5678	세금계산서	5,000,000	4월분
+육식사관학교 홍대점	김철수	010-2222-3333	현금영수증	1,000,000"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnBulkPreview">미리보기</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="bulkReplace" style="min-width:auto"> 기존 매장 전체 교체</label>
+        <button class="btn ghost" id="btnBulkAdd" style="display:none">등록 실행</button>
+      </div>
+      <div id="bulkPreview" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
       <h2>매장 목록 (<span id="storeCount">0</span>)</h2>
       <table class="list" id="storeTable">
         <thead><tr><th>매장명</th><th>대표자</th><th>연락처</th><th>기본 과세여부</th><th class="num">기본 금액</th><th>메모</th><th></th></tr></thead>
@@ -436,6 +450,81 @@ function renderStores(){
     tb.appendChild(tr);
   });
 }
+
+/* ---------- 구글 시트 일괄 등록 ---------- */
+function parseDocType(v){
+  const s=(v||"").trim().toLowerCase();
+  if(!s) return "tax";
+  if(/현금|영수증|cash|면세/.test(s)) return "cash";
+  return "tax"; // 세금계산서/세금/과세/tax 등 기본
+}
+function parseLine(line, delim){
+  if(delim==="\t") return line.split("\t");
+  const out=[]; let cur="", q=false;
+  for(let i=0;i<line.length;i++){ const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===","){ out.push(cur); cur=""; } else cur+=c; }
+  }
+  out.push(cur); return out;
+}
+const HEADERS={ name:["매장명","매장","상호","상호명","점포","점","store","name"],
+  owner:["대표자","대표","사장","사장님","성명","대표자명","owner"],
+  phone:["연락처","전화","전화번호","휴대폰","핸드폰","번호","phone","hp"],
+  docType:["과세","과세여부","유형","구분","계산서","종류","type"],
+  amount:["금액","지원금","광고지원금","총액","합계","amount"],
+  memo:["메모","비고","note","memo"] };
+function detectMap(cells){
+  const map={}; let found=false;
+  cells.forEach((c,i)=>{ const t=(c||"").trim().toLowerCase();
+    for(const key in HEADERS){ if(HEADERS[key].some(h=>t===h.toLowerCase()||t.includes(h.toLowerCase()))){ if(!(key in map)){ map[key]=i; found=true; } } }
+  });
+  return found?map:null;
+}
+function parseBulk(text){
+  const lines=text.split(/\r?\n/).map(l=>l).filter(l=>l.trim()!=="");
+  if(!lines.length) return [];
+  const delim=lines.some(l=>l.includes("\t"))?"\t":",";
+  let map=detectMap(parseLine(lines[0],delim));
+  let start=0;
+  if(map) start=1; else map={name:0,owner:1,phone:2,docType:3,amount:4,memo:5};
+  const rows=[];
+  for(let i=start;i<lines.length;i++){
+    const c=parseLine(lines[i],delim).map(x=>(x||"").trim());
+    const name=(c[map.name]||"").trim();
+    if(!name) continue;
+    rows.push({
+      name,
+      owner:(c[map.owner]??"").trim(),
+      phone:(c[map.phone]??"").trim(),
+      docType:parseDocType(c[map.docType]),
+      amount:Number(String(c[map.amount]??"").replace(/[^\d.-]/g,""))||0,
+      memo:(c[map.memo]??"").trim(),
+    });
+  }
+  return rows;
+}
+let bulkRows=[];
+$("#btnBulkPreview").onclick=()=>{
+  bulkRows=parseBulk($("#bulkInput").value);
+  const box=$("#bulkPreview");
+  if(!bulkRows.length){ box.innerHTML='<div class="muted">인식된 매장이 없습니다. 형식을 확인하세요.</div>'; $("#btnBulkAdd").style.display="none"; return; }
+  const head='<tr><th>매장명</th><th>대표자</th><th>연락처</th><th>과세여부</th><th class="num">금액</th><th>메모</th></tr>';
+  const body=bulkRows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.owner)||'-'}</td><td>${esc(r.phone)||'-'}</td><td>${DOCLABEL[r.docType]}</td><td class="num">${won(r.amount)}</td><td class="muted">${esc(r.memo)||''}</td></tr>`).join("");
+  box.innerHTML=`<div class="muted" style="margin-bottom:6px">${bulkRows.length}개 매장 인식됨 — 등록 실행을 누르세요.</div><table class="list">${head}${body}</table>`;
+  $("#btnBulkAdd").style.display="inline-block";
+};
+$("#btnBulkAdd").onclick=()=>{
+  if(!bulkRows.length){ alert("먼저 미리보기를 눌러 주세요."); return; }
+  if($("#bulkReplace").checked){
+    if(!confirm(`기존 매장(${stores.length}개)을 모두 지우고 ${bulkRows.length}개로 교체할까요?`))return;
+    stores=[];
+  }
+  bulkRows.forEach(r=>stores.push({id:uid(),...r}));
+  save(); renderStores(); fillStoreSelect();
+  $("#bulkInput").value=""; $("#bulkPreview").innerHTML=""; $("#btnBulkAdd").style.display="none";
+  bulkRows=[];
+  alert("일괄 등록을 완료했습니다.");
+};
 
 /* ---------- 본사 정보 ---------- */
 const supKeys=["name","bizno","addr","biztype","bizitem","email","ownerTax","ownerCash","phone"];
