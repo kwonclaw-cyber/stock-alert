@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>매장 세금계산서 관리</title>
+<title>매장 청구·안내 관리</title>
 <style>
   :root{
     --bg:#f4f6fa; --card:#fff; --line:#e3e8f0; --text:#1f2937; --muted:#6b7280;
@@ -16,7 +16,7 @@
   header{background:#111827;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   header h1{font-size:18px;margin:0;font-weight:700}
   header .spacer{flex:1}
-  .tabs{display:flex;gap:6px;background:#1f2937;padding:4px;border-radius:10px}
+  .tabs{display:flex;gap:6px;background:#1f2937;padding:4px;border-radius:10px;flex-wrap:wrap}
   .tabs button{background:transparent;color:#cbd5e1;border:0;padding:8px 16px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600}
   .tabs button.active{background:var(--primary);color:#fff}
   main{max-width:1180px;margin:22px auto;padding:0 16px}
@@ -27,8 +27,9 @@
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
   .field{display:flex;flex-direction:column;gap:5px}
   .field label{font-size:12px;color:var(--muted);font-weight:600}
-  input,select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;min-width:120px}
-  input:focus,select:focus{outline:2px solid #bfdbfe;border-color:var(--primary)}
+  input,select,textarea{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;min-width:120px;font-family:inherit}
+  textarea{min-height:180px;resize:vertical;line-height:1.6}
+  input:focus,select:focus,textarea:focus{outline:2px solid #bfdbfe;border-color:var(--primary)}
   button.btn{background:var(--primary);color:#fff;border:0;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
   button.btn:hover{background:var(--primary-d)}
   button.ghost{background:#fff;color:var(--text);border:1px solid var(--line)}
@@ -45,7 +46,7 @@
   .empty{text-align:center;color:var(--muted);padding:40px 0}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid transparent}
   .pill.none{background:#f3f4f6;color:#6b7280}
-  .pill.issued{background:#dbeafe;color:#1d4ed8}
+  .pill.sent{background:#dbeafe;color:#1d4ed8}
   .pill.paid{background:#d1fae5;color:#047857}
   .pill.unpaid{background:#fee2e2;color:#b91c1c}
   .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
@@ -59,26 +60,28 @@
   .seg{display:flex;gap:4px;background:#eef2f7;padding:4px;border-radius:9px}
   .seg button{border:0;background:transparent;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
   .seg button.active{background:#fff;color:var(--text);box-shadow:var(--shadow)}
-  dialog{border:0;border-radius:14px;padding:0;box-shadow:0 20px 50px rgba(0,0,0,.25);max-width:560px;width:92%}
-  dialog::backdrop{background:rgba(15,23,42,.45)}
-  .modal-head{padding:16px 20px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}
-  .modal-body{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .modal-body .full{grid-column:1/3}
-  .modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
-  .note{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px}
+  .note{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.6}
   .pill-menu{position:absolute;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:6px;z-index:50;display:none}
   .pill-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600}
   .pill-menu button:hover{background:#f3f4f6}
-  @media(max-width:640px){.modal-body{grid-template-columns:1fr}.modal-body .full{grid-column:1}}
+  .var{display:inline-block;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin:3px 4px 3px 0;font-size:12px;cursor:pointer;font-family:monospace}
+  .var:hover{background:#e2e8f0}
+  .msgcard{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .msgcard .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .msgcard .top b{font-size:14px}
+  .msgcard pre{white-space:pre-wrap;word-break:break-word;margin:0;font-family:inherit;font-size:13px;line-height:1.6;background:#fafbfc;border-radius:8px;padding:10px 12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
-  <h1>🧾 매장 세금계산서 관리</h1>
+  <h1>📨 매장 청구·안내 관리</h1>
   <div class="tabs">
-    <button data-tab="invoice" class="active">월별 발행관리</button>
+    <button data-tab="bill" class="active">월별 청구관리</button>
+    <button data-tab="notice">안내문 발송</button>
     <button data-tab="stores">매장 기초정보</button>
-    <button data-tab="settings">공급자 설정</button>
+    <button data-tab="settings">발신 설정</button>
   </div>
   <div class="spacer"></div>
   <button class="btn ghost sm" id="btnExport">백업 내보내기</button>
@@ -87,8 +90,8 @@
 </header>
 
 <main>
-  <!-- ===== 월별 발행관리 ===== -->
-  <section class="panel active" id="panel-invoice">
+  <!-- ===== 월별 청구관리 ===== -->
+  <section class="panel active" id="panel-bill">
     <div class="toolbar">
       <div class="field">
         <label>대상 월</label>
@@ -97,25 +100,24 @@
       <div class="spacer"></div>
       <div class="seg" id="filterSeg">
         <button data-f="all" class="active">전체</button>
-        <button data-f="none">미발급</button>
-        <button data-f="issued">발급완료</button>
+        <button data-f="none">미발송</button>
+        <button data-f="sent">발송완료</button>
         <button data-f="paid">입금완료</button>
-        <button data-f="unpaid">미지급</button>
+        <button data-f="unpaid">미입금</button>
       </div>
     </div>
 
     <div class="stats" id="stats"></div>
 
     <div class="card">
-      <table id="invoiceTable">
+      <table id="billTable">
         <thead>
           <tr>
             <th>매장명</th>
-            <th>사업자번호</th>
-            <th>종류</th>
-            <th class="num">공급가액</th>
+            <th>연락처</th>
+            <th class="num">청구금액</th>
             <th>상태</th>
-            <th>발급일</th>
+            <th>발송일</th>
             <th>입금일</th>
             <th>메모</th>
             <th></th>
@@ -123,8 +125,57 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div class="empty" id="invoiceEmpty" style="display:none">
-        매장이 없습니다. <b>매장 기초정보</b> 탭에서 먼저 매장을 등록하세요.
+      <div class="empty" id="billEmpty" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- ===== 안내문 발송 ===== -->
+  <section class="panel" id="panel-notice">
+    <div class="note">
+      개인 카카오톡은 자동 일괄발송이 불가합니다. 여기서 매장별 안내문을 자동 완성해
+      <b>복사 → 카카오톡 붙여넣기</b> 하거나, <b>CSV로 내보내</b> 알림톡·문자 대행사에 업로드하면 일괄발송됩니다.
+      (추후 솔라피 등 API 연동 시 이 화면에서 바로 발송 버튼을 붙일 수 있습니다.)
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>안내문 양식</h2>
+        <div class="row" style="margin-bottom:12px">
+          <div class="field"><label>대상 월</label><input type="month" id="noticeMonth"></div>
+          <div class="field"><label>납부기한(마감일)</label><input type="date" id="dueDate"></div>
+          <div class="field"><label>대상</label>
+            <select id="noticeTarget">
+              <option value="all">전체 매장</option>
+              <option value="none">미발송만</option>
+              <option value="unpaid">미입금만</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label>제목(문자 LMS/알림톡용, 선택)</label>
+          <input id="noticeTitle" style="width:100%">
+        </div>
+        <div class="field">
+          <label>본문</label>
+          <textarea id="noticeBody"></textarea>
+        </div>
+        <div style="margin-top:10px">
+          <div class="muted" style="font-size:12px;margin-bottom:6px">클릭하면 본문 끝에 변수가 삽입됩니다:</div>
+          <div id="varList"></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="btnSaveTemplate">양식 저장</button>
+          <button class="btn ghost" id="btnRefreshPreview">미리보기 새로고침</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>일괄 미리보기 (<span id="previewCount">0</span>건)</h2>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn" id="btnCopyAll">전체 복사</button>
+          <button class="btn ghost" id="btnCsv">CSV 내보내기</button>
+        </div>
+        <div id="previewList"></div>
+        <div class="empty" id="previewEmpty" style="display:none">대상 매장이 없습니다.</div>
       </div>
     </div>
   </section>
@@ -133,15 +184,15 @@
   <section class="panel" id="panel-stores">
     <div class="card">
       <h2>매장 등록 / 수정</h2>
-      <div class="note">매장의 기본 정보를 등록해 두면, 매월 발행관리 화면에 자동으로 나타납니다.</div>
+      <div class="note">매장 기본 정보를 등록하면, 매월 청구관리와 안내문에 자동으로 반영됩니다. <b>연락처는 휴대폰번호</b>로 입력하면 추후 문자/알림톡 발송에 그대로 쓰입니다.</div>
       <div class="row">
         <div class="field"><label>매장명 *</label><input id="f-name" placeholder="예) 강남점"></div>
-        <div class="field"><label>사업자등록번호</label><input id="f-bizno" placeholder="000-00-00000"></div>
         <div class="field"><label>대표자명</label><input id="f-owner"></div>
-        <div class="field"><label>연락처</label><input id="f-phone"></div>
-        <div class="field"><label>이메일</label><input id="f-email" placeholder="세금계산서 수신"></div>
+        <div class="field"><label>연락처(휴대폰)</label><input id="f-phone" placeholder="010-0000-0000"></div>
+        <div class="field"><label>사업자등록번호</label><input id="f-bizno" placeholder="000-00-00000"></div>
+        <div class="field"><label>이메일</label><input id="f-email"></div>
         <div class="field"><label>월 청구금액(원)</label><input id="f-amount" type="number" min="0" placeholder="0"></div>
-        <div class="field" style="flex:1;min-width:200px"><label>메모</label><input id="f-memo" style="width:100%"></div>
+        <div class="field" style="flex:1;min-width:180px"><label>메모</label><input id="f-memo" style="width:100%"></div>
         <button class="btn" id="btnSaveStore">등록</button>
         <button class="btn ghost" id="btnCancelEdit" style="display:none">취소</button>
       </div>
@@ -152,7 +203,7 @@
       <table id="storeTable">
         <thead>
           <tr>
-            <th>매장명</th><th>사업자번호</th><th>대표자</th><th>연락처</th>
+            <th>매장명</th><th>대표자</th><th>연락처</th><th>사업자번호</th>
             <th>이메일</th><th class="num">월 청구금액</th><th>메모</th><th></th>
           </tr>
         </thead>
@@ -162,58 +213,74 @@
     </div>
   </section>
 
-  <!-- ===== 공급자 설정 ===== -->
+  <!-- ===== 발신 설정 ===== -->
   <section class="panel" id="panel-settings">
     <div class="card">
-      <h2>공급자(내 사업자) 정보</h2>
-      <div class="note">여기 입력한 정보가 발행되는 세금계산서·계산서의 <b>공급자</b>란에 자동으로 들어갑니다.</div>
+      <h2>발신자 정보</h2>
+      <div class="note">안내문 변수(<code>{상호}</code>, <code>{담당자}</code>, <code>{입금계좌}</code>, <code>{발신연락처}</code>)에 채워지는 내 정보입니다.</div>
       <div class="row">
-        <div class="field"><label>상호(법인명) *</label><input id="s-name"></div>
-        <div class="field"><label>사업자등록번호</label><input id="s-bizno" placeholder="000-00-00000"></div>
-        <div class="field"><label>대표자명</label><input id="s-owner"></div>
-        <div class="field" style="flex:1;min-width:240px"><label>사업장 주소</label><input id="s-addr" style="width:100%"></div>
-        <div class="field"><label>업태</label><input id="s-biztype"></div>
-        <div class="field"><label>종목</label><input id="s-bizitem"></div>
-        <div class="field"><label>연락처</label><input id="s-phone"></div>
-        <div class="field"><label>이메일</label><input id="s-email"></div>
+        <div class="field"><label>상호(업체명)</label><input id="s-name"></div>
+        <div class="field"><label>담당자명</label><input id="s-owner"></div>
+        <div class="field"><label>발신 연락처</label><input id="s-phone"></div>
+        <div class="field" style="flex:1;min-width:260px"><label>입금계좌(은행/계좌/예금주)</label><input id="s-account" style="width:100%" placeholder="예) 국민 123-45-678901 (주)홍길동"></div>
         <button class="btn" id="btnSaveSupplier">저장</button>
       </div>
     </div>
     <div class="card">
-      <h2>전자발행(국세청) 연동 안내</h2>
-      <p class="muted" style="line-height:1.7;margin:0">
-        이 페이지는 계산서 <b>양식을 자동으로 작성해 인쇄·PDF 저장·이메일 첨부</b>하는 기능을 제공합니다.<br>
-        법적 효력이 있는 <b>국세청 전자(세금)계산서</b> 정식 신고는 홈택스 또는 팝빌·바로빌 등
-        발급대행 API 연동이 필요합니다(서버·인증서·계약 필요). 연동을 원하시면 별도로 확장할 수 있습니다.
+      <h2>일괄발송(대행사) 연동 안내</h2>
+      <p class="muted" style="line-height:1.8;margin:0">
+        매장에 카카오톡으로 일괄 발송하려면 <b>알림톡</b> 또는 <b>문자(SMS/LMS)</b> 발송 대행사가 필요합니다.<br>
+        추천: <b>솔라피(Solapi)</b> — 무료가입 후 API 키 발급, 문자는 바로 발송 가능(알림톡은 카카오 채널+템플릿 심사 필요).<br>
+        현재 화면의 <b>CSV 내보내기</b> 파일을 대행사 사이트에 업로드하면 바로 일괄발송할 수 있고,
+        추후 이 저장소의 파이썬으로 API 자동발송·스케줄까지 확장 가능합니다.
       </p>
     </div>
   </section>
 </main>
 
-<!-- pill 상태변경 메뉴 -->
+<!-- 상태변경 메뉴 -->
 <div class="pill-menu" id="pillMenu">
-  <button data-s="none">미발급</button>
-  <button data-s="issued">발급완료</button>
+  <button data-s="none">미발송</button>
+  <button data-s="sent">발송완료</button>
   <button data-s="paid">입금완료</button>
-  <button data-s="unpaid">미지급</button>
+  <button data-s="unpaid">미입금</button>
 </div>
 
 <script>
 "use strict";
-const LS_STORES = "tax.stores.v1";
-const LS_RECORDS = "tax.records.v1"; // { "YYYY-MM": { storeId: {status, type, amount, issuedAt, paidAt, memo} } }
-const LS_SUPPLIER = "tax.supplier.v1";
+const LS_STORES = "bill.stores.v1";
+const LS_RECORDS = "bill.records.v1"; // { "YYYY-MM": { storeId:{status,amount,sentAt,paidAt,memo} } }
+const LS_SUPPLIER = "bill.supplier.v1";
+const LS_TEMPLATE = "bill.template.v1";
 
 const STATUS = {
-  none:   {label:"미발급",   cls:"none"},
-  issued: {label:"발급완료", cls:"issued"},
+  none:   {label:"미발송",   cls:"none"},
+  sent:   {label:"발송완료", cls:"sent"},
   paid:   {label:"입금완료", cls:"paid"},
-  unpaid: {label:"미지급",   cls:"unpaid"},
+  unpaid: {label:"미입금",   cls:"unpaid"},
+};
+
+const VARS = ["매장명","대표자","사업자번호","연락처","청구금액","월","마감일","상태","상호","담당자","입금계좌","발신연락처"];
+
+const DEFAULT_TEMPLATE = {
+  title: "[{상호}] {월} 거래대금 안내",
+  body:
+`{매장명} {대표자}님, 안녕하세요.
+{상호}입니다.
+
+{월} 거래대금을 안내드립니다.
+· 청구금액 : {청구금액}원
+· 입금계좌 : {입금계좌}
+· 납부기한 : {마감일}
+
+기한 내 입금 부탁드립니다.
+문의 : {담당자} ({발신연락처})`
 };
 
 let stores = load(LS_STORES, []);
 let records = load(LS_RECORDS, {});
 let supplier = load(LS_SUPPLIER, {});
+let template = load(LS_TEMPLATE, DEFAULT_TEMPLATE);
 let editingId = null;
 let curFilter = "all";
 
@@ -222,11 +289,14 @@ function save(){
   localStorage.setItem(LS_STORES, JSON.stringify(stores));
   localStorage.setItem(LS_RECORDS, JSON.stringify(records));
   localStorage.setItem(LS_SUPPLIER, JSON.stringify(supplier));
+  localStorage.setItem(LS_TEMPLATE, JSON.stringify(template));
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function won(n){ return (Number(n)||0).toLocaleString("ko-KR"); }
-function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
 function $(s){ return document.querySelector(s); }
+function fmtMonth(m){ if(!m)return""; const [y,mm]=m.split("-"); return `${y}년 ${Number(mm)}월`; }
+function fmtDate(d){ if(!d)return""; const [y,m,dd]=d.split("-"); return `${y}년 ${Number(m)}월 ${Number(dd)}일`; }
 
 /* ---------- 탭 ---------- */
 document.querySelectorAll(".tabs button").forEach(b=>{
@@ -235,72 +305,56 @@ document.querySelectorAll(".tabs button").forEach(b=>{
     b.classList.add("active");
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
     $("#panel-"+b.dataset.tab).classList.add("active");
+    if(b.dataset.tab==="notice") renderPreview();
   };
 });
 
-/* ---------- 월 선택 ---------- */
+/* ---------- 월 선택 / 필터 ---------- */
 const monthPicker = $("#monthPicker");
 monthPicker.value = new Date().toISOString().slice(0,7);
-monthPicker.onchange = renderInvoice;
-
-/* ---------- 필터 ---------- */
+monthPicker.onchange = renderBill;
 $("#filterSeg").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>{
     $("#filterSeg").querySelectorAll("button").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");
-    curFilter=b.dataset.f;
-    renderInvoice();
+    b.classList.add("active"); curFilter=b.dataset.f; renderBill();
   };
 });
 
 /* ---------- 매장 CRUD ---------- */
 function readForm(){
   return {
-    name:$("#f-name").value.trim(),
-    bizno:$("#f-bizno").value.trim(),
-    owner:$("#f-owner").value.trim(),
-    phone:$("#f-phone").value.trim(),
-    email:$("#f-email").value.trim(),
-    amount:Number($("#f-amount").value)||0,
+    name:$("#f-name").value.trim(), bizno:$("#f-bizno").value.trim(),
+    owner:$("#f-owner").value.trim(), phone:$("#f-phone").value.trim(),
+    email:$("#f-email").value.trim(), amount:Number($("#f-amount").value)||0,
     memo:$("#f-memo").value.trim(),
   };
 }
 function clearForm(){
   ["name","bizno","owner","phone","email","amount","memo"].forEach(k=>$("#f-"+k).value="");
-  editingId=null;
-  $("#btnSaveStore").textContent="등록";
-  $("#btnCancelEdit").style.display="none";
+  editingId=null; $("#btnSaveStore").textContent="등록"; $("#btnCancelEdit").style.display="none";
 }
 $("#btnSaveStore").onclick=()=>{
   const d=readForm();
   if(!d.name){ alert("매장명을 입력하세요."); $("#f-name").focus(); return; }
-  if(editingId){
-    const s=stores.find(x=>x.id===editingId);
-    Object.assign(s,d);
-  }else{
-    stores.push({id:uid(),...d});
-  }
-  save(); clearForm(); renderStores(); renderInvoice();
+  if(editingId){ Object.assign(stores.find(x=>x.id===editingId),d); }
+  else{ stores.push({id:uid(),...d}); }
+  save(); clearForm(); renderStores(); renderBill();
 };
 $("#btnCancelEdit").onclick=clearForm;
-
 function editStore(id){
   const s=stores.find(x=>x.id===id); if(!s)return;
   $("#f-name").value=s.name; $("#f-bizno").value=s.bizno; $("#f-owner").value=s.owner;
   $("#f-phone").value=s.phone; $("#f-email").value=s.email; $("#f-amount").value=s.amount; $("#f-memo").value=s.memo;
-  editingId=id;
-  $("#btnSaveStore").textContent="수정 저장";
-  $("#btnCancelEdit").style.display="inline-block";
+  editingId=id; $("#btnSaveStore").textContent="수정 저장"; $("#btnCancelEdit").style.display="inline-block";
   $("#f-name").scrollIntoView({behavior:"smooth",block:"center"});
 }
 function deleteStore(id){
   const s=stores.find(x=>x.id===id);
-  if(!confirm(`'${s.name}' 매장을 삭제할까요?\n(과거 발행기록도 함께 삭제됩니다)`))return;
+  if(!confirm(`'${s.name}' 매장을 삭제할까요?\n(과거 청구기록도 함께 삭제됩니다)`))return;
   stores=stores.filter(x=>x.id!==id);
   Object.values(records).forEach(m=>delete m[id]);
-  save(); renderStores(); renderInvoice();
+  save(); renderStores(); renderBill();
 }
-
 function renderStores(){
   const tb=$("#storeTable tbody"); tb.innerHTML="";
   $("#storeCount").textContent=stores.length;
@@ -309,9 +363,9 @@ function renderStores(){
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><b>${esc(s.name)}</b></td>
-      <td>${esc(s.bizno)||'-'}</td>
       <td>${esc(s.owner)||'-'}</td>
       <td>${esc(s.phone)||'-'}</td>
+      <td>${esc(s.bizno)||'-'}</td>
       <td>${esc(s.email)||'-'}</td>
       <td class="num">${won(s.amount)}</td>
       <td class="muted">${esc(s.memo)||''}</td>
@@ -325,80 +379,64 @@ function renderStores(){
   });
 }
 
-/* ---------- 월별 발행관리 ---------- */
+/* ---------- 청구관리 ---------- */
 function getMonth(){ return monthPicker.value; }
 function getRec(month, sid){
   records[month] = records[month] || {};
   if(!records[month][sid]){
     const s=stores.find(x=>x.id===sid);
-    records[month][sid]={status:"none", type:"tax", amount:s?s.amount:0, issuedAt:"", paidAt:"", memo:""};
+    records[month][sid]={status:"none", amount:s?s.amount:0, sentAt:"", paidAt:"", memo:""};
   }
-  if(!records[month][sid].type) records[month][sid].type="tax";
   return records[month][sid];
 }
-
 function renderStats(){
-  const m=getMonth(); const wrap=$("#stats");
-  let cnt={none:0,issued:0,paid:0,unpaid:0}, amt={none:0,issued:0,paid:0,unpaid:0};
+  const m=getMonth();
+  let cnt={none:0,sent:0,paid:0,unpaid:0}, amt={none:0,sent:0,paid:0,unpaid:0};
   stores.forEach(s=>{ const r=getRec(m,s.id); cnt[r.status]++; amt[r.status]+=Number(r.amount)||0; });
   const total=stores.length, totalAmt=Object.values(amt).reduce((a,b)=>a+b,0);
-  wrap.innerHTML=`
+  $("#stats").innerHTML=`
     <div class="stat"><div class="label">전체 매장</div><div class="value">${total}</div><div class="sub">총 ${won(totalAmt)}원</div></div>
-    <div class="stat b"><div class="label">발급완료</div><div class="value">${cnt.issued}</div><div class="sub">${won(amt.issued)}원</div></div>
+    <div class="stat b"><div class="label">발송완료</div><div class="value">${cnt.sent}</div><div class="sub">${won(amt.sent)}원</div></div>
     <div class="stat g"><div class="label">입금완료</div><div class="value">${cnt.paid}</div><div class="sub">${won(amt.paid)}원</div></div>
-    <div class="stat r"><div class="label">미지급</div><div class="value">${cnt.unpaid}</div><div class="sub">${won(amt.unpaid)}원</div></div>
-    <div class="stat"><div class="label">미발급</div><div class="value">${cnt.none}</div><div class="sub">${won(amt.none)}원</div></div>`;
+    <div class="stat r"><div class="label">미입금</div><div class="value">${cnt.unpaid}</div><div class="sub">${won(amt.unpaid)}원</div></div>
+    <div class="stat"><div class="label">미발송</div><div class="value">${cnt.none}</div><div class="sub">${won(amt.none)}원</div></div>`;
 }
-
-function renderInvoice(){
+function renderBill(){
   renderStats();
-  const m=getMonth(), tb=$("#invoiceTable tbody"); tb.innerHTML="";
-  const list = stores.filter(s=>{
-    if(curFilter==="all")return true;
-    return getRec(m,s.id).status===curFilter;
-  });
-  $("#invoiceEmpty").style.display = stores.length===0 ? "block" : "none";
-  $("#invoiceEmpty").textContent = stores.length===0
-    ? "매장이 없습니다. '매장 기초정보' 탭에서 먼저 매장을 등록하세요."
-    : "해당 상태의 매장이 없습니다.";
-  if(stores.length && list.length===0) $("#invoiceEmpty").style.display="block";
-
+  const m=getMonth(), tb=$("#billTable tbody"); tb.innerHTML="";
+  const list=stores.filter(s=> curFilter==="all" ? true : getRec(m,s.id).status===curFilter);
+  const emptyEl=$("#billEmpty");
+  if(stores.length===0){ emptyEl.style.display="block"; emptyEl.textContent="매장이 없습니다. '매장 기초정보' 탭에서 먼저 매장을 등록하세요."; }
+  else if(list.length===0){ emptyEl.style.display="block"; emptyEl.textContent="해당 상태의 매장이 없습니다."; }
+  else emptyEl.style.display="none";
   list.forEach(s=>{
-    const r=getRec(m,s.id);
-    const st=STATUS[r.status];
+    const r=getRec(m,s.id); const st=STATUS[r.status];
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><b>${esc(s.name)}</b></td>
-      <td class="muted">${esc(s.bizno)||'-'}</td>
-      <td><select class="typeSel" style="padding:5px">
-        <option value="tax"${r.type==="tax"?" selected":""}>세금계산서</option>
-        <option value="plain"${r.type==="plain"?" selected":""}>계산서</option>
-      </select></td>
+      <td class="muted">${esc(s.phone)||'-'}</td>
       <td class="num"><input type="number" value="${r.amount}" style="width:110px;text-align:right;padding:5px"></td>
       <td><span class="pill ${st.cls}">${st.label} ▾</span></td>
-      <td><input type="date" value="${r.issuedAt}" style="padding:5px"></td>
+      <td><input type="date" value="${r.sentAt}" style="padding:5px"></td>
       <td><input type="date" value="${r.paidAt}" style="padding:5px"></td>
       <td><input class="memoIn" value="${escAttr(r.memo)}" placeholder="메모" style="width:100%;padding:5px"></td>
-      <td style="text-align:right"><button class="btn sm issueBtn">발행</button></td>`;
-    const amtIn = tr.querySelector("td.num input");
+      <td style="text-align:right"><button class="btn ghost sm previewBtn">안내문</button></td>`;
+    const amtIn=tr.querySelector("td.num input");
     const pill=tr.querySelector(".pill");
     const dates=tr.querySelectorAll('input[type=date]');
     const memoIn=tr.querySelector(".memoIn");
-    const typeSel=tr.querySelector(".typeSel");
     amtIn.onchange=()=>{ r.amount=Number(amtIn.value)||0; save(); renderStats(); };
-    dates[0].onchange=()=>{ r.issuedAt=dates[0].value; save(); };
+    dates[0].onchange=()=>{ r.sentAt=dates[0].value; save(); };
     dates[1].onchange=()=>{ r.paidAt=dates[1].value; save(); };
     memoIn.onchange=()=>{ r.memo=memoIn.value; save(); };
-    typeSel.onchange=()=>{ r.type=typeSel.value; save(); };
     pill.onclick=(e)=>openPillMenu(e,m,s.id);
-    tr.querySelector(".issueBtn").onclick=()=>issueInvoice(m,s.id);
+    tr.querySelector(".previewBtn").onclick=()=>{ alert(buildMessage(s, r, m).body); };
     tb.appendChild(tr);
   });
 }
 
 /* ---------- 상태변경 메뉴 ---------- */
-const pillMenu=$("#pillMenu");
-let pmTarget=null;
+const pillMenu=$("#pillMenu"); let pmTarget=null;
 function openPillMenu(e,month,sid){
   pmTarget={month,sid};
   const rect=e.target.getBoundingClientRect();
@@ -412,21 +450,122 @@ pillMenu.querySelectorAll("button").forEach(b=>{
     if(!pmTarget)return;
     const r=getRec(pmTarget.month,pmTarget.sid);
     r.status=b.dataset.s;
-    // 편의: 상태 바꾸면 날짜 자동 채움(비어있을 때)
-    if(r.status==="issued" && !r.issuedAt) r.issuedAt=todayStr();
-    if(r.status==="paid"){ if(!r.issuedAt)r.issuedAt=todayStr(); if(!r.paidAt)r.paidAt=todayStr(); }
-    save(); pillMenu.style.display="none"; renderInvoice();
+    if(r.status==="sent" && !r.sentAt) r.sentAt=todayStr();
+    if(r.status==="paid"){ if(!r.sentAt)r.sentAt=todayStr(); if(!r.paidAt)r.paidAt=todayStr(); }
+    save(); pillMenu.style.display="none"; renderBill();
   };
 });
 document.addEventListener("click",()=>pillMenu.style.display="none");
 
+/* ---------- 발신 설정 ---------- */
+const supKeys=["name","owner","phone","account"];
+function loadSupplierForm(){ supKeys.forEach(k=>{ const el=$("#s-"+k); if(el)el.value=supplier[k]||""; }); }
+$("#btnSaveSupplier").onclick=()=>{
+  supKeys.forEach(k=>{ supplier[k]=$("#s-"+k).value.trim(); });
+  save(); alert("발신자 정보를 저장했습니다."); renderPreview();
+};
+
+/* ---------- 안내문 양식 ---------- */
+const noticeMonth=$("#noticeMonth"), dueDate=$("#dueDate");
+function initNotice(){
+  noticeMonth.value=new Date().toISOString().slice(0,7);
+  $("#noticeTitle").value=template.title||"";
+  $("#noticeBody").value=template.body||"";
+  // 마감일 기본값: 대상월 말일
+  setDefaultDue();
+  const vl=$("#varList");
+  vl.innerHTML="";
+  VARS.forEach(v=>{
+    const sp=document.createElement("span"); sp.className="var"; sp.textContent="{"+v+"}";
+    sp.onclick=()=>{ const ta=$("#noticeBody"); ta.value+= "{"+v+"}"; ta.focus(); };
+    vl.appendChild(sp);
+  });
+}
+function setDefaultDue(){
+  const m=noticeMonth.value; if(!m)return;
+  const [y,mm]=m.split("-").map(Number);
+  const last=new Date(y,mm,0).getDate();
+  dueDate.value=`${y}-${String(mm).padStart(2,"0")}-${last}`;
+}
+noticeMonth.onchange=()=>{ setDefaultDue(); renderPreview(); };
+dueDate.onchange=renderPreview;
+$("#noticeTarget").onchange=renderPreview;
+$("#btnSaveTemplate").onclick=()=>{
+  template.title=$("#noticeTitle").value; template.body=$("#noticeBody").value;
+  save(); alert("안내문 양식을 저장했습니다."); renderPreview();
+};
+$("#btnRefreshPreview").onclick=renderPreview;
+
+function buildMessage(store, rec, month){
+  const map={
+    "매장명":store.name||"", "대표자":store.owner||"", "사업자번호":store.bizno||"",
+    "연락처":store.phone||"", "청구금액":won(rec.amount), "월":fmtMonth(month),
+    "마감일":fmtDate(dueDate.value), "상태":(STATUS[rec.status]||{}).label||"",
+    "상호":supplier.name||"", "담당자":supplier.owner||"",
+    "입금계좌":supplier.account||"", "발신연락처":supplier.phone||"",
+  };
+  const repl=(t)=> (t||"").replace(/\{(\w+|[가-힣]+)\}/g,(m0,k)=> (k in map)?map[k]:m0);
+  return { title:repl($("#noticeTitle").value), body:repl($("#noticeBody").value), phone:store.phone||"" };
+}
+function noticeTargets(){
+  const m=noticeMonth.value, t=$("#noticeTarget").value;
+  return stores.filter(s=> t==="all" ? true : getRec(m,s.id).status===t)
+               .map(s=>({store:s, rec:getRec(m,s.id)}));
+}
+function renderPreview(){
+  const m=noticeMonth.value;
+  const items=noticeTargets();
+  $("#previewCount").textContent=items.length;
+  const wrap=$("#previewList"); wrap.innerHTML="";
+  $("#previewEmpty").style.display=items.length?"none":"block";
+  items.forEach(({store,rec})=>{
+    const msg=buildMessage(store,rec,m);
+    const div=document.createElement("div"); div.className="msgcard";
+    div.innerHTML=`
+      <div class="top">
+        <b>${esc(store.name)}</b>
+        <span class="muted">${esc(store.phone)||'연락처 없음'}</span>
+        <span class="pill ${STATUS[rec.status].cls}">${STATUS[rec.status].label}</span>
+        <span style="flex:1"></span>
+        <button class="btn ghost sm copyBtn">복사</button>
+      </div>
+      <pre>${esc(msg.body)}</pre>`;
+    div.querySelector(".copyBtn").onclick=()=>{
+      navigator.clipboard.writeText(msg.body).then(()=>{
+        const b=div.querySelector(".copyBtn"); b.textContent="복사됨!"; setTimeout(()=>b.textContent="복사",1200);
+      });
+    };
+    wrap.appendChild(div);
+  });
+}
+$("#btnCopyAll").onclick=()=>{
+  const m=noticeMonth.value;
+  const all=noticeTargets().map(({store,rec})=>{
+    const msg=buildMessage(store,rec,m);
+    return `■ ${store.name} (${store.phone||"-"})\n${msg.body}`;
+  }).join("\n\n──────────\n\n");
+  if(!all){ alert("대상 매장이 없습니다."); return; }
+  navigator.clipboard.writeText(all).then(()=>alert("전체 안내문을 복사했습니다."));
+};
+$("#btnCsv").onclick=()=>{
+  const m=noticeMonth.value;
+  const rows=[["매장명","연락처","제목","메시지"]];
+  noticeTargets().forEach(({store,rec})=>{
+    const msg=buildMessage(store,rec,m);
+    rows.push([store.name, store.phone||"", msg.title, msg.body]);
+  });
+  if(rows.length===1){ alert("대상 매장이 없습니다."); return; }
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`안내문_${m}.csv`; a.click();
+};
+
 /* ---------- 백업 ---------- */
 $("#btnExport").onclick=()=>{
-  const blob=new Blob([JSON.stringify({stores,records,supplier},null,2)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify({stores,records,supplier,template},null,2)],{type:"application/json"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=`세금계산서_백업_${todayStr()}.json`;
-  a.click();
+  a.href=URL.createObjectURL(blob); a.download=`청구관리_백업_${todayStr()}.json`; a.click();
 };
 $("#btnImport").onclick=()=>$("#importFile").click();
 $("#importFile").onchange=(e)=>{
@@ -436,129 +575,13 @@ $("#importFile").onchange=(e)=>{
     try{
       const d=JSON.parse(fr.result);
       if(!confirm("현재 데이터를 백업 파일로 덮어쓸까요?"))return;
-      stores=d.stores||[]; records=d.records||{}; supplier=d.supplier||{};
-      save(); loadSupplierForm(); renderStores(); renderInvoice();
+      stores=d.stores||[]; records=d.records||{}; supplier=d.supplier||{}; template=d.template||DEFAULT_TEMPLATE;
+      save(); loadSupplierForm(); initNotice(); renderStores(); renderBill(); renderPreview();
       alert("가져오기 완료");
     }catch{ alert("올바른 백업 파일이 아닙니다."); }
   };
-  fr.readAsText(file);
-  e.target.value="";
+  fr.readAsText(file); e.target.value="";
 };
-
-/* ---------- 공급자 설정 ---------- */
-const supKeys=["name","bizno","owner","addr","biztype","bizitem","phone","email"];
-function loadSupplierForm(){ supKeys.forEach(k=>{ const el=$("#s-"+k); if(el) el.value=supplier[k]||""; }); }
-$("#btnSaveSupplier").onclick=()=>{
-  supKeys.forEach(k=>{ supplier[k]=$("#s-"+k).value.trim(); });
-  if(!supplier.name){ alert("상호(법인명)를 입력하세요."); $("#s-name").focus(); return; }
-  save(); alert("공급자 정보를 저장했습니다.");
-};
-
-/* ---------- 계산서 발행(인쇄/PDF) ---------- */
-function issueInvoice(month, sid){
-  if(!supplier.name){
-    alert("먼저 '공급자 설정' 탭에서 내 사업자 정보를 입력하세요.");
-    return;
-  }
-  const s=stores.find(x=>x.id===sid); if(!s)return;
-  const r=getRec(month,sid);
-  const isTax = r.type==="tax";
-  const supply=Number(r.amount)||0;
-  const vat = isTax ? Math.round(supply*0.1) : 0;
-  const total = supply+vat;
-  const title = isTax ? "세금계산서" : "계산서";
-  const issuedDate = r.issuedAt || todayStr();
-  const [yy,mm,dd]=issuedDate.split("-");
-
-  const w=window.open("","_blank","width=900,height=700");
-  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>${title} - ${esc(s.name)}</title>
-  <style>
-    *{box-sizing:border-box}
-    body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;margin:24px;color:#111;font-size:13px}
-    h1{text-align:center;font-size:24px;letter-spacing:8px;margin:0 0 4px}
-    .sub{text-align:center;color:#666;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;margin-bottom:14px}
-    td,th{border:1px solid #333;padding:6px 8px;vertical-align:middle}
-    .lbl{background:#f0f4f8;text-align:center;font-weight:700;width:70px;color:#c00}
-    .lbl.blue{color:#005}
-    .side{writing-mode:vertical-rl;text-align:center;font-weight:800;background:#f7f7f7;width:26px;letter-spacing:4px}
-    .num{text-align:right}
-    .ctr{text-align:center}
-    .big{font-size:15px;font-weight:800}
-    .foot{display:flex;justify-content:space-between;color:#666;margin-top:8px}
-    @media print{button{display:none}}
-    .toolbar{text-align:center;margin-bottom:16px}
-    button{padding:8px 18px;font-size:14px;border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:6px;cursor:pointer;margin:0 4px}
-    button.g{background:#fff;color:#2563eb}
-  </style></head><body>
-  <div class="toolbar">
-    <button onclick="window.print()">인쇄 / PDF 저장</button>
-    <button class="g" onclick="window.close()">닫기</button>
-  </div>
-  <h1>${title}</h1>
-  <div class="sub">(공급받는자 보관용) — 작성일자 ${yy}년 ${mm}월 ${dd}일</div>
-
-  <table>
-    <tr>
-      <td class="side" rowspan="4">공급자</td>
-      <td class="lbl">등록번호</td><td colspan="3" class="big">${esc(supplier.bizno)||""}</td>
-    </tr>
-    <tr>
-      <td class="lbl">상호</td><td>${esc(supplier.name)||""}</td>
-      <td class="lbl">대표자</td><td>${esc(supplier.owner)||""}</td>
-    </tr>
-    <tr><td class="lbl">주소</td><td colspan="3">${esc(supplier.addr)||""}</td></tr>
-    <tr>
-      <td class="lbl">업태</td><td>${esc(supplier.biztype)||""}</td>
-      <td class="lbl">종목</td><td>${esc(supplier.bizitem)||""}</td>
-    </tr>
-  </table>
-
-  <table>
-    <tr>
-      <td class="side" rowspan="4">공급받는자</td>
-      <td class="lbl blue">등록번호</td><td colspan="3" class="big">${esc(s.bizno)||""}</td>
-    </tr>
-    <tr>
-      <td class="lbl blue">상호</td><td>${esc(s.name)||""}</td>
-      <td class="lbl blue">대표자</td><td>${esc(s.owner)||""}</td>
-    </tr>
-    <tr><td class="lbl blue">연락처</td><td colspan="3">${esc(s.phone)||""}</td></tr>
-    <tr>
-      <td class="lbl blue">이메일</td><td colspan="3">${esc(s.email)||""}</td>
-    </tr>
-  </table>
-
-  <table>
-    <tr class="ctr">
-      <th style="width:90px">작성일자</th><th>공급가액</th>${isTax?'<th>세액</th>':''}<th>합계금액</th>
-    </tr>
-    <tr class="ctr">
-      <td>${yy}-${mm}-${dd}</td>
-      <td class="num">${won(supply)} 원</td>
-      ${isTax?`<td class="num">${won(vat)} 원</td>`:''}
-      <td class="num big">${won(total)} 원</td>
-    </tr>
-  </table>
-
-  <table>
-    <tr class="ctr"><th>월/일</th><th>품목</th><th style="width:120px">공급가액</th>${isTax?'<th style="width:110px">세액</th>':''}<th>비고</th></tr>
-    <tr class="ctr">
-      <td>${mm}/${dd}</td>
-      <td>${yy}년 ${mm}월 ${isTax?'용역':'면세 공급'} (${esc(s.name)})</td>
-      <td class="num">${won(supply)}</td>
-      ${isTax?`<td class="num">${won(vat)}</td>`:''}
-      <td>${escAttr(r.memo)||""}</td>
-    </tr>
-  </table>
-
-  <div class="foot">
-    <span>이 금액을 ${isTax?'청구':'영수/청구'}합니다.</span>
-    <span>발행: ${esc(supplier.name)} ${supplier.phone?'· '+esc(supplier.phone):''}</span>
-  </div>
-  </body></html>`);
-  w.document.close();
-}
 
 /* ---------- util ---------- */
 function esc(s){ return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
@@ -566,8 +589,10 @@ function escAttr(s){ return esc(s).replace(/"/g,"&quot;"); }
 
 /* ---------- init ---------- */
 loadSupplierForm();
+initNotice();
 renderStores();
-renderInvoice();
+renderBill();
+renderPreview();
 </script>
 </body>
 </html>
