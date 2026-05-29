@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>매장 청구·안내 관리</title>
+<title>광고지원금 계산서 발행요청 관리</title>
 <style>
   :root{
     --bg:#f4f6fa; --card:#fff; --line:#e3e8f0; --text:#1f2937; --muted:#6b7280;
     --primary:#2563eb; --primary-d:#1d4ed8;
-    --gray:#9ca3af; --blue:#3b82f6; --green:#10b981; --red:#ef4444; --amber:#f59e0b;
+    --blue:#3b82f6; --green:#10b981; --red:#ef4444; --amber:#f59e0b;
     --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
   }
   *{box-sizing:border-box}
@@ -28,7 +28,7 @@
   .field{display:flex;flex-direction:column;gap:5px}
   .field label{font-size:12px;color:var(--muted);font-weight:600}
   input,select,textarea{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;min-width:120px;font-family:inherit}
-  textarea{min-height:180px;resize:vertical;line-height:1.6}
+  textarea{min-height:300px;resize:vertical;line-height:1.6}
   input:focus,select:focus,textarea:focus{outline:2px solid #bfdbfe;border-color:var(--primary)}
   button.btn{background:var(--primary);color:#fff;border:0;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
   button.btn:hover{background:var(--primary-d)}
@@ -47,10 +47,13 @@
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid transparent}
   .pill.none{background:#f3f4f6;color:#6b7280}
   .pill.sent{background:#dbeafe;color:#1d4ed8}
-  .pill.paid{background:#d1fae5;color:#047857}
-  .pill.unpaid{background:#fee2e2;color:#b91c1c}
+  .pill.done{background:#d1fae5;color:#047857}
+  .pill.pending{background:#fee2e2;color:#b91c1c}
+  .tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .tag.tax{background:#ede9fe;color:#6d28d9}
+  .tag.cash{background:#fef3c7;color:#b45309}
   .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-  .stat{flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
   .stat .label{font-size:12px;color:var(--muted);font-weight:600}
   .stat .value{font-size:22px;font-weight:800;margin-top:4px}
   .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
@@ -67,7 +70,7 @@
   .var{display:inline-block;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin:3px 4px 3px 0;font-size:12px;cursor:pointer;font-family:monospace}
   .var:hover{background:#e2e8f0}
   .msgcard{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
-  .msgcard .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .msgcard .top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
   .msgcard .top b{font-size:14px}
   .msgcard pre{white-space:pre-wrap;word-break:break-word;margin:0;font-family:inherit;font-size:13px;line-height:1.6;background:#fafbfc;border-radius:8px;padding:10px 12px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -76,12 +79,12 @@
 </head>
 <body>
 <header>
-  <h1>📨 매장 청구·안내 관리</h1>
+  <h1>🧾 광고지원금 계산서 발행요청 관리</h1>
   <div class="tabs">
-    <button data-tab="bill" class="active">월별 청구관리</button>
+    <button data-tab="bill" class="active">월별 발행관리</button>
     <button data-tab="notice">안내문 발송</button>
     <button data-tab="stores">매장 기초정보</button>
-    <button data-tab="settings">발신 설정</button>
+    <button data-tab="settings">본사 정보</button>
   </div>
   <div class="spacer"></div>
   <button class="btn ghost sm" id="btnExport">백업 내보내기</button>
@@ -90,35 +93,35 @@
 </header>
 
 <main>
-  <!-- ===== 월별 청구관리 ===== -->
+  <!-- ===== 월별 발행관리 ===== -->
   <section class="panel active" id="panel-bill">
     <div class="toolbar">
-      <div class="field">
-        <label>대상 월</label>
-        <input type="month" id="monthPicker">
-      </div>
+      <div class="field"><label>대상 월</label><input type="month" id="monthPicker"></div>
       <div class="spacer"></div>
       <div class="seg" id="filterSeg">
         <button data-f="all" class="active">전체</button>
         <button data-f="none">미발송</button>
-        <button data-f="sent">발송완료</button>
-        <button data-f="paid">입금완료</button>
-        <button data-f="unpaid">미입금</button>
+        <button data-f="sent">요청완료</button>
+        <button data-f="done">발행완료</button>
+        <button data-f="pending">미발행</button>
       </div>
     </div>
 
     <div class="stats" id="stats"></div>
 
     <div class="card">
+      <div class="note">금액칸에는 매장에 지급한 <b>광고지원금(합계, 부가세 포함액)</b>을 입력하세요.
+        세금계산서는 공급가액·세액(10%)이 자동 분리되고, 현금영수증은 세액 없이 표기됩니다.</div>
       <table id="billTable">
         <thead>
           <tr>
             <th>매장명</th>
-            <th>연락처</th>
-            <th class="num">청구금액</th>
+            <th>유형</th>
+            <th class="num">합계(지원금)</th>
+            <th class="num">공급가액</th>
+            <th class="num">세액</th>
             <th>상태</th>
-            <th>발송일</th>
-            <th>입금일</th>
+            <th>요청일</th>
             <th>메모</th>
             <th></th>
           </tr>
@@ -132,26 +135,31 @@
   <!-- ===== 안내문 발송 ===== -->
   <section class="panel" id="panel-notice">
     <div class="note">
-      개인 카카오톡은 자동 일괄발송이 불가합니다. 여기서 매장별 안내문을 자동 완성해
-      <b>복사 → 카카오톡 붙여넣기</b> 하거나, <b>CSV로 내보내</b> 알림톡·문자 대행사에 업로드하면 일괄발송됩니다.
-      (추후 솔라피 등 API 연동 시 이 화면에서 바로 발송 버튼을 붙일 수 있습니다.)
+      개인 카카오톡은 자동 일괄발송이 불가합니다. 매장별 안내문을 자동 완성해
+      <b>복사 → 카카오톡 붙여넣기</b> 하거나, <b>CSV로 내보내</b> 알림톡·문자 대행사에 업로드해 일괄발송하세요.
     </div>
     <div class="grid2">
       <div class="card">
         <h2>안내문 양식</h2>
         <div class="row" style="margin-bottom:12px">
           <div class="field"><label>대상 월</label><input type="month" id="noticeMonth"></div>
-          <div class="field"><label>납부기한(마감일)</label><input type="date" id="dueDate"></div>
-          <div class="field"><label>대상</label>
+          <div class="field"><label>대상 매장</label>
             <select id="noticeTarget">
-              <option value="all">전체 매장</option>
+              <option value="all">전체</option>
               <option value="none">미발송만</option>
-              <option value="unpaid">미입금만</option>
+              <option value="pending">미발행만</option>
             </select>
           </div>
         </div>
+        <div class="field" style="margin-bottom:10px">
+          <label>편집할 양식</label>
+          <div class="seg" id="tplSeg" style="width:fit-content">
+            <button data-t="tax" class="active">세금계산서</button>
+            <button data-t="cash">현금영수증</button>
+          </div>
+        </div>
         <div class="field" style="margin-bottom:8px">
-          <label>제목(문자 LMS/알림톡용, 선택)</label>
+          <label>제목(문자 LMS/알림톡용)</label>
           <input id="noticeTitle" style="width:100%">
         </div>
         <div class="field">
@@ -164,6 +172,7 @@
         </div>
         <div class="row" style="margin-top:14px">
           <button class="btn" id="btnSaveTemplate">양식 저장</button>
+          <button class="btn ghost" id="btnResetTemplate">기본양식 복원</button>
           <button class="btn ghost" id="btnRefreshPreview">미리보기 새로고침</button>
         </div>
       </div>
@@ -184,15 +193,16 @@
   <section class="panel" id="panel-stores">
     <div class="card">
       <h2>매장 등록 / 수정</h2>
-      <div class="note">매장 기본 정보를 등록하면, 매월 청구관리와 안내문에 자동으로 반영됩니다. <b>연락처는 휴대폰번호</b>로 입력하면 추후 문자/알림톡 발송에 그대로 쓰입니다.</div>
+      <div class="note">매장 정보를 등록하면 매월 발행관리와 안내문에 자동 반영됩니다. <b>연락처는 휴대폰번호</b>로 입력하면 추후 문자/알림톡 발송에 그대로 쓰입니다.</div>
       <div class="row">
-        <div class="field"><label>매장명 *</label><input id="f-name" placeholder="예) 강남점"></div>
-        <div class="field"><label>대표자명</label><input id="f-owner"></div>
+        <div class="field"><label>매장명 *</label><input id="f-name" placeholder="예) 육식사관학교 OO점"></div>
+        <div class="field"><label>대표자(사장님)</label><input id="f-owner"></div>
         <div class="field"><label>연락처(휴대폰)</label><input id="f-phone" placeholder="010-0000-0000"></div>
-        <div class="field"><label>사업자등록번호</label><input id="f-bizno" placeholder="000-00-00000"></div>
-        <div class="field"><label>이메일</label><input id="f-email"></div>
-        <div class="field"><label>월 청구금액(원)</label><input id="f-amount" type="number" min="0" placeholder="0"></div>
-        <div class="field" style="flex:1;min-width:180px"><label>메모</label><input id="f-memo" style="width:100%"></div>
+        <div class="field"><label>기본 유형</label>
+          <select id="f-doctype"><option value="tax">세금계산서</option><option value="cash">현금영수증</option></select>
+        </div>
+        <div class="field"><label>월 지원금(합계)</label><input id="f-amount" type="number" min="0" placeholder="0"></div>
+        <div class="field" style="flex:1;min-width:160px"><label>메모</label><input id="f-memo" style="width:100%"></div>
         <button class="btn" id="btnSaveStore">등록</button>
         <button class="btn ghost" id="btnCancelEdit" style="display:none">취소</button>
       </div>
@@ -202,10 +212,7 @@
       <h2>매장 목록 (<span id="storeCount">0</span>)</h2>
       <table id="storeTable">
         <thead>
-          <tr>
-            <th>매장명</th><th>대표자</th><th>연락처</th><th>사업자번호</th>
-            <th>이메일</th><th class="num">월 청구금액</th><th>메모</th><th></th>
-          </tr>
+          <tr><th>매장명</th><th>대표자</th><th>연락처</th><th>기본유형</th><th class="num">월 지원금</th><th>메모</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -213,90 +220,144 @@
     </div>
   </section>
 
-  <!-- ===== 발신 설정 ===== -->
+  <!-- ===== 본사 정보 ===== -->
   <section class="panel" id="panel-settings">
     <div class="card">
-      <h2>발신자 정보</h2>
-      <div class="note">안내문 변수(<code>{상호}</code>, <code>{담당자}</code>, <code>{입금계좌}</code>, <code>{발신연락처}</code>)에 채워지는 내 정보입니다.</div>
+      <h2>본사(공급받는자) 정보</h2>
+      <div class="note">안내문의 <b>공급받는자</b> 칸에 자동으로 들어가는 정보입니다. (변수: <code>{상호명} {성명} {사업자번호} {사업장} {업태} {종목} {이메일} {경영지원실}</code>)</div>
       <div class="row">
-        <div class="field"><label>상호(업체명)</label><input id="s-name"></div>
-        <div class="field"><label>담당자명</label><input id="s-owner"></div>
-        <div class="field"><label>발신 연락처</label><input id="s-phone"></div>
-        <div class="field" style="flex:1;min-width:260px"><label>입금계좌(은행/계좌/예금주)</label><input id="s-account" style="width:100%" placeholder="예) 국민 123-45-678901 (주)홍길동"></div>
+        <div class="field"><label>상호명</label><input id="s-name"></div>
+        <div class="field"><label>사업자번호</label><input id="s-bizno"></div>
+        <div class="field" style="flex:1;min-width:280px"><label>사업장 주소</label><input id="s-addr" style="width:100%"></div>
+        <div class="field"><label>업태</label><input id="s-biztype"></div>
+        <div class="field"><label>종목</label><input id="s-bizitem"></div>
+        <div class="field"><label>이메일</label><input id="s-email"></div>
+        <div class="field"><label>성명(세금계산서)</label><input id="s-ownerTax"></div>
+        <div class="field"><label>성명(현금영수증)</label><input id="s-ownerCash"></div>
+        <div class="field"><label>경영지원실 연락처</label><input id="s-phone"></div>
         <button class="btn" id="btnSaveSupplier">저장</button>
       </div>
     </div>
     <div class="card">
       <h2>일괄발송(대행사) 연동 안내</h2>
       <p class="muted" style="line-height:1.8;margin:0">
-        매장에 카카오톡으로 일괄 발송하려면 <b>알림톡</b> 또는 <b>문자(SMS/LMS)</b> 발송 대행사가 필요합니다.<br>
-        추천: <b>솔라피(Solapi)</b> — 무료가입 후 API 키 발급, 문자는 바로 발송 가능(알림톡은 카카오 채널+템플릿 심사 필요).<br>
-        현재 화면의 <b>CSV 내보내기</b> 파일을 대행사 사이트에 업로드하면 바로 일괄발송할 수 있고,
-        추후 이 저장소의 파이썬으로 API 자동발송·스케줄까지 확장 가능합니다.
+        매장에 카카오톡으로 일괄 발송하려면 <b>알림톡</b> 또는 <b>문자(SMS/LMS)</b> 발송 대행사가 필요합니다.
+        추천: <b>솔라피(Solapi)</b> — 무료가입 후 API 키 발급, 문자는 바로 발송 가능.
+        현재는 <b>CSV 내보내기</b> 파일을 대행사에 업로드해 일괄발송하면 되고, 추후 API 자동발송·스케줄로 확장 가능합니다.
       </p>
     </div>
   </section>
 </main>
 
-<!-- 상태변경 메뉴 -->
 <div class="pill-menu" id="pillMenu">
   <button data-s="none">미발송</button>
-  <button data-s="sent">발송완료</button>
-  <button data-s="paid">입금완료</button>
-  <button data-s="unpaid">미입금</button>
+  <button data-s="sent">요청완료</button>
+  <button data-s="done">발행완료</button>
+  <button data-s="pending">미발행</button>
 </div>
 
 <script>
 "use strict";
-const LS_STORES = "bill.stores.v1";
-const LS_RECORDS = "bill.records.v1"; // { "YYYY-MM": { storeId:{status,amount,sentAt,paidAt,memo} } }
-const LS_SUPPLIER = "bill.supplier.v1";
-const LS_TEMPLATE = "bill.template.v1";
+const LS_STORES="adfee.stores.v1", LS_RECORDS="adfee.records.v1", LS_SUPPLIER="adfee.supplier.v1", LS_TEMPLATE="adfee.template.v1";
 
-const STATUS = {
-  none:   {label:"미발송",   cls:"none"},
-  sent:   {label:"발송완료", cls:"sent"},
-  paid:   {label:"입금완료", cls:"paid"},
-  unpaid: {label:"미입금",   cls:"unpaid"},
+const STATUS={
+  none:{label:"미발송",cls:"none"}, sent:{label:"요청완료",cls:"sent"},
+  done:{label:"발행완료",cls:"done"}, pending:{label:"미발행",cls:"pending"},
+};
+const DOCTYPE={ tax:{label:"세금계산서",cls:"tax"}, cash:{label:"현금영수증",cls:"cash"} };
+const VARS=["매장명","대표자","월","공급가액","세액","합계","상호명","성명","사업자번호","사업장","업태","종목","이메일","경영지원실"];
+
+const DEFAULT_SUPPLIER={
+  name:"주식회사 산들그린", bizno:"204-86-12397 (종사업장 0번)",
+  addr:"서울특별시 강남구 논현로30길 25, 2층", biztype:"서비스", bizitem:"프랜차이즈업",
+  email:"sdgreen@hometax.go.kr", ownerTax:"이용석", ownerCash:"이용환", phone:"010-9720-8510",
+};
+const DEFAULT_TEMPLATE={
+  tax:{
+    title:"[{상호명}] {월} 광고지원금 세금계산서 발행 요청",
+    body:
+`{매장명} 사장님!
+{월} 광고지원금 [세금계산서] 발행 요청입니다.
+본사 지원금 지급 간, 세금 관련 업무를 원활히 진행하기 위해 협조를 부탁드립니다.
+
+[발행 방법]
+1. 국세청 홈택스 접속 후 로그인
+2. 상단 "신고/납부" → "전자(세금)계산서 발급" 선택
+3. 본사 사업자번호·발급 날짜·금액 입력 → 공급가액과 부가세 확인
+4. 확인 버튼 클릭하여 발행 완료
+
+[공급받는자 정보]
+· 상호명 : {상호명}
+· 성명 : {성명}
+· 사업자번호 : {사업자번호}
+· 사업장 : {사업장}
+· 업태 : {업태}  / 종목 : {종목}
+· 이메일 : {이메일}
+· 작성일자·거래일자 : 발행주시는 날짜로 작성
+
+[금액]
+· 공급가액 : {공급가액}원
+· 세액 : {세액}원
+· 합계 : {합계}원
+· 품목명 : 프로모션 광고 외
+
+세금계산서 발행이 어려우실 경우 세무대리인에게 문의해 주시기 바랍니다.
+산들그린 경영지원실 : {경영지원실}`
+  },
+  cash:{
+    title:"[{상호명}] {월} 광고지원금 현금영수증 발행 요청",
+    body:
+`{매장명} 사장님!
+{월} 광고지원금 [현금영수증] 발행 요청입니다.
+본사 지원금 지급 간, 세금 관련 업무를 원활히 진행하기 위해 협조를 부탁드립니다.
+
+[발행 방법]
+1. 국세청 홈택스 접속 후 로그인
+2. 상단 "조회/발급" → "현금영수증 가맹점 - 건별발급" 선택
+3. 자진발급 "부" / "지출증빙" 선택 / 발급수단번호 = 본사 사업자번호
+4. "발급요청" 버튼 클릭하여 발행 완료
+
+[공급받는자 정보]
+· 상호명 : {상호명}
+· 성명 : {성명}
+· 사업자번호 : {사업자번호}
+· 사업장 : {사업장}
+· 업태 : {업태}  / 종목 : {종목}
+· 이메일 : {이메일}
+· 작성일자·거래일자 : 발행주시는 날짜로 작성
+
+[금액]
+· 공급가액 : {공급가액}원
+· 세액 : -
+· 합계 : {합계}원
+· 품목명 : 프로모션 광고 외
+
+현금영수증 발행이 어려우실 경우 세무대리인에게 문의해 주시기 바랍니다.
+산들그린 경영지원실 : {경영지원실}`
+  }
 };
 
-const VARS = ["매장명","대표자","사업자번호","연락처","청구금액","월","마감일","상태","상호","담당자","입금계좌","발신연락처"];
+let stores=load(LS_STORES,[]), records=load(LS_RECORDS,{}), supplier=load(LS_SUPPLIER,DEFAULT_SUPPLIER), template=load(LS_TEMPLATE,DEFAULT_TEMPLATE);
+let editingId=null, curFilter="all", editType="tax";
 
-const DEFAULT_TEMPLATE = {
-  title: "[{상호}] {월} 거래대금 안내",
-  body:
-`{매장명} {대표자}님, 안녕하세요.
-{상호}입니다.
-
-{월} 거래대금을 안내드립니다.
-· 청구금액 : {청구금액}원
-· 입금계좌 : {입금계좌}
-· 납부기한 : {마감일}
-
-기한 내 입금 부탁드립니다.
-문의 : {담당자} ({발신연락처})`
-};
-
-let stores = load(LS_STORES, []);
-let records = load(LS_RECORDS, {});
-let supplier = load(LS_SUPPLIER, {});
-let template = load(LS_TEMPLATE, DEFAULT_TEMPLATE);
-let editingId = null;
-let curFilter = "all";
-
-function load(k, def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch{ return def; } }
+function load(k,def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch{ return def; } }
 function save(){
-  localStorage.setItem(LS_STORES, JSON.stringify(stores));
-  localStorage.setItem(LS_RECORDS, JSON.stringify(records));
-  localStorage.setItem(LS_SUPPLIER, JSON.stringify(supplier));
-  localStorage.setItem(LS_TEMPLATE, JSON.stringify(template));
+  localStorage.setItem(LS_STORES,JSON.stringify(stores));
+  localStorage.setItem(LS_RECORDS,JSON.stringify(records));
+  localStorage.setItem(LS_SUPPLIER,JSON.stringify(supplier));
+  localStorage.setItem(LS_TEMPLATE,JSON.stringify(template));
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function won(n){ return (Number(n)||0).toLocaleString("ko-KR"); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function $(s){ return document.querySelector(s); }
-function fmtMonth(m){ if(!m)return""; const [y,mm]=m.split("-"); return `${y}년 ${Number(mm)}월`; }
-function fmtDate(d){ if(!d)return""; const [y,m,dd]=d.split("-"); return `${y}년 ${Number(m)}월 ${Number(dd)}일`; }
+function monthShort(m){ if(!m)return""; return Number(m.split("-")[1])+"월"; }
+
+function splitAmount(docType, amount){
+  amount=Number(amount)||0;
+  if(docType==="tax"){ const supply=Math.round(amount/1.1); return {supply, vat:amount-supply, total:amount}; }
+  return {supply:amount, vat:0, total:amount, noVat:true};
+}
 
 /* ---------- 탭 ---------- */
 document.querySelectorAll(".tabs button").forEach(b=>{
@@ -309,50 +370,42 @@ document.querySelectorAll(".tabs button").forEach(b=>{
   };
 });
 
-/* ---------- 월 선택 / 필터 ---------- */
-const monthPicker = $("#monthPicker");
-monthPicker.value = new Date().toISOString().slice(0,7);
-monthPicker.onchange = renderBill;
+/* ---------- 월/필터 ---------- */
+const monthPicker=$("#monthPicker");
+monthPicker.value=new Date().toISOString().slice(0,7);
+monthPicker.onchange=renderBill;
 $("#filterSeg").querySelectorAll("button").forEach(b=>{
-  b.onclick=()=>{
-    $("#filterSeg").querySelectorAll("button").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active"); curFilter=b.dataset.f; renderBill();
-  };
+  b.onclick=()=>{ $("#filterSeg").querySelectorAll("button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); curFilter=b.dataset.f; renderBill(); };
 });
 
 /* ---------- 매장 CRUD ---------- */
 function readForm(){
-  return {
-    name:$("#f-name").value.trim(), bizno:$("#f-bizno").value.trim(),
-    owner:$("#f-owner").value.trim(), phone:$("#f-phone").value.trim(),
-    email:$("#f-email").value.trim(), amount:Number($("#f-amount").value)||0,
-    memo:$("#f-memo").value.trim(),
-  };
+  return { name:$("#f-name").value.trim(), owner:$("#f-owner").value.trim(), phone:$("#f-phone").value.trim(),
+    docType:$("#f-doctype").value, amount:Number($("#f-amount").value)||0, memo:$("#f-memo").value.trim() };
 }
 function clearForm(){
-  ["name","bizno","owner","phone","email","amount","memo"].forEach(k=>$("#f-"+k).value="");
-  editingId=null; $("#btnSaveStore").textContent="등록"; $("#btnCancelEdit").style.display="none";
+  ["name","owner","phone","amount","memo"].forEach(k=>$("#f-"+k).value="");
+  $("#f-doctype").value="tax"; editingId=null; $("#btnSaveStore").textContent="등록"; $("#btnCancelEdit").style.display="none";
 }
 $("#btnSaveStore").onclick=()=>{
   const d=readForm();
   if(!d.name){ alert("매장명을 입력하세요."); $("#f-name").focus(); return; }
-  if(editingId){ Object.assign(stores.find(x=>x.id===editingId),d); }
-  else{ stores.push({id:uid(),...d}); }
+  if(editingId) Object.assign(stores.find(x=>x.id===editingId),d);
+  else stores.push({id:uid(),...d});
   save(); clearForm(); renderStores(); renderBill();
 };
 $("#btnCancelEdit").onclick=clearForm;
 function editStore(id){
   const s=stores.find(x=>x.id===id); if(!s)return;
-  $("#f-name").value=s.name; $("#f-bizno").value=s.bizno; $("#f-owner").value=s.owner;
-  $("#f-phone").value=s.phone; $("#f-email").value=s.email; $("#f-amount").value=s.amount; $("#f-memo").value=s.memo;
+  $("#f-name").value=s.name; $("#f-owner").value=s.owner||""; $("#f-phone").value=s.phone||"";
+  $("#f-doctype").value=s.docType||"tax"; $("#f-amount").value=s.amount||0; $("#f-memo").value=s.memo||"";
   editingId=id; $("#btnSaveStore").textContent="수정 저장"; $("#btnCancelEdit").style.display="inline-block";
   $("#f-name").scrollIntoView({behavior:"smooth",block:"center"});
 }
 function deleteStore(id){
   const s=stores.find(x=>x.id===id);
-  if(!confirm(`'${s.name}' 매장을 삭제할까요?\n(과거 청구기록도 함께 삭제됩니다)`))return;
-  stores=stores.filter(x=>x.id!==id);
-  Object.values(records).forEach(m=>delete m[id]);
+  if(!confirm(`'${s.name}' 매장을 삭제할까요?\n(과거 기록도 함께 삭제됩니다)`))return;
+  stores=stores.filter(x=>x.id!==id); Object.values(records).forEach(m=>delete m[id]);
   save(); renderStores(); renderBill();
 }
 function renderStores(){
@@ -360,13 +413,13 @@ function renderStores(){
   $("#storeCount").textContent=stores.length;
   $("#storeEmpty").style.display=stores.length?"none":"block";
   stores.forEach(s=>{
+    const dt=DOCTYPE[s.docType||"tax"];
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><b>${esc(s.name)}</b></td>
       <td>${esc(s.owner)||'-'}</td>
       <td>${esc(s.phone)||'-'}</td>
-      <td>${esc(s.bizno)||'-'}</td>
-      <td>${esc(s.email)||'-'}</td>
+      <td><span class="tag ${dt.cls}">${dt.label}</span></td>
       <td class="num">${won(s.amount)}</td>
       <td class="muted">${esc(s.memo)||''}</td>
       <td style="text-align:right;white-space:nowrap">
@@ -379,63 +432,69 @@ function renderStores(){
   });
 }
 
-/* ---------- 청구관리 ---------- */
+/* ---------- 발행관리 ---------- */
 function getMonth(){ return monthPicker.value; }
-function getRec(month, sid){
-  records[month] = records[month] || {};
+function getRec(month,sid){
+  records[month]=records[month]||{};
   if(!records[month][sid]){
     const s=stores.find(x=>x.id===sid);
-    records[month][sid]={status:"none", amount:s?s.amount:0, sentAt:"", paidAt:"", memo:""};
+    records[month][sid]={status:"none", docType:s?(s.docType||"tax"):"tax", amount:s?s.amount:0, sentAt:"", memo:""};
   }
+  if(!records[month][sid].docType) records[month][sid].docType="tax";
   return records[month][sid];
 }
 function renderStats(){
   const m=getMonth();
-  let cnt={none:0,sent:0,paid:0,unpaid:0}, amt={none:0,sent:0,paid:0,unpaid:0};
-  stores.forEach(s=>{ const r=getRec(m,s.id); cnt[r.status]++; amt[r.status]+=Number(r.amount)||0; });
-  const total=stores.length, totalAmt=Object.values(amt).reduce((a,b)=>a+b,0);
+  let cnt={none:0,sent:0,done:0,pending:0}, amt=0;
+  stores.forEach(s=>{ const r=getRec(m,s.id); cnt[r.status]++; amt+=Number(r.amount)||0; });
   $("#stats").innerHTML=`
-    <div class="stat"><div class="label">전체 매장</div><div class="value">${total}</div><div class="sub">총 ${won(totalAmt)}원</div></div>
-    <div class="stat b"><div class="label">발송완료</div><div class="value">${cnt.sent}</div><div class="sub">${won(amt.sent)}원</div></div>
-    <div class="stat g"><div class="label">입금완료</div><div class="value">${cnt.paid}</div><div class="sub">${won(amt.paid)}원</div></div>
-    <div class="stat r"><div class="label">미입금</div><div class="value">${cnt.unpaid}</div><div class="sub">${won(amt.unpaid)}원</div></div>
-    <div class="stat"><div class="label">미발송</div><div class="value">${cnt.none}</div><div class="sub">${won(amt.none)}원</div></div>`;
+    <div class="stat"><div class="label">전체 매장</div><div class="value">${stores.length}</div><div class="sub">합계 ${won(amt)}원</div></div>
+    <div class="stat"><div class="label">미발송</div><div class="value">${cnt.none}</div></div>
+    <div class="stat b"><div class="label">요청완료</div><div class="value">${cnt.sent}</div></div>
+    <div class="stat g"><div class="label">발행완료</div><div class="value">${cnt.done}</div></div>
+    <div class="stat r"><div class="label">미발행</div><div class="value">${cnt.pending}</div></div>`;
 }
 function renderBill(){
   renderStats();
   const m=getMonth(), tb=$("#billTable tbody"); tb.innerHTML="";
-  const list=stores.filter(s=> curFilter==="all" ? true : getRec(m,s.id).status===curFilter);
+  const list=stores.filter(s=> curFilter==="all"?true:getRec(m,s.id).status===curFilter);
   const emptyEl=$("#billEmpty");
-  if(stores.length===0){ emptyEl.style.display="block"; emptyEl.textContent="매장이 없습니다. '매장 기초정보' 탭에서 먼저 매장을 등록하세요."; }
+  if(stores.length===0){ emptyEl.style.display="block"; emptyEl.textContent="매장이 없습니다. '매장 기초정보' 탭에서 먼저 등록하세요."; }
   else if(list.length===0){ emptyEl.style.display="block"; emptyEl.textContent="해당 상태의 매장이 없습니다."; }
   else emptyEl.style.display="none";
   list.forEach(s=>{
-    const r=getRec(m,s.id); const st=STATUS[r.status];
+    const r=getRec(m,s.id), st=STATUS[r.status];
+    const sp=splitAmount(r.docType,r.amount);
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><b>${esc(s.name)}</b></td>
-      <td class="muted">${esc(s.phone)||'-'}</td>
-      <td class="num"><input type="number" value="${r.amount}" style="width:110px;text-align:right;padding:5px"></td>
+      <td><select class="typeSel" style="padding:5px">
+        <option value="tax"${r.docType==="tax"?" selected":""}>세금계산서</option>
+        <option value="cash"${r.docType==="cash"?" selected":""}>현금영수증</option></select></td>
+      <td class="num"><input type="number" value="${r.amount}" style="width:120px;text-align:right;padding:5px"></td>
+      <td class="num supplyCell">${won(sp.supply)}</td>
+      <td class="num vatCell">${sp.noVat?'-':won(sp.vat)}</td>
       <td><span class="pill ${st.cls}">${st.label} ▾</span></td>
       <td><input type="date" value="${r.sentAt}" style="padding:5px"></td>
-      <td><input type="date" value="${r.paidAt}" style="padding:5px"></td>
       <td><input class="memoIn" value="${escAttr(r.memo)}" placeholder="메모" style="width:100%;padding:5px"></td>
       <td style="text-align:right"><button class="btn ghost sm previewBtn">안내문</button></td>`;
     const amtIn=tr.querySelector("td.num input");
+    const typeSel=tr.querySelector(".typeSel");
     const pill=tr.querySelector(".pill");
-    const dates=tr.querySelectorAll('input[type=date]');
+    const dateIn=tr.querySelector('input[type=date]');
     const memoIn=tr.querySelector(".memoIn");
-    amtIn.onchange=()=>{ r.amount=Number(amtIn.value)||0; save(); renderStats(); };
-    dates[0].onchange=()=>{ r.sentAt=dates[0].value; save(); };
-    dates[1].onchange=()=>{ r.paidAt=dates[1].value; save(); };
+    const recalc=()=>{ const x=splitAmount(r.docType,r.amount); tr.querySelector(".supplyCell").textContent=won(x.supply); tr.querySelector(".vatCell").textContent=x.noVat?'-':won(x.vat); };
+    amtIn.onchange=()=>{ r.amount=Number(amtIn.value)||0; save(); recalc(); renderStats(); };
+    typeSel.onchange=()=>{ r.docType=typeSel.value; save(); recalc(); };
+    dateIn.onchange=()=>{ r.sentAt=dateIn.value; save(); };
     memoIn.onchange=()=>{ r.memo=memoIn.value; save(); };
     pill.onclick=(e)=>openPillMenu(e,m,s.id);
-    tr.querySelector(".previewBtn").onclick=()=>{ alert(buildMessage(s, r, m).body); };
+    tr.querySelector(".previewBtn").onclick=()=>alert(buildMessage(s,r,m).body);
     tb.appendChild(tr);
   });
 }
 
-/* ---------- 상태변경 메뉴 ---------- */
+/* ---------- 상태메뉴 ---------- */
 const pillMenu=$("#pillMenu"); let pmTarget=null;
 function openPillMenu(e,month,sid){
   pmTarget={month,sid};
@@ -450,149 +509,115 @@ pillMenu.querySelectorAll("button").forEach(b=>{
     if(!pmTarget)return;
     const r=getRec(pmTarget.month,pmTarget.sid);
     r.status=b.dataset.s;
-    if(r.status==="sent" && !r.sentAt) r.sentAt=todayStr();
-    if(r.status==="paid"){ if(!r.sentAt)r.sentAt=todayStr(); if(!r.paidAt)r.paidAt=todayStr(); }
+    if((r.status==="sent"||r.status==="done") && !r.sentAt) r.sentAt=todayStr();
     save(); pillMenu.style.display="none"; renderBill();
   };
 });
 document.addEventListener("click",()=>pillMenu.style.display="none");
 
-/* ---------- 발신 설정 ---------- */
-const supKeys=["name","owner","phone","account"];
+/* ---------- 본사 정보 ---------- */
+const supKeys=["name","bizno","addr","biztype","bizitem","email","ownerTax","ownerCash","phone"];
 function loadSupplierForm(){ supKeys.forEach(k=>{ const el=$("#s-"+k); if(el)el.value=supplier[k]||""; }); }
-$("#btnSaveSupplier").onclick=()=>{
-  supKeys.forEach(k=>{ supplier[k]=$("#s-"+k).value.trim(); });
-  save(); alert("발신자 정보를 저장했습니다."); renderPreview();
-};
+$("#btnSaveSupplier").onclick=()=>{ supKeys.forEach(k=>{ supplier[k]=$("#s-"+k).value.trim(); }); save(); alert("본사 정보를 저장했습니다."); renderPreview(); };
 
 /* ---------- 안내문 양식 ---------- */
-const noticeMonth=$("#noticeMonth"), dueDate=$("#dueDate");
+const noticeMonth=$("#noticeMonth");
+function loadTemplateFields(){ $("#noticeTitle").value=template[editType].title||""; $("#noticeBody").value=template[editType].body||""; }
+function stashTemplateFields(){ template[editType].title=$("#noticeTitle").value; template[editType].body=$("#noticeBody").value; }
 function initNotice(){
   noticeMonth.value=new Date().toISOString().slice(0,7);
-  $("#noticeTitle").value=template.title||"";
-  $("#noticeBody").value=template.body||"";
-  // 마감일 기본값: 대상월 말일
-  setDefaultDue();
-  const vl=$("#varList");
-  vl.innerHTML="";
-  VARS.forEach(v=>{
-    const sp=document.createElement("span"); sp.className="var"; sp.textContent="{"+v+"}";
-    sp.onclick=()=>{ const ta=$("#noticeBody"); ta.value+= "{"+v+"}"; ta.focus(); };
-    vl.appendChild(sp);
-  });
+  loadTemplateFields();
+  const vl=$("#varList"); vl.innerHTML="";
+  VARS.forEach(v=>{ const sp=document.createElement("span"); sp.className="var"; sp.textContent="{"+v+"}";
+    sp.onclick=()=>{ const ta=$("#noticeBody"); ta.value+="{"+v+"}"; ta.focus(); }; vl.appendChild(sp); });
 }
-function setDefaultDue(){
-  const m=noticeMonth.value; if(!m)return;
-  const [y,mm]=m.split("-").map(Number);
-  const last=new Date(y,mm,0).getDate();
-  dueDate.value=`${y}-${String(mm).padStart(2,"0")}-${last}`;
-}
-noticeMonth.onchange=()=>{ setDefaultDue(); renderPreview(); };
-dueDate.onchange=renderPreview;
+$("#tplSeg").querySelectorAll("button").forEach(b=>{
+  b.onclick=()=>{ stashTemplateFields(); $("#tplSeg").querySelectorAll("button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); editType=b.dataset.t; loadTemplateFields(); };
+});
+noticeMonth.onchange=renderPreview;
 $("#noticeTarget").onchange=renderPreview;
-$("#btnSaveTemplate").onclick=()=>{
-  template.title=$("#noticeTitle").value; template.body=$("#noticeBody").value;
-  save(); alert("안내문 양식을 저장했습니다."); renderPreview();
-};
-$("#btnRefreshPreview").onclick=renderPreview;
+$("#btnSaveTemplate").onclick=()=>{ stashTemplateFields(); save(); alert("안내문 양식을 저장했습니다."); renderPreview(); };
+$("#btnResetTemplate").onclick=()=>{ if(!confirm("현재 양식을 기본양식으로 되돌릴까요?"))return; template=JSON.parse(JSON.stringify(DEFAULT_TEMPLATE)); save(); loadTemplateFields(); renderPreview(); };
+$("#btnRefreshPreview").onclick=()=>{ stashTemplateFields(); renderPreview(); };
 
-function buildMessage(store, rec, month){
+function buildMessage(store,rec,month){
+  const dt=rec.docType||"tax";
+  const sp=splitAmount(dt,rec.amount);
   const map={
-    "매장명":store.name||"", "대표자":store.owner||"", "사업자번호":store.bizno||"",
-    "연락처":store.phone||"", "청구금액":won(rec.amount), "월":fmtMonth(month),
-    "마감일":fmtDate(dueDate.value), "상태":(STATUS[rec.status]||{}).label||"",
-    "상호":supplier.name||"", "담당자":supplier.owner||"",
-    "입금계좌":supplier.account||"", "발신연락처":supplier.phone||"",
+    "매장명":store.name||"", "대표자":store.owner||"", "월":monthShort(month),
+    "공급가액":won(sp.supply), "세액":sp.noVat?"-":won(sp.vat), "합계":won(sp.total),
+    "상호명":supplier.name||"", "성명":(dt==="tax"?supplier.ownerTax:supplier.ownerCash)||"",
+    "사업자번호":supplier.bizno||"", "사업장":supplier.addr||"", "업태":supplier.biztype||"",
+    "종목":supplier.bizitem||"", "이메일":supplier.email||"", "경영지원실":supplier.phone||"",
   };
-  const repl=(t)=> (t||"").replace(/\{(\w+|[가-힣]+)\}/g,(m0,k)=> (k in map)?map[k]:m0);
-  return { title:repl($("#noticeTitle").value), body:repl($("#noticeBody").value), phone:store.phone||"" };
+  const repl=(t)=>(t||"").replace(/\{([가-힣]+)\}/g,(m0,k)=>(k in map)?map[k]:m0);
+  const tpl=template[dt]||{};
+  return { title:repl(tpl.title), body:repl(tpl.body), phone:store.phone||"" };
 }
 function noticeTargets(){
   const m=noticeMonth.value, t=$("#noticeTarget").value;
-  return stores.filter(s=> t==="all" ? true : getRec(m,s.id).status===t)
-               .map(s=>({store:s, rec:getRec(m,s.id)}));
+  return stores.filter(s=> t==="all"?true:getRec(m,s.id).status===t).map(s=>({store:s,rec:getRec(m,s.id)}));
 }
 function renderPreview(){
-  const m=noticeMonth.value;
-  const items=noticeTargets();
+  const m=noticeMonth.value, items=noticeTargets();
   $("#previewCount").textContent=items.length;
   const wrap=$("#previewList"); wrap.innerHTML="";
   $("#previewEmpty").style.display=items.length?"none":"block";
   items.forEach(({store,rec})=>{
-    const msg=buildMessage(store,rec,m);
+    const msg=buildMessage(store,rec,m), dt=DOCTYPE[rec.docType||"tax"];
     const div=document.createElement("div"); div.className="msgcard";
     div.innerHTML=`
       <div class="top">
         <b>${esc(store.name)}</b>
+        <span class="tag ${dt.cls}">${dt.label}</span>
         <span class="muted">${esc(store.phone)||'연락처 없음'}</span>
         <span class="pill ${STATUS[rec.status].cls}">${STATUS[rec.status].label}</span>
         <span style="flex:1"></span>
         <button class="btn ghost sm copyBtn">복사</button>
       </div>
       <pre>${esc(msg.body)}</pre>`;
-    div.querySelector(".copyBtn").onclick=()=>{
-      navigator.clipboard.writeText(msg.body).then(()=>{
-        const b=div.querySelector(".copyBtn"); b.textContent="복사됨!"; setTimeout(()=>b.textContent="복사",1200);
-      });
-    };
+    div.querySelector(".copyBtn").onclick=()=>navigator.clipboard.writeText(msg.body).then(()=>{ const b=div.querySelector(".copyBtn"); b.textContent="복사됨!"; setTimeout(()=>b.textContent="복사",1200); });
     wrap.appendChild(div);
   });
 }
 $("#btnCopyAll").onclick=()=>{
   const m=noticeMonth.value;
-  const all=noticeTargets().map(({store,rec})=>{
-    const msg=buildMessage(store,rec,m);
-    return `■ ${store.name} (${store.phone||"-"})\n${msg.body}`;
-  }).join("\n\n──────────\n\n");
+  const all=noticeTargets().map(({store,rec})=>{ const msg=buildMessage(store,rec,m); return `■ ${store.name} (${store.phone||"-"})\n${msg.body}`; }).join("\n\n──────────\n\n");
   if(!all){ alert("대상 매장이 없습니다."); return; }
   navigator.clipboard.writeText(all).then(()=>alert("전체 안내문을 복사했습니다."));
 };
 $("#btnCsv").onclick=()=>{
   const m=noticeMonth.value;
-  const rows=[["매장명","연락처","제목","메시지"]];
-  noticeTargets().forEach(({store,rec})=>{
-    const msg=buildMessage(store,rec,m);
-    rows.push([store.name, store.phone||"", msg.title, msg.body]);
-  });
+  const rows=[["매장명","연락처","유형","제목","메시지"]];
+  noticeTargets().forEach(({store,rec})=>{ const msg=buildMessage(store,rec,m); rows.push([store.name,store.phone||"",DOCTYPE[rec.docType||"tax"].label,msg.title,msg.body]); });
   if(rows.length===1){ alert("대상 매장이 없습니다."); return; }
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download=`안내문_${m}.csv`; a.click();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`광고지원금안내_${m}.csv`; a.click();
 };
 
 /* ---------- 백업 ---------- */
 $("#btnExport").onclick=()=>{
   const blob=new Blob([JSON.stringify({stores,records,supplier,template},null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download=`청구관리_백업_${todayStr()}.json`; a.click();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`발행요청_백업_${todayStr()}.json`; a.click();
 };
 $("#btnImport").onclick=()=>$("#importFile").click();
 $("#importFile").onchange=(e)=>{
   const file=e.target.files[0]; if(!file)return;
   const fr=new FileReader();
-  fr.onload=()=>{
-    try{
-      const d=JSON.parse(fr.result);
-      if(!confirm("현재 데이터를 백업 파일로 덮어쓸까요?"))return;
-      stores=d.stores||[]; records=d.records||{}; supplier=d.supplier||{}; template=d.template||DEFAULT_TEMPLATE;
-      save(); loadSupplierForm(); initNotice(); renderStores(); renderBill(); renderPreview();
-      alert("가져오기 완료");
-    }catch{ alert("올바른 백업 파일이 아닙니다."); }
-  };
+  fr.onload=()=>{ try{ const d=JSON.parse(fr.result);
+    if(!confirm("현재 데이터를 백업 파일로 덮어쓸까요?"))return;
+    stores=d.stores||[]; records=d.records||{}; supplier=d.supplier||DEFAULT_SUPPLIER; template=d.template||DEFAULT_TEMPLATE;
+    save(); loadSupplierForm(); loadTemplateFields(); renderStores(); renderBill(); renderPreview(); alert("가져오기 완료");
+  }catch{ alert("올바른 백업 파일이 아닙니다."); } };
   fr.readAsText(file); e.target.value="";
 };
 
-/* ---------- util ---------- */
 function esc(s){ return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function escAttr(s){ return esc(s).replace(/"/g,"&quot;"); }
 
 /* ---------- init ---------- */
-loadSupplierForm();
-initNotice();
-renderStores();
-renderBill();
-renderPreview();
+loadSupplierForm(); initNotice(); renderStores(); renderBill(); renderPreview();
 </script>
 </body>
 </html>
