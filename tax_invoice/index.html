@@ -140,6 +140,7 @@
         <div class="field"><label>매장명 *</label><input id="f-name" placeholder="예) 육식사관학교 OO점"></div>
         <div class="field"><label>대표자(사장님)</label><input id="f-owner"></div>
         <div class="field"><label>연락처(휴대폰)</label><input id="f-phone" placeholder="010-0000-0000"></div>
+        <div class="field"><label>이메일</label><input id="f-email"></div>
         <div class="field"><label>기본 과세여부</label>
           <select id="f-doctype"><option value="tax">세금계산서</option><option value="cash">현금영수증</option></select>
         </div>
@@ -166,7 +167,7 @@
     <div class="card">
       <h2>매장 목록 (<span id="storeCount">0</span>)</h2>
       <table class="list" id="storeTable">
-        <thead><tr><th>매장명</th><th>대표자</th><th>연락처</th><th>기본 과세여부</th><th class="num">기본 금액</th><th>메모</th><th></th></tr></thead>
+        <thead><tr><th>매장명</th><th>대표자</th><th>연락처</th><th>이메일</th><th>기본 과세여부</th><th class="num">기본 금액</th><th>메모</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="empty" id="storeEmpty">등록된 매장이 없습니다.</div>
@@ -418,8 +419,8 @@ $("#btnPrint").onclick=()=>{
 };
 
 /* ---------- 매장 CRUD ---------- */
-function readForm(){ return { name:$("#f-name").value.trim(), owner:$("#f-owner").value.trim(), phone:$("#f-phone").value.trim(), docType:$("#f-doctype").value, amount:Number($("#f-amount").value)||0, memo:$("#f-memo").value.trim() }; }
-function clearForm(){ ["name","owner","phone","amount","memo"].forEach(k=>$("#f-"+k).value=""); $("#f-doctype").value="tax"; editingId=null; $("#btnSaveStore").textContent="등록"; $("#btnCancelEdit").style.display="none"; }
+function readForm(){ return { name:$("#f-name").value.trim(), owner:$("#f-owner").value.trim(), phone:$("#f-phone").value.trim(), email:$("#f-email").value.trim(), docType:$("#f-doctype").value, amount:Number($("#f-amount").value)||0, memo:$("#f-memo").value.trim() }; }
+function clearForm(){ ["name","owner","phone","email","amount","memo"].forEach(k=>$("#f-"+k).value=""); $("#f-doctype").value="tax"; editingId=null; $("#btnSaveStore").textContent="등록"; $("#btnCancelEdit").style.display="none"; }
 $("#btnSaveStore").onclick=()=>{
   const d=readForm(); if(!d.name){ alert("매장명을 입력하세요."); $("#f-name").focus(); return; }
   if(editingId) Object.assign(stores.find(x=>x.id===editingId),d); else stores.push({id:uid(),...d});
@@ -428,7 +429,7 @@ $("#btnSaveStore").onclick=()=>{
 $("#btnCancelEdit").onclick=clearForm;
 function editStore(id){
   const s=stores.find(x=>x.id===id); if(!s)return;
-  $("#f-name").value=s.name; $("#f-owner").value=s.owner||""; $("#f-phone").value=s.phone||"";
+  $("#f-name").value=s.name; $("#f-owner").value=s.owner||""; $("#f-phone").value=s.phone||""; $("#f-email").value=s.email||"";
   $("#f-doctype").value=s.docType||"tax"; $("#f-amount").value=s.amount||0; $("#f-memo").value=s.memo||"";
   editingId=id; $("#btnSaveStore").textContent="수정 저장"; $("#btnCancelEdit").style.display="inline-block";
   $("#f-name").scrollIntoView({behavior:"smooth",block:"center"});
@@ -442,7 +443,7 @@ function renderStores(){
   $("#storeCount").textContent=stores.length; $("#storeEmpty").style.display=stores.length?"none":"block";
   stores.forEach(s=>{
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td><b>${esc(s.name)}</b></td><td>${esc(s.owner)||'-'}</td><td>${esc(s.phone)||'-'}</td>
+    tr.innerHTML=`<td><b>${esc(s.name)}</b></td><td>${esc(s.owner)||'-'}</td><td>${esc(s.phone)||'-'}</td><td class="muted">${esc(s.email)||'-'}</td>
       <td>${DOCLABEL[s.docType||"tax"]}</td><td class="num">${won(s.amount)}</td><td class="muted">${esc(s.memo)||''}</td>
       <td style="text-align:right;white-space:nowrap"><button class="btn ghost sm">수정</button> <button class="btn danger sm">삭제</button></td>`;
     tr.querySelector(".ghost").onclick=()=>editStore(s.id);
@@ -467,10 +468,11 @@ function parseLine(line, delim){
   }
   out.push(cur); return out;
 }
-const HEADERS={ name:["매장명","매장","상호","상호명","점포","점","store","name"],
-  owner:["대표자","대표","사장","사장님","성명","대표자명","owner"],
-  phone:["연락처","전화","전화번호","휴대폰","핸드폰","번호","phone","hp"],
-  docType:["과세","과세여부","유형","구분","계산서","종류","type"],
+const HEADERS={ name:["매장명","매장","상호명","상호","점포명","점포","store","name"],
+  owner:["대표자명","대표자","대표","사장님","사장","성명","owner"],
+  phone:["대표자 연락처","연락처","휴대폰","핸드폰","전화","phone","hp"],
+  email:["이메일","e-mail","email","mail","메일"],
+  docType:["과세여부","과세","유형","구분","계산서","종류","type"],
   amount:["금액","지원금","광고지원금","총액","합계","amount"],
   memo:["메모","비고","note","memo"] };
 function detectMap(cells){
@@ -496,6 +498,7 @@ function parseBulk(text){
       name,
       owner:(c[map.owner]??"").trim(),
       phone:(c[map.phone]??"").trim(),
+      email:(c[map.email]??"").trim(),
       docType:parseDocType(c[map.docType]),
       amount:Number(String(c[map.amount]??"").replace(/[^\d.-]/g,""))||0,
       memo:(c[map.memo]??"").trim(),
@@ -508,8 +511,8 @@ $("#btnBulkPreview").onclick=()=>{
   bulkRows=parseBulk($("#bulkInput").value);
   const box=$("#bulkPreview");
   if(!bulkRows.length){ box.innerHTML='<div class="muted">인식된 매장이 없습니다. 형식을 확인하세요.</div>'; $("#btnBulkAdd").style.display="none"; return; }
-  const head='<tr><th>매장명</th><th>대표자</th><th>연락처</th><th>과세여부</th><th class="num">금액</th><th>메모</th></tr>';
-  const body=bulkRows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.owner)||'-'}</td><td>${esc(r.phone)||'-'}</td><td>${DOCLABEL[r.docType]}</td><td class="num">${won(r.amount)}</td><td class="muted">${esc(r.memo)||''}</td></tr>`).join("");
+  const head='<tr><th>매장명</th><th>대표자</th><th>연락처</th><th>이메일</th><th>과세여부</th><th class="num">금액</th><th>메모</th></tr>';
+  const body=bulkRows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.owner)||'-'}</td><td>${esc(r.phone)||'-'}</td><td class="muted">${esc(r.email)||'-'}</td><td>${DOCLABEL[r.docType]}</td><td class="num">${won(r.amount)}</td><td class="muted">${esc(r.memo)||''}</td></tr>`).join("");
   box.innerHTML=`<div class="muted" style="margin-bottom:6px">${bulkRows.length}개 매장 인식됨 — 등록 실행을 누르세요.</div><table class="list">${head}${body}</table>`;
   $("#btnBulkAdd").style.display="inline-block";
 };
