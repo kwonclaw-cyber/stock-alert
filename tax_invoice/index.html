@@ -47,6 +47,16 @@
   .calc{font-size:13px;color:var(--muted);margin-top:6px}
   .calc b{color:var(--text)}
   .docwrap{overflow:auto}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .stat{flex:1;min-width:130px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow)}
+  .stat .label{font-size:12px;color:var(--muted);font-weight:600}
+  .stat .value{font-size:22px;font-weight:800;margin-top:4px}
+  .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .stat.b .value{color:#2563eb}.stat.g .value{color:#10b981}.stat.r .value{color:#ef4444}
+  .chk{display:flex;align-items:center;gap:6px}
+  .chk input[type=checkbox]{min-width:auto;width:18px;height:18px;cursor:pointer;margin:0}
+  .chk input[type=date]{padding:4px 6px;font-size:12px;min-width:auto;width:140px}
+  tr.done-row{background:#f0fdf4}
 
   /* ===== 안내문(표) 스타일 — 이미지/인쇄에도 동일 적용 ===== */
   #noticeDoc{background:#fff;color:#111;padding:22px;width:680px;max-width:100%;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
@@ -74,6 +84,7 @@
   <h1>🧾 광고지원금 안내문 생성기</h1>
   <div class="tabs">
     <button data-tab="gen" class="active">안내문 만들기</button>
+    <button data-tab="track">월별 발행현황</button>
     <button data-tab="stores">매장 기초정보</button>
     <button data-tab="settings">본사 정보</button>
   </div>
@@ -128,6 +139,36 @@
       <div class="docwrap">
         <div id="noticeDoc"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ===== 월별 발행현황 ===== -->
+  <section class="panel" id="panel-track">
+    <div class="card">
+      <div class="note">매장별로 <b>① 발송(안내문 보냄) → ② 발행(매장이 계산서 발행) → ③ 입금(입금 완료)</b> 3단계를 월별로 체크해 관리합니다. 체크하면 날짜가 자동 입력되며(수정 가능), 데이터는 백업 내보내기에 함께 저장됩니다.</div>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>대상 월</label><input type="month" id="trackMonth"></div>
+        <div class="field" style="flex:1;min-width:180px"><label>매장 검색</label><input id="trackSearch" placeholder="매장명으로 검색"></div>
+        <button class="btn ghost" id="btnTrackCsv">CSV 내보내기</button>
+      </div>
+    </div>
+    <div class="stats" id="trackStats"></div>
+    <div class="card">
+      <div class="seg" id="trackFilter" style="margin-bottom:14px">
+        <button data-f="all" class="active">전체</button>
+        <button data-f="notsent">미발송</button>
+        <button data-f="sent">발송완료</button>
+        <button data-f="issued">발행완료</button>
+        <button data-f="unpaid">미입금</button>
+        <button data-f="paid">입금완료</button>
+      </div>
+      <div class="docwrap">
+        <table class="list" id="trackTable">
+          <thead><tr><th>매장명</th><th>유형</th><th class="num">금액</th><th>① 발송</th><th>② 발행</th><th>③ 입금</th><th>메모</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty" id="trackEmpty" style="display:none">해당 조건의 매장이 없습니다.</div>
     </div>
   </section>
 
@@ -197,7 +238,7 @@
 
 <script>
 "use strict";
-const LS_STORES="adfee2.stores.v1", LS_SUPPLIER="adfee2.supplier.v1";
+const LS_STORES="adfee2.stores.v1", LS_SUPPLIER="adfee2.supplier.v1", LS_RECORDS="adfee2.records.v1";
 const DOCLABEL={tax:"세금계산서", cash:"현금영수증"};
 const DEFAULT_SUPPLIER={
   name:"주식회사 산들그린", bizno:"204-86-12397 (종사업장 0번)",
@@ -219,11 +260,12 @@ const STEPS={
   ],
 };
 
-let stores=load(LS_STORES,[]), supplier=load(LS_SUPPLIER,DEFAULT_SUPPLIER);
+let stores=load(LS_STORES,[]), supplier=load(LS_SUPPLIER,DEFAULT_SUPPLIER), records=load(LS_RECORDS,{});
 let curType="tax", editingId=null;
 
 function load(k,def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch{ return def; } }
-function save(){ localStorage.setItem(LS_STORES,JSON.stringify(stores)); localStorage.setItem(LS_SUPPLIER,JSON.stringify(supplier)); }
+function save(){ localStorage.setItem(LS_STORES,JSON.stringify(stores)); localStorage.setItem(LS_SUPPLIER,JSON.stringify(supplier)); localStorage.setItem(LS_RECORDS,JSON.stringify(records)); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function won(n){ return (Number(n)||0).toLocaleString("ko-KR"); }
 function $(s){ return document.querySelector(s); }
@@ -242,6 +284,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{
     b.classList.add("active");
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
     $("#panel-"+b.dataset.tab).classList.add("active");
+    if(b.dataset.tab==="track") renderTrack();
   };
 });
 
@@ -452,6 +495,88 @@ function renderStores(){
   });
 }
 
+/* ---------- 월별 발행현황 ---------- */
+let trackFilter="all";
+function trackMonthVal(){ return $("#trackMonth").value || new Date().toISOString().slice(0,7); }
+function trackRec(month,s){
+  records[month]=records[month]||{};
+  if(!records[month][s.id]) records[month][s.id]={sent:false,issued:false,paid:false,sentAt:"",issuedAt:"",paidAt:"",amount:s.amount||0,memo:""};
+  return records[month][s.id];
+}
+function trackMatch(r){
+  switch(trackFilter){
+    case "notsent": return !r.sent;
+    case "sent": return r.sent;
+    case "issued": return r.issued;
+    case "unpaid": return r.issued && !r.paid;
+    case "paid": return r.paid;
+    default: return true;
+  }
+}
+function renderTrackStats(){
+  const m=trackMonthVal();
+  let sent=0,issued=0,paid=0,paidAmt=0,unpaid=0,unpaidAmt=0,totalAmt=0;
+  stores.forEach(s=>{ const r=trackRec(m,s); const a=Number(r.amount)||0; totalAmt+=a;
+    if(r.sent)sent++; if(r.issued)issued++;
+    if(r.paid){paid++; paidAmt+=a;}
+    if(r.issued&&!r.paid){unpaid++; unpaidAmt+=a;}
+  });
+  $("#trackStats").innerHTML=`
+    <div class="stat"><div class="label">전체 매장</div><div class="value">${stores.length}</div><div class="sub">금액합계 ${won(totalAmt)}원</div></div>
+    <div class="stat b"><div class="label">① 발송완료</div><div class="value">${sent}</div><div class="sub">미발송 ${stores.length-sent}</div></div>
+    <div class="stat g"><div class="label">② 발행완료</div><div class="value">${issued}</div></div>
+    <div class="stat g"><div class="label">③ 입금완료</div><div class="value">${paid}</div><div class="sub">입금액 ${won(paidAmt)}원</div></div>
+    <div class="stat r"><div class="label">미입금(발행O)</div><div class="value">${unpaid}</div><div class="sub">${won(unpaidAmt)}원</div></div>`;
+}
+function renderTrack(){
+  renderTrackStats();
+  const m=trackMonthVal(), q=($("#trackSearch").value||"").trim().toLowerCase();
+  const tb=$("#trackTable tbody"); tb.innerHTML="";
+  const list=stores.filter(s=>{ const r=trackRec(m,s); if(!trackMatch(r))return false; if(q && !((s.name||"").toLowerCase().includes(q)))return false; return true; });
+  $("#trackEmpty").style.display=list.length?"none":"block";
+  const dateFor={sent:"sentAt",issued:"issuedAt",paid:"paidAt"};
+  list.forEach(s=>{
+    const r=trackRec(m,s);
+    const tr=document.createElement("tr");
+    if(r.paid) tr.className="done-row";
+    const cell=(key,dk)=>`<td><div class="chk"><input type="checkbox" data-k="${key}" ${r[key]?"checked":""}><input type="date" data-d="${dk}" value="${r[dk]||""}"></div></td>`;
+    tr.innerHTML=`<td><b>${esc(s.name)}</b></td>
+      <td>${DOCLABEL[s.docType||"tax"]}</td>
+      <td class="num"><input type="number" class="amtIn" value="${r.amount||0}" style="width:110px;text-align:right;padding:5px"></td>
+      ${cell("sent","sentAt")}${cell("issued","issuedAt")}${cell("paid","paidAt")}
+      <td><input class="memoIn" value="${esc(r.memo||"")}" placeholder="메모" style="width:140px;padding:5px"></td>`;
+    tr.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.onchange=()=>{ const k=cb.dataset.k; r[k]=cb.checked; const dk=dateFor[k];
+        const dInput=tr.querySelector(`input[data-d="${dk}"]`);
+        if(cb.checked && !r[dk]){ r[dk]=todayStr(); dInput.value=r[dk]; }
+        save(); tr.className=r.paid?"done-row":""; renderTrackStats();
+      };
+    });
+    tr.querySelectorAll('input[type=date]').forEach(di=>{ di.onchange=()=>{ r[di.dataset.d]=di.value; save(); }; });
+    tr.querySelector(".amtIn").onchange=e=>{ r.amount=Number(e.target.value)||0; save(); renderTrackStats(); };
+    tr.querySelector(".memoIn").onchange=e=>{ r.memo=e.target.value; save(); };
+    tb.appendChild(tr);
+  });
+}
+function initTrack(){
+  $("#trackMonth").value=new Date().toISOString().slice(0,7);
+  $("#trackMonth").onchange=renderTrack;
+  $("#trackSearch").oninput=renderTrack;
+  $("#trackFilter").querySelectorAll("button").forEach(b=>{ b.onclick=()=>{ $("#trackFilter").querySelectorAll("button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); trackFilter=b.dataset.f; renderTrack(); }; });
+  $("#btnTrackCsv").onclick=trackCsv;
+}
+function trackCsv(){
+  const m=trackMonthVal();
+  const rows=[["매장명","유형","금액","발송","발송일","발행","발행일","입금","입금일","메모"]];
+  let paidAmt=0;
+  stores.forEach(s=>{ const r=trackRec(m,s); if(r.paid)paidAmt+=Number(r.amount)||0;
+    rows.push([s.name,DOCLABEL[s.docType||"tax"],r.amount||0,r.sent?"O":"",r.sentAt||"",r.issued?"O":"",r.issuedAt||"",r.paid?"O":"",r.paidAt||"",r.memo||""]); });
+  rows.push([]); rows.push(["입금완료 합계","","","","","","","",won(paidAmt)+"원",""]);
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`발행현황_${m}.csv`; a.click();
+}
+
 /* ---------- 구글 시트 일괄 등록 ---------- */
 function parseDocType(v){
   const s=(v||"").trim().toLowerCase();
@@ -536,21 +661,21 @@ $("#btnSaveSupplier").onclick=()=>{ supKeys.forEach(k=>{ supplier[k]=$("#s-"+k).
 
 /* ---------- 백업 ---------- */
 $("#btnExport").onclick=()=>{
-  const blob=new Blob([JSON.stringify({stores,supplier},null,2)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify({stores,supplier,records},null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`안내문생성기_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
 };
 $("#btnImport").onclick=()=>$("#importFile").click();
 $("#importFile").onchange=(e)=>{
   const file=e.target.files[0]; if(!file)return; const fr=new FileReader();
   fr.onload=()=>{ try{ const d=JSON.parse(fr.result); if(!confirm("현재 데이터를 덮어쓸까요?"))return;
-    stores=d.stores||[]; supplier=d.supplier||DEFAULT_SUPPLIER;
-    save(); loadSupplierForm(); renderStores(); fillStoreSelect(); renderNotice(); alert("가져오기 완료");
+    stores=d.stores||[]; supplier=d.supplier||DEFAULT_SUPPLIER; records=d.records||{};
+    save(); loadSupplierForm(); renderStores(); fillStoreSelect(); renderNotice(); renderTrack(); alert("가져오기 완료");
   }catch{ alert("올바른 백업 파일이 아닙니다."); } };
   fr.readAsText(file); e.target.value="";
 };
 
 /* ---------- init ---------- */
-fillMonthSelect(); fillStoreSelect(); loadSupplierForm(); renderStores(); renderNotice();
+fillMonthSelect(); fillStoreSelect(); loadSupplierForm(); renderStores(); renderNotice(); initTrack();
 </script>
 </body>
 </html>
