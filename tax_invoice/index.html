@@ -127,6 +127,10 @@
         </div>
       </div>
       <div class="calc" id="calcLine"></div>
+      <div class="row" style="margin-top:14px;align-items:center">
+        <button class="btn" id="btnApplyTrack">📌 발행현황 반영 (발송 처리)</button>
+        <span class="muted" style="align-self:center">선택한 매장·월·금액·유형이 <b>월별 발행현황</b>에 ① 발송으로 기록됩니다.</span>
+      </div>
     </div>
 
     <div class="card">
@@ -316,6 +320,7 @@ $("#genStore").onchange=()=>{
 $("#genName").oninput=renderNotice;
 $("#genAmount").oninput=renderNotice;
 $("#genMonth").onchange=renderNotice;
+$("#btnApplyTrack").onclick=applyToTrack;
 
 /* ---------- 안내문(표) 생성 ---------- */
 function currentData(){
@@ -500,7 +505,7 @@ let trackFilter="all";
 function trackMonthVal(){ return $("#trackMonth").value || new Date().toISOString().slice(0,7); }
 function trackRec(month,s){
   records[month]=records[month]||{};
-  if(!records[month][s.id]) records[month][s.id]={sent:false,issued:false,paid:false,sentAt:"",issuedAt:"",paidAt:"",amount:s.amount||0,memo:""};
+  if(!records[month][s.id]) records[month][s.id]={sent:false,issued:false,paid:false,sentAt:"",issuedAt:"",paidAt:"",amount:s.amount||0,docType:s.docType||"tax",memo:""};
   return records[month][s.id];
 }
 function trackMatch(r){
@@ -541,7 +546,7 @@ function renderTrack(){
     if(r.paid) tr.className="done-row";
     const cell=(key,dk)=>`<td><div class="chk"><input type="checkbox" data-k="${key}" ${r[key]?"checked":""}><input type="date" data-d="${dk}" value="${r[dk]||""}"></div></td>`;
     tr.innerHTML=`<td><b>${esc(s.name)}</b></td>
-      <td>${DOCLABEL[s.docType||"tax"]}</td>
+      <td>${DOCLABEL[r.docType||s.docType||"tax"]}</td>
       <td class="num"><input type="number" class="amtIn" value="${r.amount||0}" style="width:110px;text-align:right;padding:5px"></td>
       ${cell("sent","sentAt")}${cell("issued","issuedAt")}${cell("paid","paidAt")}
       <td><input class="memoIn" value="${esc(r.memo||"")}" placeholder="메모" style="width:140px;padding:5px"></td>`;
@@ -558,6 +563,22 @@ function renderTrack(){
     tb.appendChild(tr);
   });
 }
+function applyToTrack(){
+  const sid=$("#genStore").value;
+  let s = sid ? stores.find(x=>x.id===sid) : stores.find(x=>x.name===($("#genName").value.trim()));
+  if(!s){ alert("발행현황에 반영하려면 위 '매장 선택'에서 등록된 매장을 골라주세요.\n(직접 입력만으로는 현황에 연결되지 않습니다)"); return; }
+  const yr=new Date().getFullYear();
+  const mm=String(Number($("#genMonth").value)||(new Date().getMonth()+1)).padStart(2,"0");
+  const month=yr+"-"+mm;
+  const r=trackRec(month,s);
+  r.sent=true; if(!r.sentAt) r.sentAt=todayStr();
+  r.amount=Number($("#genAmount").value)||0;
+  r.docType=curType;
+  save();
+  if($("#trackMonth")) $("#trackMonth").value=month;
+  renderTrack();
+  alert(`${s.name} · ${Number(mm)}월(${month}) 발행현황에 반영했습니다.\n① 발송 체크 · ${DOCLABEL[curType]} · ${won(r.amount)}원`);
+}
 function initTrack(){
   $("#trackMonth").value=new Date().toISOString().slice(0,7);
   $("#trackMonth").onchange=renderTrack;
@@ -570,7 +591,7 @@ function trackCsv(){
   const rows=[["매장명","유형","금액","발송","발송일","발행","발행일","입금","입금일","메모"]];
   let paidAmt=0;
   stores.forEach(s=>{ const r=trackRec(m,s); if(r.paid)paidAmt+=Number(r.amount)||0;
-    rows.push([s.name,DOCLABEL[s.docType||"tax"],r.amount||0,r.sent?"O":"",r.sentAt||"",r.issued?"O":"",r.issuedAt||"",r.paid?"O":"",r.paidAt||"",r.memo||""]); });
+    rows.push([s.name,DOCLABEL[r.docType||s.docType||"tax"],r.amount||0,r.sent?"O":"",r.sentAt||"",r.issued?"O":"",r.issuedAt||"",r.paid?"O":"",r.paidAt||"",r.memo||""]); });
   rows.push([]); rows.push(["입금완료 합계","","","","","","","",won(paidAmt)+"원",""]);
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
