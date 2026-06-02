@@ -93,13 +93,17 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   .kstat.ok{background:#d3f9d8;color:#2b8a3e;} .kstat.bad{background:#ffe3e3;color:var(--up);} .kstat.warn{background:#fff3bf;color:#a37f00;}
   /* 브랜드 요약 도식화 */
   .bcard .big{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;}
-  .pill{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:12px;vertical-align:middle;margin-left:4px;}
-  .pill.up{background:#ffe3e3;color:var(--up);} .pill.down{background:#d0ebff;color:var(--down);} .pill.flat{background:#f1f3f5;color:#666;}
-  .bar2{margin:10px 0 4px;} .bar2 .lbl{font-size:11px;color:#999;}
-  .bar2 .tr{height:9px;background:#f1f3f5;border-radius:5px;overflow:hidden;margin-top:3px;}
-  .bar2 .tr>i{display:block;height:100%;border-radius:5px;background:#adb5bd;}
-  .bar2 .tr>i.up{background:#ff8787;} .bar2 .tr>i.down{background:#74c0fc;}
-  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:10px;}
+  .pill{display:inline-block;font-size:12px;font-weight:800;padding:2px 9px;border-radius:12px;vertical-align:middle;margin-left:4px;color:#fff;}
+  .pill.up{background:#e8590c;} .pill.down{background:#1c7ed6;} .pill.flat{background:#868e96;}
+  .bar2{margin:10px 0 4px;} .bar2 .lbl{font-size:11px;color:#555;font-weight:700;display:flex;justify-content:space-between;}
+  .bar2 .tr{height:13px;background:#eef0f2;border-radius:7px;overflow:hidden;margin-top:4px;box-shadow:inset 0 0 0 1px #e3e6e8;}
+  .bar2 .tr>i{display:block;height:100%;border-radius:7px;background:#868e96;}
+  .bar2 .tr>i.up{background:linear-gradient(90deg,#ff6b6b,#e8590c);}
+  .bar2 .tr>i.down{background:linear-gradient(90deg,#4dabf7,#1c7ed6);}
+  .bar2 .tr>i.prev{background:#adb5bd;}
+  .bar2 .tr>i.rate{background:linear-gradient(90deg,#20c997,#0ca678);}
+  .bar2 .leg{font-size:10px;color:#999;margin-top:2px;}
+  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:12px;}
   .kgrid .s{font-size:12px;display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed #eee;padding:4px 0;}
   .kgrid .s b{font-variant-numeric:tabular-nums;}
   .sub{font-size:11px;color:#888;}
@@ -710,16 +714,21 @@ function render(res){
     const por=b.prev.sales?orderRate(b.prev):null, ppr=b.prev.ex?profitRate(b.prev):null;
     const mx=Math.max(b.cur.sales,b.prev.sales,1), cw=b.cur.sales/mx*100, pw=b.prev.sales/mx*100;
     const dir=b.cur.sales>=b.prev.sales?"up":"down";
+    const orC=orderRate(b.cur), orP=b.prev.sales?orderRate(b.prev):null;
+    const rw=Math.min(orC*250,100), rwP=orP!=null?Math.min(orP*250,100):null;  // 0~40% 스케일
     cards+=`<div class="card bcard"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
       <div style="margin-top:6px"><span class="big">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
       <div class="sub">점당 평균매출 ${won(avg)}원 ${pavg==null?"":pillPct(avg,pavg)}</div>
-      <div class="bar2"><div class="lbl">총매출 · 당월 vs 전월</div>
+      <div class="bar2"><div class="lbl"><span>매출 · 당월 vs 전월</span><span>${pillPct(b.cur.sales,b.prev.sales)}</span></div>
         <div class="tr"><i class="${dir}" style="width:${cw.toFixed(1)}%"></i></div>
-        <div class="tr"><i style="width:${pw.toFixed(1)}%"></i></div></div>
+        <div class="tr"><i class="prev" style="width:${pw.toFixed(1)}%"></i></div>
+        <div class="leg">위: 당월 ${won(b.cur.sales)} · 아래: 전월 ${won(b.prev.sales)}</div></div>
+      <div class="bar2"><div class="lbl"><span>전용발주율</span><span>${pct(orC)} ${deltaPp(orC,orP)}</span></div>
+        <div class="tr"><i class="rate" style="width:${rw.toFixed(1)}%"></i></div>
+        ${rwP!=null?`<div class="tr"><i class="prev" style="width:${rwP.toFixed(1)}%"></i></div><div class="leg">위: 당월 ${pct(orC)} · 아래: 전월 ${pct(orP)}</div>`:`<div class="leg">당월 ${pct(orC)} (전월 데이터 없음)</div>`}</div>
       <div class="kgrid">
         <div class="s"><span>전용물류매출</span><b>${won(b.cur.ex)} ${deltaPct(b.cur.ex,b.prev.ex)}</b></div>
         <div class="s"><span>전용이익</span><b>${won(b.cur.profit)} ${deltaPct(b.cur.profit,b.prev.profit)}</b></div>
-        <div class="s"><span>전용발주율</span><b>${pct(orderRate(b.cur))} ${deltaPp(orderRate(b.cur), b.prev.sales?orderRate(b.prev):null)}</b></div>
         <div class="s"><span>전용이익률</span><b>${pct(profitRate(b.cur))} ${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</b></div>
         <div class="s"><span>사입매장</span><b style="color:var(--sa)">${b.saipCount}개</b></div>
         <div class="s"><span>당월오픈</span><b style="color:#2b8a3e">${b.openCount}개</b></div>
