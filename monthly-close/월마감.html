@@ -203,6 +203,12 @@ const MATCH = window.STORE_MATCH||{};                  // 메이트코드 -> {lo
 const LOGI2MATE = {}; for(const m in MATCH){ LOGI2MATE[MATCH[m].logi]=m; }
 const TARGET_BRANDS = ["밥구정로데오","육식사관학교"];
 
+// 수기 수정 오버라이드 (대표 물류코드 -> {sales?, ex?, profit?}), localStorage 영구 저장
+const OV_KEY = "monthlyClose.override.v1";
+let USER_OV = (()=>{ try{return JSON.parse(localStorage.getItem(OV_KEY)||"{}");}catch(e){return {};} })();
+function saveOV(){ localStorage.setItem(OV_KEY, JSON.stringify(USER_OV)); }
+let EDIT_MODE = false;
+
 // 사용자 매장 매칭 (물류코드 -> 메이트코드), localStorage 영구 저장
 const MATCH_KEY = "monthlyClose.match.v1";
 let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"{}");}catch(e){return {};} })();
@@ -501,11 +507,19 @@ function compute(){
       if(pa) prevObj={sales:0, ex:pa.ex, profit:pa.profit};
       else { prevObj=null; isNew=true; }        // 물류원장 전월에도 없음 → 당월 오픈
     }
+    // 수기 수정 오버라이드 적용 (대표코드 기준)
+    let ex=ca.ex, profit=ca.profit;
+    const ov=USER_OV[code]||null;
+    if(ov){
+      if(ov.sales!=null){ sales=ov.sales; anyMatch=true; }
+      if(ov.ex!=null) ex=ov.ex;
+      if(ov.profit!=null) profit=ov.profit;
+    }
     const st={
       logi:code, mate:mate||mateFor(code)||"", name:meta.name, brand:meta.brand,
       members:meta.members,
-      cur:{sales, ex:ca.ex, profit:ca.profit},
-      prev: prevObj, isNew,
+      cur:{sales, ex, profit},
+      prev: prevObj, isNew, ov,
       matched:{ logi:true, sales:anyMatch },
       missing:Object.keys(ca.missing).length>0
     };
@@ -513,7 +527,7 @@ function compute(){
     if(!anyMatch){ unmatched.push(st); continue; }
     if(sales<=0){ excludedZero++; continue; }
     b.stores.push(st);
-    b.cur.sales+=sales; b.cur.ex+=ca.ex; b.cur.profit+=ca.profit;
+    b.cur.sales+=sales; b.cur.ex+=ex; b.cur.profit+=profit;
     if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
   }
   const list=Object.values(brands).filter(b=>b.stores.length).sort((a,b)=>b.cur.ex-a.cur.ex);
@@ -540,6 +554,16 @@ function classify(list){
 
 // ===== 렌더 =====
 function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur,prev||0)}</td>`; }
+// 수정 가능 금액 셀 (매출/전용물류매출/전용이익)
+function amtCell(s, field){
+  const cur=s.cur[field], prev=(s.prev&&s.prev[field])||0;
+  const edited=s.ov&&s.ov[field]!=null;
+  if(EDIT_MODE){
+    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:118px;text-align:right">`
+      +`${edited?' <span class="badge warnb">수정</span>':''}<div class="sub">전월 ${won(prev)} ${deltaPct(cur,prev)}</div></td>`;
+  }
+  return `<td class="num">${won(cur)}${edited?' <span class="badge warnb" title="수기 수정됨">✎</span>':''}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
+}
 function rcell(cur,prev,extra){ return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur,prev)}${extra||""}</td>`; }
 
 function monthsLabel(code){ const d=STORE_DIR[code]; if(!d||!d.months.size)return "-"; const m=[...d.months].sort(); return m[0]===m[m.length-1]?m[0]:`${m[0]}~${m[m.length-1]}`; }
@@ -690,16 +714,22 @@ function render(res){
     .map(([v,t])=>`<option value="${v}" ${LIST_SORT===v?"selected":""}>${t}</option>`).join("");
   const filtOpts=[["all","전체"],["saip","사입"],["open","당월오픈"],["ref","기준매장"],["normal","일반"]]
     .map(([v,t])=>`<option value="${v}" ${LIST_FILTER===v?"selected":""}>${t}</option>`).join("");
+  const ovN=Object.keys(USER_OV).length;
   bar.innerHTML=`<h2>리스트 정렬·필터</h2>
     <div class="opts">
       <label>정렬: <select class="box" id="listSort">${sortOpts}</select></label>
       <label><select class="box" id="listDir"><option value="-1" ${LIST_DIR<0?"selected":""}>내림차순 ▼</option><option value="1" ${LIST_DIR>0?"selected":""}>오름차순 ▲</option></select></label>
       <label>구분: <select class="box" id="listFilter">${filtOpts}</select></label>
-    </div>`;
+      <label style="margin-left:auto"><input type="checkbox" id="editMode" ${EDIT_MODE?"checked":""}> 수기 수정 모드</label>
+      ${ovN?`<button class="ghost" id="resetOV">수기수정 초기화 (${ovN})</button>`:""}
+    </div>
+    ${EDIT_MODE?'<div class="note">매출·전용물류매출·전용이익 칸에 값을 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다.</div>':''}`;
   root.appendChild(bar);
   bar.querySelector("#listSort").addEventListener("change",e=>{ LIST_SORT=e.target.value; render(LAST); });
   bar.querySelector("#listDir").addEventListener("change",e=>{ LIST_DIR=+e.target.value; render(LAST); });
   bar.querySelector("#listFilter").addEventListener("change",e=>{ LIST_FILTER=e.target.value; render(LAST); });
+  bar.querySelector("#editMode").addEventListener("change",e=>{ EDIT_MODE=e.target.checked; render(LAST); });
+  if(bar.querySelector("#resetOV")) bar.querySelector("#resetOV").addEventListener("click",()=>{ if(confirm("수기 수정값을 모두 삭제할까요?")){ USER_OV={}; saveOV(); rerun(); } });
 
   // 브랜드 상세
   list.forEach(b=>{
@@ -714,8 +744,8 @@ function render(res){
       const gubun = s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>'));
       rows+=`<tr class="${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}">
         <td class="l">${s.name}${badges}</td>
-        ${mcell(s.cur.sales,s.prev&&s.prev.sales)}${mcell(s.cur.ex,s.prev&&s.prev.ex)}
-        ${rcell(o,po)}${mcell(s.cur.profit,s.prev&&s.prev.profit)}${rcell(p,pp)}
+        ${amtCell(s,'sales')}${amtCell(s,'ex')}
+        ${rcell(o,po)}${amtCell(s,'profit')}${rcell(p,pp)}
         <td class="l">${gubun}</td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
@@ -732,6 +762,14 @@ function render(res){
   root.querySelectorAll(".ref-sel").forEach(sel=>sel.addEventListener("change",e=>{
     const b=e.target.dataset.brand,k=e.target.value; if(k)REF[b]=k; else delete REF[b];
     localStorage.setItem(REF_KEY,JSON.stringify(REF)); rerun();
+  }));
+  // 수기 수정 입력 반영
+  root.querySelectorAll(".ov-in").forEach(el=>el.addEventListener("change",e=>{
+    const logi=e.target.dataset.logi, field=e.target.dataset.field, raw=e.target.value.trim();
+    if(!USER_OV[logi])USER_OV[logi]={};
+    if(raw==="") delete USER_OV[logi][field]; else USER_OV[logi][field]=toNum(raw);
+    if(!Object.keys(USER_OV[logi]).length) delete USER_OV[logi];
+    saveOV(); rerun();
   }));
 }
 
