@@ -609,8 +609,8 @@ function render(res){
       <div class="row"><span>총매출</span><span class="v">${won(b.cur.sales)}원 ${deltaPct(b.cur.sales,b.prev.sales)}</span></div>
       <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.ex)}원 ${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
       <div class="row"><span>전용이익</span><span class="v">${won(b.cur.profit)}원 ${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
-      <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))}</span></div>
-      <div class="row"><span>전용이익률</span><span class="v">${pct(profitRate(b.cur))}</span></div>
+      <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))} ${deltaPp(orderRate(b.cur), b.prev.sales?orderRate(b.prev):null)}</span></div>
+      <div class="row"><span>전용이익률</span><span class="v">${pct(profitRate(b.cur))} ${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</span></div>
       <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${b.saipCount}개</span></div>
       <div class="row"><span>당월오픈</span><span class="v" style="color:#2b8a3e">${b.openCount}개</span></div></div>`;
   });
@@ -629,7 +629,6 @@ function render(res){
     const sec=document.createElement("section"); let rows="";
     b.stores.forEach(s=>{
       const o=s.rate,p=profitRate(s.cur), po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
-      const gapTxt=s.gap==null?"":`<br><span class="sub">기준대비 ${s.gap>=0?"−":"+"}${Math.abs(s.gap*100).toFixed(1)}%p</span>`;
       let badges=""; if(s.isNew)badges+='<span class="badge openb">당월오픈</span>';
       if(s.isRef)badges+='<span class="badge ref">기준매장</span>'; else if(s.saip)badges+='<span class="badge">사입</span>';
       if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
@@ -638,7 +637,7 @@ function render(res){
       rows+=`<tr class="${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}">
         <td class="l">${s.name}${badges}</td>
         ${mcell(s.cur.sales,s.prev&&s.prev.sales)}${mcell(s.cur.ex,s.prev&&s.prev.ex)}
-        ${rcell(o,po,gapTxt)}${mcell(s.cur.profit,s.prev&&s.prev.profit)}${rcell(p,pp)}
+        ${rcell(o,po)}${mcell(s.cur.profit,s.prev&&s.prev.profit)}${rcell(p,pp)}
         <td class="l">${gubun}</td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
