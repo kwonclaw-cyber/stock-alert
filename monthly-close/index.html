@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>월마감 정산 페이지</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="data/buyprice.js"></script>
+<script src="data/storematch.js"></script>
 <style>
   :root{
     --up:#e03131; --down:#1971c2; --flat:#666;
@@ -17,11 +19,11 @@
   header{background:#fff;border-bottom:2px solid #333;padding:18px 24px;}
   header h1{margin:0;font-size:20px;}
   header p{margin:4px 0 0;font-size:13px;color:#666;}
-  main{max-width:1180px;margin:0 auto;padding:20px 24px 80px;}
+  main{max-width:1240px;margin:0 auto;padding:20px 24px 80px;}
   section{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:20px;}
   h2{font-size:16px;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
   h3{font-size:15px;margin:24px 0 8px;padding:8px 12px;background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 6px 6px 0;}
-  .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+  .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
   .drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfc;}
   .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-bg);}
   .drop .label{font-weight:700;font-size:14px;}
@@ -35,6 +37,8 @@
   button.ghost{background:#fff;color:var(--accent);}
   button:disabled{opacity:.45;cursor:not-allowed;}
   input.box,select.box{font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;}
+  .opts{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:14px;font-size:13px;}
+  .opts label{display:flex;align-items:center;gap:6px;color:#444;}
   table{border-collapse:collapse;width:100%;font-size:13px;}
   th,td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
   th{background:var(--head);text-align:right;font-weight:700;position:sticky;top:0;}
@@ -43,7 +47,7 @@
   tr.brandtot td{background:#fff9db;font-weight:700;border-top:2px solid #ffe066;border-bottom:2px solid #ffe066;}
   tr.saip-row td{background:var(--sa-bg);}
   tr.ref-row td{background:#e7f5ff;}
-  .tablewrap{overflow:auto;max-height:none;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
   .up{color:var(--up);} .down{color:var(--down);} .flat{color:var(--flat);}
   .delta{font-size:12px;}
   .sub{font-size:11px;color:#888;}
@@ -59,6 +63,7 @@
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px;}
   .msg.warn{background:#fff9db;border:1px solid #ffe066;}
   .msg.err{background:#fff0f0;border:1px solid #ffc9c9;color:#c92a2a;}
+  .msg.ok{background:#ebfbee;border:1px solid #b2f2bb;color:#2b8a3e;}
   .muted{color:#888;font-size:12px;}
   .note{font-size:12px;color:#666;margin:6px 0 0;}
   .legend{font-size:12px;color:#666;margin-top:6px;}
@@ -67,49 +72,73 @@
   .cfg label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;}
   .cfg select{width:100%;}
   .cfg .rate{font-size:12px;color:var(--accent);margin-top:6px;font-weight:600;}
+  details{margin-top:8px;} details summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600;}
 </style>
 </head>
 <body>
 <header>
   <h1>월마감 정산 페이지</h1>
-  <p>매출 로우데이터 · 물류매출 엑셀을 올리면 브랜드별·매장별 매출 / 전용물류매출 / 전용이익을 전월대비로 정리합니다. (데이터는 브라우저 안에서만 처리되며 서버로 전송되지 않습니다.)</p>
+  <p>POS 매출 + 물류 발주원장을 올리면 브랜드별·매장별 매출 / 전용물류매출 / 전용이익을 전월대비로 산출합니다. (모든 처리는 브라우저 안에서만 이루어지며 데이터는 외부로 전송되지 않습니다.)</p>
 </header>
 <main>
 
   <section>
     <h2>1. 데이터 업로드</h2>
     <div class="uploads">
-      <label class="drop req" id="drop-sales">
-        <div class="label">당월 매출 로우데이터</div>
-        <div class="hint">매장코드 · 매장명 · 총매출액</div>
+      <label class="drop req" id="drop-pos">
+        <div class="label">POS 매출 (브랜드별)</div>
+        <div class="hint">기간별 매출분석 매장별분리 · 여러 개 선택 가능</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
-        <input type="file" accept=".xlsx,.xls,.csv" data-kind="sales">
+        <input type="file" accept=".xlsx,.xls,.csv" data-kind="pos" multiple>
       </label>
       <label class="drop req" id="drop-logi">
-        <div class="label">당월 물류매출</div>
-        <div class="hint">매장코드 · 전용상품발주금액 · 본사이익</div>
+        <div class="label">물류 발주원장 (누적)</div>
+        <div class="hint">푸드가이드 상품별 실적 · 전/범용 · 공급가</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="logi">
       </label>
+      <label class="drop" id="drop-buy">
+        <div class="label">전용상품 매입가 (선택·보충)</div>
+        <div class="hint">신규 전용상품 매입가 갱신용</div>
+        <div class="file" data-file>내장값 사용 중</div>
+        <input type="file" accept=".xlsx,.xls,.csv" data-kind="buy">
+      </label>
       <label class="drop" id="drop-prev">
         <div class="label">전월 결과파일 (선택)</div>
-        <div class="hint">지난달 "결과 내보내기" 파일</div>
+        <div class="hint">지난달 "결과 내보내기" 파일 · 전월매출 비교용</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="prev">
       </label>
     </div>
+
+    <div class="opts">
+      <label>대상월(당월): <select class="box" id="curMonth"><option>물류 업로드 후 선택</option></select></label>
+      <label>매출 기준:
+        <select class="box" id="salesCol">
+          <option value="net">순매출액 (VAT제외)</option>
+          <option value="real">실매출액 (VAT포함)</option>
+          <option value="order">매출액 (완료주문)</option>
+        </select>
+      </label>
+      <label>물류수수료율: <input type="number" class="box" id="feeRate" value="8.2" step="0.1" style="width:62px;"> %</label>
+      <label>사입 임계: 기준 전용발주율 − <input type="number" class="box" id="threshold" value="7.5" step="0.5" style="width:62px;"> %p</label>
+    </div>
+
     <div class="btnrow">
       <button id="calcBtn" disabled>정산 계산</button>
       <button class="ghost" id="exportBtn" disabled>결과 엑셀 내보내기</button>
-      <label class="muted" style="display:flex;align-items:center;gap:6px;">
-        사입 기준 (기준매장 전용발주율 −
-        <input type="number" class="box" id="threshold" value="7.5" step="0.5" min="0" style="width:62px;">
-        %p 이하)
-      </label>
     </div>
     <div id="messages"></div>
-    <p class="note">* 브랜드는 매장명 접두어(예: <b>밥구정로데오</b>_서울영등포점)로 자동 분류하고, 매장코드로 매출·물류 데이터를 연결합니다.</p>
-    <p class="note">* <b>사입매장</b>: 각 브랜드 기준매장의 전용발주율보다 위 기준(기본 7.5%p) 이상 낮은 매장을 자동으로 사입 분류합니다. (기준매장은 아래에서 변경 가능)</p>
+    <details>
+      <summary>계산 정의 보기</summary>
+      <div class="note">
+        · <b>전용물류매출</b> = 물류원장에서 <b>전/범용='전용'</b> 행의 <b>총합계(공급가+부가세)</b> 합 (매장별)<br>
+        · <b>전용이익(본사이익)</b> = 전용 행의 <b>(공급가 − 매입가×수량 − 공급가×물류수수료율)</b> 합 · 매입가는 내장 마스터에서 상품코드로 조회<br>
+        · <b>전용발주율</b> = 전용물류매출 ÷ 매출 · <b>전용이익률</b> = 전용이익 ÷ 전용물류매출<br>
+        · <b>사입매장</b> = 기준매장 전용발주율보다 임계값(기본 7.5%p) 이상 낮은 매장<br>
+        · 전월대비: 전용물류매출·전용이익은 물류원장의 전월 데이터로, 매출은 전월 결과파일로 비교
+      </div>
+    </details>
   </section>
 
   <div id="results"></div>
@@ -119,434 +148,345 @@
 <script>
 "use strict";
 
-// ---------- 상태 ----------
-const FILES = { sales:null, logi:null, prev:null };
-const CACHE = { sales:null, logi:null, prev:null };
-let LAST = null;   // 마지막 브랜드 계산 결과
+// ===== 내장 참조 =====
+const BUY = Object.assign({}, window.BUY_PRICE||{});   // 상품코드 -> 매입가
+const MATCH = window.STORE_MATCH||{};                  // 메이트코드 -> {logi, name, brand}
+const LOGI2MATE = {}; for(const m in MATCH){ LOGI2MATE[MATCH[m].logi]=m; }
+const TARGET_BRANDS = ["밥구정로데오","육식사관학교"];
 
-// 사입 분류 설정 (localStorage 저장)
-const REF_KEY = "monthlyClose.ref.v2";       // 브랜드 -> 기준매장 key (사용자 지정)
-const TH_KEY  = "monthlyClose.threshold.v2"; // 임계값(%p)
-const REF_TOKEN = { "밥구정로데오":"광주서구본점", "육식사관학교":"_본점$" }; // 기본 기준매장 추정 토큰
-let REF = (()=>{ try{return JSON.parse(localStorage.getItem(REF_KEY)||"{}");}catch(e){return {};} })();
-let THRESHOLD = (()=>{ const v=parseFloat(localStorage.getItem(TH_KEY)); return isNaN(v)?0.075:v/100; })();
+// ===== 상태 =====
+const FILES = { pos:[], logi:null, buy:null, prev:null };
+let LOGI_AGG = null;     // {month: {logi: {name, brand, items:{pcode:{qty,supply,total}}}}}
+let MONTHS = [];
+let POS = null;          // {mate: {real, net, order}}
+let PREVRES = null;      // {logi: {sales}}
+let LAST = null;
 
-// ---------- 유틸 ----------
-const won = n => (Math.round(n||0)).toLocaleString("ko-KR");
-const pct = (n,d=1) => (n*100).toFixed(d)+"%";
-function num(v){
-  if(v==null||v==="") return 0;
-  if(typeof v==="number") return v;
-  const x = parseFloat(String(v).replace(/[^0-9.\-]/g,""));
-  return isNaN(x)?0:x;
-}
-function brandOf(name){
-  if(!name) return "기타";
-  const m = String(name).trim().split(/[_\s]/)[0];
-  return m || "기타";
-}
-function normKey(code, name){
-  const c = String(code==null?"":code).trim();
-  if(c) return "C:"+c.replace(/[^0-9A-Za-z]/g,"");
-  return "N:"+String(name||"").replace(/[\s_()]/g,"");
-}
-function deltaPct(cur, prev){
-  if(!prev) return `<span class="delta flat">신규</span>`;
-  const d = (cur-prev)/prev*100;
-  const cls = d>0.05?"up":(d<-0.05?"down":"flat");
-  const arrow = d>0.05?"▲":(d<-0.05?"▼":"━");
-  return `<span class="delta ${cls}">${arrow} ${Math.abs(d).toFixed(1)}%</span>`;
-}
-function deltaPp(cur, prev){
-  if(prev==null) return `<span class="delta flat">-</span>`;
-  const d = (cur-prev)*100;
-  const cls = d>0.05?"up":(d<-0.05?"down":"flat");
-  const arrow = d>0.05?"▲":(d<-0.05?"▼":"━");
-  return `<span class="delta ${cls}">${arrow} ${Math.abs(d).toFixed(1)}%p</span>`;
-}
+// 사입 설정
+const REF_KEY="monthlyClose.ref.v3", TH_KEY="monthlyClose.threshold.v3";
+const REF_TOKEN={ "밥구정로데오":"광주서구본점", "육식사관학교":"_본점$" };
+let REF=(()=>{try{return JSON.parse(localStorage.getItem(REF_KEY)||"{}");}catch(e){return {};}})();
+let THRESHOLD=(()=>{const v=parseFloat(localStorage.getItem(TH_KEY));return isNaN(v)?0.075:v/100;})();
 
-// ---------- 엑셀 파싱 ----------
-function sheetToRows(file, cb){
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, {type:"array"});
-    let best = [];
-    wb.SheetNames.forEach(sn => {
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, blankrows:false, defval:""});
-      if(rows.length > best.length) best = rows;
-    });
-    cb(best);
-  };
-  reader.readAsArrayBuffer(file);
-}
+// ===== 유틸 =====
+const won=n=>(Math.round(n||0)).toLocaleString("ko-KR");
+const pct=(n,d=1)=>(n*100).toFixed(d)+"%";
+function toNum(v){ if(v==null||v==="")return 0; if(typeof v==="number")return v;
+  const x=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(x)?0:x; }
+function toCode(v){ if(v==null)return ""; if(typeof v==="number"&&Number.isInteger(v))return String(v);
+  if(typeof v==="number")return String(v); return String(v).trim(); }
+function feeRate(){ return (parseFloat(document.getElementById("feeRate").value)||0)/100; }
+function brandPrefix(name){ return name?String(name).trim().split(/[_\s]/)[0]:"기타"; }
+function deltaPct(cur,prev){ if(!prev)return `<span class="delta flat">신규</span>`;
+  const d=(cur-prev)/prev*100, cls=d>0.05?"up":(d<-0.05?"down":"flat"), a=d>0.05?"▲":(d<-0.05?"▼":"━");
+  return `<span class="delta ${cls}">${a} ${Math.abs(d).toFixed(1)}%</span>`; }
+function deltaPp(cur,prev){ if(prev==null)return `<span class="delta flat">-</span>`;
+  const d=(cur-prev)*100, cls=d>0.05?"up":(d<-0.05?"down":"flat"), a=d>0.05?"▲":(d<-0.05?"▼":"━");
+  return `<span class="delta ${cls}">${a} ${Math.abs(d).toFixed(1)}%p</span>`; }
 
-// 한 헤더 행에 대해 점수 기반·중복 방지로 필드→컬럼 매핑
-function mapHeaderRow(cells, spec){
-  const cands = [];
-  for(const field in spec){
-    const kws = spec[field];
-    const pos = kws.filter(k=>!k.startsWith("!"));
-    const neg = kws.filter(k=>k.startsWith("!")).map(k=>k.slice(1));
-    for(let c=0; c<cells.length; c++){
-      const cell = cells[c];
-      if(!cell) continue;
-      if(neg.some(k=>cell.includes(k))) continue;
-      let best = 0;
-      pos.forEach(k=>{ if(cell.includes(k) && k.length>best) best=k.length; });
-      if(best>0) cands.push({field, col:c, score:best});
-    }
+// ===== 엑셀 읽기 =====
+function readRows(file, cb){
+  const r=new FileReader();
+  r.onload=e=>{ const wb=XLSX.read(e.target.result,{type:"array"});
+    let best=[]; wb.SheetNames.forEach(sn=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,blankrows:false,defval:""}); if(rows.length>best.length)best=rows;});
+    cb(best); };
+  r.readAsArrayBuffer(file);
+}
+function findHeader(rows, required){ // required: 키워드 배열, 모두 포함된 행
+  for(let i=0;i<Math.min(rows.length,20);i++){
+    const cells=rows[i].map(c=>String(c||"").replace(/\s/g,""));
+    if(required.every(req=>cells.some(c=>c.includes(req)))) return i;
   }
-  cands.sort((a,b)=>b.score-a.score);
-  const map = {}, usedCol = new Set();
-  cands.forEach(x=>{
-    if(map[x.field]!=null || usedCol.has(x.col)) return;
-    map[x.field]=x.col; usedCol.add(x.col);
+  return -1;
+}
+function colIndex(headerCells, keywords, neg){
+  let best=-1, bestScore=0;
+  headerCells.forEach((cell,i)=>{
+    const c=String(cell||"").replace(/\s/g,""); if(!c)return;
+    if(neg&&neg.some(k=>c.includes(k)))return;
+    let s=0; keywords.forEach(k=>{ if(c.includes(k)&&k.length>s)s=k.length; });
+    if(s>bestScore){bestScore=s;best=i;}
   });
-  return map;
-}
-function detectColumns(rows, spec){
-  let headerRow = -1, map = {};
-  for(let r=0; r<Math.min(rows.length, 15); r++){
-    const cells = rows[r].map(c => String(c||"").replace(/\s/g,""));
-    const tryMap = mapHeaderRow(cells, spec);
-    if(Object.keys(tryMap).length > Object.keys(map).length){ map = tryMap; headerRow = r; }
-    if(tryMap.name!=null && (tryMap.sales!=null || tryMap.exorder!=null || tryMap.profit!=null)){ map=tryMap; headerRow=r; break; }
-  }
-  return { headerRow, map };
+  return best;
 }
 
-const SALES_SPEC = {
-  code:["매장코드","물류코드","포스코드","코드","!사업자"],
-  name:["매장명","점명","매장","!코드","!번호"],
-  sales:["총매출액","실매출액","실매출","매출액","당월매출","매출","!율","!률","!대비"]
-};
-const LOGI_SPEC = {
-  code:["매장코드","물류코드","코드","!사업자"],
-  name:["매장명","물류매장명","매장","!코드","!번호"],
-  exorder:["전용상품발주금액","전용물류매출","전용발주금액","전용상품금액","!율","!률","!대비"],
-  profit:["본사이익","전용이익","!율","!률","!대비"]
-};
-const PREV_SPEC = {
-  code:["매장코드","코드","!사업자"],
-  name:["매장명","매장","!코드","!번호","!여부","!브랜드"],
-  sales:["매출","!율","!률","!대비","!물류"],
-  exorder:["전용물류매출","전용발주","전용상품","!율","!률","!대비"],
-  profit:["전용이익","본사이익","!율","!률","!대비"]
-};
-
-function parseSales(rows){
-  const {headerRow, map} = detectColumns(rows, SALES_SPEC);
-  if(map.name==null || map.sales==null) return {error:"매출 데이터에서 '매장명' 또는 '매출액' 컬럼을 찾지 못했습니다.", items:{}};
-  const items = {};
-  for(let r=headerRow+1; r<rows.length; r++){
-    const row = rows[r];
-    const name = String(row[map.name]||"").trim();
-    if(!name) continue;
-    const code = map.code!=null?row[map.code]:"";
-    const sales = num(row[map.sales]);
-    if(!code && !sales) continue;
-    items[normKey(code,name)] = { code:String(code||"").trim(), name, sales };
-  }
-  return {items};
-}
+// ===== 물류 원장 파싱 (집계) =====
 function parseLogi(rows){
-  const {headerRow, map} = detectColumns(rows, LOGI_SPEC);
-  if(map.name==null && map.code==null) return {error:"물류매출 데이터에서 매장코드/매장명 컬럼을 찾지 못했습니다.", items:{}};
-  const items = {};
-  for(let r=headerRow+1; r<rows.length; r++){
-    const row = rows[r];
-    const name = String(row[map.name!=null?map.name:map.code]||"").trim();
-    const code = map.code!=null?row[map.code]:"";
-    if(!name && !code) continue;
-    items[normKey(code,name)] = {
-      code:String(code||"").trim(), name,
-      exorder: map.exorder!=null?num(row[map.exorder]):0,
-      profit:  map.profit!=null?num(row[map.profit]):0
-    };
+  const hr=findHeader(rows, ["발주일","사업장코드","공급가","전"]);
+  if(hr<0) return {error:"물류 원장에서 헤더(발주일/사업장코드/공급가/전·범용)를 찾지 못했습니다."};
+  const H=rows[hr].map(c=>String(c||"").replace(/\s/g,""));
+  const ci={
+    ym:colIndex(H,["발주일"]), brand:colIndex(H,["브랜드"]),
+    jb:colIndex(H,["전/범용","전범용","전용여부"]), code:colIndex(H,["사업장코드"]),
+    sname:colIndex(H,["사업장"],["코드"]), pcode:colIndex(H,["상품코드"]),
+    qty:colIndex(H,["수량"]), supply:colIndex(H,["공급가"]),
+    total:colIndex(H,["총합계","합계"],["부가","공급"])
+  };
+  if(ci.ym<0||ci.code<0||ci.supply<0||ci.jb<0) return {error:"물류 원장 컬럼 인식 실패 (발주일/사업장코드/공급가/전·범용 확인)"};
+  const agg={};
+  for(let r=hr+1;r<rows.length;r++){
+    const row=rows[r]; if(!row||row[ci.ym]==null||row[ci.ym]==="")continue;
+    const brand=String(row[ci.brand]||"").trim();
+    if(TARGET_BRANDS.indexOf(brand)<0) continue;
+    if(String(row[ci.jb]||"").trim()!=="전용") continue;       // 전용만 집계
+    const ym=toCode(row[ci.ym]), code=toCode(row[ci.code]), pcode=toCode(row[ci.pcode]);
+    const qty=toNum(row[ci.qty]), supply=toNum(row[ci.supply]);
+    const total=ci.total>=0?toNum(row[ci.total]):supply*1.1;
+    if(!agg[ym])agg[ym]={};
+    if(!agg[ym][code])agg[ym][code]={name:String(row[ci.sname]||"").trim(), brand, items:{}};
+    const it=agg[ym][code].items;
+    if(!it[pcode])it[pcode]={qty:0,supply:0,total:0};
+    it[pcode].qty+=qty; it[pcode].supply+=supply; it[pcode].total+=total;
   }
-  return {items};
+  return {agg};
 }
+
+// ===== POS 매출 파싱 =====
+function parsePos(rows, into){
+  const hr=findHeader(rows, ["매장코드","매장명"]);
+  if(hr<0) return "POS 파일에서 헤더(매장코드/매장명)를 찾지 못했습니다.";
+  const H=rows[hr].map(c=>String(c||"").replace(/\s/g,""));
+  const ci={
+    code:colIndex(H,["매장코드"]),
+    real:colIndex(H,["실매출액"]), net:colIndex(H,["순매출액"]),
+    order:colIndex(H,["매출액"],["실","순"])
+  };
+  if(ci.code<0) return "POS 파일에서 매장코드를 찾지 못했습니다.";
+  for(let r=hr+1;r<rows.length;r++){
+    const row=rows[r]; const code=toCode(row[ci.code]); if(!code)continue;
+    if(String(row[ci.code]).includes("합계"))continue;
+    into[code]={ real:ci.real>=0?toNum(row[ci.real]):0, net:ci.net>=0?toNum(row[ci.net]):0, order:ci.order>=0?toNum(row[ci.order]):0 };
+  }
+  return null;
+}
+
+// ===== 전월 결과파일 =====
 function parsePrev(rows){
-  const {headerRow, map} = detectColumns(rows, PREV_SPEC);
-  const items = {};
-  if(map.name==null && map.code==null) return {items};
-  for(let r=headerRow+1; r<rows.length; r++){
-    const row = rows[r];
-    const name = String(row[map.name!=null?map.name:map.code]||"").trim();
-    const code = map.code!=null?row[map.code]:"";
-    if(!name && !code) continue;
-    items[normKey(code,name)] = {
-      code:String(code||"").trim(), name,
-      sales:   map.sales!=null?num(row[map.sales]):0,
-      exorder: map.exorder!=null?num(row[map.exorder]):0,
-      profit:  map.profit!=null?num(row[map.profit]):0
+  const hr=findHeader(rows, ["매장","매출"]);
+  if(hr<0) return {};
+  const H=rows[hr].map(c=>String(c||"").replace(/\s/g,""));
+  const ci={ logi:colIndex(H,["물류코드","코드"],["메이트"]), sales:colIndex(H,["매출"],["전용","율","률","대비","물류매출"]) };
+  const out={};
+  if(ci.logi<0||ci.sales<0) return out;
+  for(let r=hr+1;r<rows.length;r++){ const code=toCode(rows[r][ci.logi]); if(!code)continue; out[code]={sales:toNum(rows[r][ci.sales])}; }
+  return out;
+}
+
+// ===== 매입가/이익 =====
+function storeAgg(itemsByPcode){
+  let ex=0, profit=0; const missing={};
+  const fr=feeRate();
+  for(const pcode in itemsByPcode){
+    const it=itemsByPcode[pcode];
+    ex+=it.total;
+    const bp=BUY[pcode];
+    if(bp==null && it.supply>0) missing[pcode]=(missing[pcode]||0)+it.supply;
+    profit += it.supply - ((bp||0)*it.qty) - (it.supply*fr);
+  }
+  return {ex, profit, missing};
+}
+
+const orderRate=m=>m.sales?m.ex/m.sales:0;
+const profitRate=m=>m.ex?m.profit/m.ex:0;
+
+// ===== 계산 =====
+function compute(){
+  const cur=document.getElementById("curMonth").value;
+  const idx=MONTHS.indexOf(cur); const prev=idx>0?MONTHS[idx-1]:null;
+  const salesField=document.getElementById("salesCol").value;
+  const curAgg=LOGI_AGG[cur]||{}, prevAgg=prev?(LOGI_AGG[prev]||{}):{};
+
+  const brands={}; const missingGlobal={};
+  function getBrand(b){ if(!brands[b])brands[b]={brand:b,stores:[],cur:{sales:0,ex:0,profit:0},prev:{sales:0,ex:0,profit:0}}; return brands[b]; }
+
+  for(const code in curAgg){
+    const meta=curAgg[code];
+    const b=getBrand(meta.brand);
+    const ca=storeAgg(meta.items);
+    for(const pc in ca.missing){ missingGlobal[pc]=(missingGlobal[pc]||0)+ca.missing[pc]; }
+    const mate=LOGI2MATE[code]||null;
+    const posRow = mate&&POS?POS[mate]:null;
+    const sales = posRow?posRow[salesField]:0;
+    const pmeta=prevAgg[code];
+    const pa=pmeta?storeAgg(pmeta.items):null;
+    const psales = PREVRES&&PREVRES[code]?PREVRES[code].sales:0;
+    const st={
+      logi:code, mate:mate||"", name:meta.name, brand:meta.brand,
+      cur:{sales, ex:ca.ex, profit:ca.profit},
+      prev: (pa||psales)?{sales:psales, ex:pa?pa.ex:0, profit:pa?pa.profit:0}:null,
+      matched:{ logi:true, sales:!!posRow },
+      missing:Object.keys(ca.missing).length>0
     };
+    b.stores.push(st);
+    b.cur.sales+=sales; b.cur.ex+=ca.ex; b.cur.profit+=ca.profit;
+    if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
   }
-  return {items};
-}
-
-// ---------- 비율 ----------
-const orderRate  = m => m.sales? m.exorder/m.sales : 0;     // 전용발주율(전용매출비율)
-const profitRate = m => m.exorder? m.profit/m.exorder : 0;  // 전용이익률
-
-// ---------- 계산(병합 + 브랜드 집계) ----------
-function compute(salesItems, logiItems, prevItems){
-  const stores = {};
-  function ensure(k, code, name){
-    if(!stores[k]) stores[k] = {code:code||"", name:name||"", sales:0, exorder:0, profit:0, matched:{sales:false,logi:false}};
-    if(!stores[k].name && name) stores[k].name = name;
-    if(!stores[k].code && code) stores[k].code = code;
-    return stores[k];
-  }
-  for(const k in salesItems){ const s=salesItems[k]; const st=ensure(k,s.code,s.name); st.sales=s.sales; st.matched.sales=true; }
-  for(const k in logiItems){ const l=logiItems[k]; const st=ensure(k,l.code,l.name); st.exorder=l.exorder; st.profit=l.profit; st.matched.logi=true; }
-
-  const brands = {};
-  for(const k in stores){
-    const st = stores[k];
-    const b = brandOf(st.name);
-    if(!brands[b]) brands[b]={brand:b, stores:[], cur:{sales:0,exorder:0,profit:0}, prev:{sales:0,exorder:0,profit:0}};
-    const prev = prevItems[k] || null;
-    brands[b].stores.push({
-      key:k, code:st.code, name:st.name,
-      cur:{sales:st.sales, exorder:st.exorder, profit:st.profit},
-      prev: prev?{sales:prev.sales, exorder:prev.exorder, profit:prev.profit}:null,
-      matched: st.matched
-    });
-    brands[b].cur.sales+=st.sales; brands[b].cur.exorder+=st.exorder; brands[b].cur.profit+=st.profit;
-    if(prev){ brands[b].prev.sales+=prev.sales; brands[b].prev.exorder+=prev.exorder; brands[b].prev.profit+=prev.profit; }
-  }
-  const list = Object.values(brands).sort((a,b)=>b.cur.sales-a.cur.sales);
+  const list=Object.values(brands).sort((a,b)=>b.cur.ex-a.cur.ex);
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
-  return list;
+  classify(list);
+  return {list, missingGlobal, cur, prev};
 }
 
-// ---------- 기준매장 선택 + 사입 분류 ----------
 function pickRef(b){
-  if(REF[b.brand]){ const f=b.stores.find(s=>s.key===REF[b.brand]); if(f) return f; }
-  const tok = REF_TOKEN[b.brand];
-  if(tok){
-    let f;
-    if(tok.endsWith("$")){ const re=new RegExp(tok); f=b.stores.find(s=>re.test(s.name.replace(/\s/g,""))); }
-    else { f=b.stores.find(s=>s.name.replace(/\s/g,"").includes(tok)); }
-    if(f) return f;
-  }
-  return null; // 기준매장 자동 매칭 실패 → 사용자가 직접 선택
+  if(REF[b.brand]){ const f=b.stores.find(s=>s.logi===REF[b.brand]); if(f)return f; }
+  const tok=REF_TOKEN[b.brand];
+  if(tok){ let f; if(tok.endsWith("$")){const re=new RegExp(tok);f=b.stores.find(s=>re.test(s.name.replace(/\s/g,"")));}
+    else f=b.stores.find(s=>s.name.replace(/\s/g,"").includes(tok)); if(f)return f; }
+  return null;
 }
-function classify(brandList){
-  brandList.forEach(b=>{
-    const ref = pickRef(b);
-    b.ref = ref || null;
-    b.refRate = ref ? orderRate(ref.cur) : 0;
-    b.saipCount = 0;
-    b.stores.forEach(s=>{
-      s.rate = orderRate(s.cur);
-      s.isRef = !!ref && s.key===ref.key;
-      s.gap = ref ? (b.refRate - s.rate) : null;  // +면 기준보다 낮음
-      s.saip = !!ref && !s.isRef && b.refRate>0 && s.gap >= THRESHOLD;
-      if(s.saip) b.saipCount++;
-    });
+function classify(list){
+  list.forEach(b=>{
+    const ref=pickRef(b); b.ref=ref||null; b.refRate=ref?orderRate(ref.cur):0; b.saipCount=0;
+    b.stores.forEach(s=>{ s.rate=orderRate(s.cur); s.isRef=!!ref&&s.logi===ref.logi;
+      s.gap=ref?(b.refRate-s.rate):null;
+      s.saip=!!ref&&!s.isRef&&b.refRate>0&&s.gap>=THRESHOLD; if(s.saip)b.saipCount++; });
   });
 }
 
-// ---------- 렌더 ----------
-function metricCell(cur, prev){
-  return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur, prev||0)}</td>`;
-}
-function rateCell(cur, prev, extra){
-  return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur, prev)}${extra||""}</td>`;
-}
+// ===== 렌더 =====
+function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur,prev||0)}</td>`; }
+function rcell(cur,prev,extra){ return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur,prev)}${extra||""}</td>`; }
 
-function render(brandList, hasPrev){
-  const root = document.getElementById("results");
-  root.innerHTML = "";
+function render(res){
+  const {list, missingGlobal, cur, prev}=res;
+  const root=document.getElementById("results"); root.innerHTML="";
 
-  // ---- 기준매장 설정 ----
-  const cfg = document.createElement("section");
-  let cfgItems = "";
-  brandList.forEach(b=>{
-    const opts = b.stores.map(s=>
-      `<option value="${s.key}" ${b.ref&&s.key===b.ref.key?"selected":""}>${s.name} (${pct(orderRate(s.cur))})</option>`
-    ).join("");
-    cfgItems += `<div class="item">
-      <label>${b.brand} 기준매장</label>
-      <select class="box ref-sel" data-brand="${b.brand}"><option value="">(자동 매칭 실패 — 선택)</option>${opts}</select>
-      <div class="rate">${b.ref?`기준 전용발주율 ${pct(b.refRate)} · 사입 임계 ${pct(b.refRate-THRESHOLD)} 이하`:'<span style="color:var(--up)">기준매장을 선택하세요</span>'}</div>
-    </div>`;
+  // 기준매장 설정
+  const cfg=document.createElement("section"); let items="";
+  list.forEach(b=>{
+    const opts=b.stores.map(s=>`<option value="${s.logi}" ${b.ref&&s.logi===b.ref.logi?"selected":""}>${s.name} (${pct(orderRate(s.cur))})</option>`).join("");
+    items+=`<div class="item"><label>${b.brand} 기준매장</label>
+      <select class="box ref-sel" data-brand="${b.brand}"><option value="">(선택)</option>${opts}</select>
+      <div class="rate">${b.ref?`기준 전용발주율 ${pct(b.refRate)} · 사입 임계 ${pct(b.refRate-THRESHOLD)} 이하`:'<span style="color:var(--up)">기준매장을 선택하세요</span>'}</div></div>`;
   });
-  cfg.innerHTML = `<h2>2. 사입 분류 기준매장</h2><div class="cfg">${cfgItems}</div>
-    <p class="note">기준매장 전용발주율보다 <b>${pct(THRESHOLD,1)}p</b> 이상 낮은 매장을 사입으로 분류합니다. (상단 입력칸에서 임계값 변경)</p>`;
+  cfg.innerHTML=`<h2>사입 분류 기준매장 <span class="muted" style="font-weight:400">· 당월 ${cur}${prev?` / 전월 ${prev}`:""}</span></h2><div class="cfg">${items}</div>`;
   root.appendChild(cfg);
 
-  // ---- 브랜드 요약 ----
-  const sum = document.createElement("section");
-  let cards = "";
-  let g={sales:0,exorder:0,profit:0}, gp={sales:0,exorder:0,profit:0}, gSaip=0;
-  brandList.forEach(b=>{
-    g.sales+=b.cur.sales; g.exorder+=b.cur.exorder; g.profit+=b.cur.profit;
-    gp.sales+=b.prev.sales; gp.exorder+=b.prev.exorder; gp.profit+=b.prev.profit; gSaip+=b.saipCount;
-    cards += `<div class="card">
-      <div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
+  // 요약
+  const sum=document.createElement("section"); let cards="";
+  let g={sales:0,ex:0,profit:0}, gp={sales:0,ex:0,profit:0}, gS=0;
+  list.forEach(b=>{ g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit; gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit; gS+=b.saipCount;
+    cards+=`<div class="card"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
       <div class="row"><span>총매출</span><span class="v">${won(b.cur.sales)}원 ${deltaPct(b.cur.sales,b.prev.sales)}</span></div>
-      <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.exorder)}원 ${deltaPct(b.cur.exorder,b.prev.exorder)}</span></div>
+      <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.ex)}원 ${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
       <div class="row"><span>전용이익</span><span class="v">${won(b.cur.profit)}원 ${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
       <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))}</span></div>
       <div class="row"><span>전용이익률</span><span class="v">${pct(profitRate(b.cur))}</span></div>
-      <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${b.saipCount}개</span></div>
-    </div>`;
+      <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${b.saipCount}개</span></div></div>`;
   });
-  sum.innerHTML = `<h2>브랜드별 요약 ${hasPrev?'<span class="muted" style="font-weight:400">· 전월대비</span>':'<span class="muted" style="font-weight:400">· 전월파일 없음(전월=0)</span>'}</h2>
-    <div class="cards">${cards}</div>
-    <div style="margin-top:14px" class="card">
-      <div class="bn">전체 합계</div>
+  sum.innerHTML=`<h2>브랜드별 요약</h2><div class="cards">${cards}</div>
+    <div style="margin-top:14px" class="card"><div class="bn">전체 합계</div>
       <div class="row"><span>총매출</span><span class="v">${won(g.sales)}원 ${deltaPct(g.sales,gp.sales)}</span></div>
-      <div class="row"><span>전용물류매출</span><span class="v">${won(g.exorder)}원 ${deltaPct(g.exorder,gp.exorder)}</span></div>
+      <div class="row"><span>전용물류매출</span><span class="v">${won(g.ex)}원 ${deltaPct(g.ex,gp.ex)}</span></div>
       <div class="row"><span>전용이익</span><span class="v">${won(g.profit)}원 ${deltaPct(g.profit,gp.profit)}</span></div>
-      <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${gSaip}개</span></div>
-    </div>
-    <div class="legend">증감: <span class="up">▲ 증가</span> / <span class="down">▼ 감소</span> · 비율은 %p 기준 · <span class="badge ref" style="margin:0">기준</span> 기준매장 <span class="badge" style="margin:0 0 0 4px">사입</span> 사입매장</div>`;
+      <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${gS}개</span></div></div>
+    <div class="legend">증감 <span class="up">▲</span>/<span class="down">▼</span> · 비율 %p · <span class="badge ref" style="margin:0">기준</span> <span class="badge" style="margin:0 0 0 4px">사입</span></div>`;
   root.appendChild(sum);
 
-  // ---- 브랜드별 상세 ----
-  brandList.forEach(b=>{
-    const sec = document.createElement("section");
-    let rows = "";
+  // 브랜드 상세
+  list.forEach(b=>{
+    const sec=document.createElement("section"); let rows="";
     b.stores.forEach(s=>{
-      const o=s.rate, p=profitRate(s.cur);
-      const po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
-      const gapTxt = s.gap==null?"":`<br><span class="sub">기준대비 ${s.gap>=0?"−":"+"}${Math.abs(s.gap*100).toFixed(1)}%p</span>`;
-      let badges="";
-      if(s.isRef) badges+='<span class="badge ref">기준매장</span>';
-      else if(s.saip) badges+='<span class="badge">사입</span>';
-      if(!s.matched.logi) badges+='<span class="badge warnb" title="물류 데이터 없음">물류X</span>';
-      if(!s.matched.sales) badges+='<span class="badge warnb" title="매출 데이터 없음">매출X</span>';
-      const cls = s.isRef?"ref-row":(s.saip?"saip-row":"");
-      rows += `<tr class="${cls}">
+      const o=s.rate,p=profitRate(s.cur), po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
+      const gapTxt=s.gap==null?"":`<br><span class="sub">기준대비 ${s.gap>=0?"−":"+"}${Math.abs(s.gap*100).toFixed(1)}%p</span>`;
+      let badges=""; if(s.isRef)badges+='<span class="badge ref">기준매장</span>'; else if(s.saip)badges+='<span class="badge">사입</span>';
+      if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
+      if(s.missing)badges+='<span class="badge warnb" title="일부 전용상품 매입가 미보유 → 이익 과대">매입가?</span>';
+      rows+=`<tr class="${s.isRef?"ref-row":(s.saip?"saip-row":"")}">
         <td class="l">${s.name}${badges}</td>
-        ${metricCell(s.cur.sales, s.prev&&s.prev.sales)}
-        ${metricCell(s.cur.exorder, s.prev&&s.prev.exorder)}
-        ${rateCell(o, po, gapTxt)}
-        ${metricCell(s.cur.profit, s.prev&&s.prev.profit)}
-        ${rateCell(p, pp)}
-        <td class="l">${s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>')}</td>
-      </tr>`;
+        ${mcell(s.cur.sales,s.prev&&s.prev.sales)}${mcell(s.cur.ex,s.prev&&s.prev.ex)}
+        ${rcell(o,po,gapTxt)}${mcell(s.cur.profit,s.prev&&s.prev.profit)}${rcell(p,pp)}
+        <td class="l">${s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>')}</td></tr>`;
     });
-    const o=orderRate(b.cur), p=profitRate(b.cur), po=orderRate(b.prev), pp=profitRate(b.prev);
-    const totRow = `<tr class="brandtot">
-        <td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount})</td>
-        ${metricCell(b.cur.sales,b.prev.sales)}
-        ${metricCell(b.cur.exorder,b.prev.exorder)}
-        ${rateCell(o,po)}
-        ${metricCell(b.cur.profit,b.prev.profit)}
-        ${rateCell(p,pp)}
-        <td></td>
-      </tr>`;
-    sec.innerHTML = `<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
-      <div class="tablewrap"><table>
-        <thead><tr>
-          <th class="l">매장명</th>
-          <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th>
-        </tr></thead>
-        <tbody>${totRow}${rows}</tbody>
-      </table></div>`;
+    const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
+    const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount})</td>
+      ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td></tr>`;
+    sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
+      <div class="tablewrap"><table><thead><tr><th class="l">매장명</th>
+        <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th></tr></thead>
+        <tbody>${tot}${rows}</tbody></table></div>`;
     root.appendChild(sec);
   });
 
-  // 기준매장 변경 이벤트
-  root.querySelectorAll(".ref-sel").forEach(sel=>{
-    sel.addEventListener("change", e=>{
-      const brand=e.target.dataset.brand, key=e.target.value;
-      if(key) REF[brand]=key; else delete REF[brand];
-      localStorage.setItem(REF_KEY, JSON.stringify(REF));
-      classify(LAST); render(LAST, !!CACHE.prev);
-    });
-  });
+  root.querySelectorAll(".ref-sel").forEach(sel=>sel.addEventListener("change",e=>{
+    const b=e.target.dataset.brand,k=e.target.value; if(k)REF[b]=k; else delete REF[b];
+    localStorage.setItem(REF_KEY,JSON.stringify(REF)); rerun();
+  }));
 }
 
-// ---------- 실행 ----------
-function setMsg(html){ document.getElementById("messages").innerHTML = html; }
-function tryEnable(){ document.getElementById("calcBtn").disabled = !(FILES.sales && FILES.logi); }
+// ===== 실행 =====
+function setMsg(h){ document.getElementById("messages").innerHTML=h; }
+function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); document.getElementById("exportBtn").disabled=false; }
 
-function runCalc(){
-  if(!(FILES.sales && FILES.logi)) return;
-  const sales = parseSales(CACHE.sales);
-  const logi  = parseLogi(CACHE.logi);
-  const prev  = CACHE.prev? parsePrev(CACHE.prev) : {items:{}};
-  if(sales.error){ setMsg(`<div class="msg err">${sales.error}</div>`); return; }
-  if(logi.error){ setMsg(`<div class="msg err">${logi.error}</div>`); return; }
-
-  const brandList = compute(sales.items, logi.items, prev.items);
-  classify(brandList);
-  LAST = brandList;
-
-  const noLogi=[], noSales=[], noRef=[];
-  brandList.forEach(b=>{
-    if(!b.ref) noRef.push(b.brand);
-    b.stores.forEach(s=>{ if(!s.matched.logi) noLogi.push(s.name); if(!s.matched.sales) noSales.push(s.name); });
-  });
-  let warn="";
-  if(noRef.length) warn += `<div class="msg err">기준매장을 자동으로 찾지 못한 브랜드: ${noRef.join(", ")} — 아래 "사입 분류 기준매장"에서 직접 선택하세요.</div>`;
-  if(noLogi.length) warn += `<div class="msg warn">물류 데이터가 없는 매장 ${noLogi.length}개: ${noLogi.slice(0,8).join(", ")}${noLogi.length>8?" 외":""}</div>`;
-  if(noSales.length) warn += `<div class="msg warn">매출 데이터가 없는 매장 ${noSales.length}개: ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
-  if(!CACHE.prev) warn += `<div class="msg warn">전월 결과파일이 없어 전월대비는 0 기준으로 표시됩니다.</div>`;
-  setMsg(warn);
-
-  render(brandList, !!CACHE.prev);
-  document.getElementById("exportBtn").disabled = false;
+function showWarnings(res){
+  let w="";
+  const noSales=[]; res.list.forEach(b=>b.stores.forEach(s=>{ if(!s.matched.sales)noSales.push(s.name); }));
+  const miss=Object.keys(res.missingGlobal);
+  if(miss.length){ const tot=Object.values(res.missingGlobal).reduce((a,b)=>a+b,0);
+    w+=`<div class="msg err"><b>전용상품 매입가 누락 ${miss.length}개</b> (관련 공급가 ${won(tot)}원) → 해당 전용이익이 과대 계산됩니다. 상품코드: ${miss.slice(0,10).join(", ")}${miss.length>10?" 외":""}<br>"전용상품 매입가" 파일을 올려 매입가를 보충하세요.</div>`; }
+  if(noSales.length) w+=`<div class="msg warn">POS 매출이 매칭되지 않은 매장 ${noSales.length}개: ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""} (매장 매칭표/메이트코드 확인)</div>`;
+  if(!PREVRES) w+=`<div class="msg warn">전월 결과파일이 없어 "매출" 전월대비는 0 기준입니다. (전용물류매출·전용이익은 물류원장 전월로 비교됨)</div>`;
+  if(!w) w=`<div class="msg ok">정산 완료.</div>`;
+  setMsg(w);
 }
 
-// ---------- 내보내기 ----------
-function exportXlsx(){
-  if(!LAST) return;
-  const aoa = [["브랜드","매장코드","매장명","구분","매출","전용물류매출","전용이익","전용발주율","전용이익률","기준대비(%p)"]];
-  LAST.forEach(b=>{
-    b.stores.forEach(s=>{
-      aoa.push([b.brand, s.code, s.name, s.isRef?"기준매장":(s.saip?"사입":""),
-        Math.round(s.cur.sales), Math.round(s.cur.exorder), Math.round(s.cur.profit),
-        +orderRate(s.cur).toFixed(6), +profitRate(s.cur).toFixed(6),
-        s.gap==null?"":+( -s.gap*100).toFixed(2)]);
-    });
-    aoa.push([b.brand+" 합계","","","",
-      Math.round(b.cur.sales), Math.round(b.cur.exorder), Math.round(b.cur.profit),
-      +orderRate(b.cur).toFixed(6), +profitRate(b.cur).toFixed(6), ""]);
-  });
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "월마감결과");
-  const d = new Date();
-  const ym = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
-  XLSX.writeFile(wb, `월마감결과_${ym}.xlsx`);
-}
+function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.length&&FILES.logi&&LOGI_AGG); }
 
-// ---------- 파일 입력 ----------
+// 파일 처리
+function processLogi(file){ readRows(file, rows=>{ const r=parseLogi(rows);
+  if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); return; }
+  LOGI_AGG=r.agg; MONTHS=Object.keys(r.agg).sort();
+  const sel=document.getElementById("curMonth"); sel.innerHTML="";
+  MONTHS.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
+  sel.value=MONTHS[MONTHS.length-1];
+  tryEnable();
+}); }
+function processPos(files){ POS={}; let done=0, err=null;
+  files.forEach(f=>readRows(f, rows=>{ const e=parsePos(rows,POS); if(e)err=e; if(++done===files.length){ if(err)setMsg(`<div class="msg err">${err}</div>`); tryEnable(); } })); }
+function processBuy(file){ readRows(file, rows=>{ // 상품코드 -> 매입가 보충
+  const hr=findHeader(rows,["상품코드","매입가"]); if(hr<0){ setMsg(`<div class="msg err">매입가 파일에서 상품코드/매입가 컬럼을 못 찾았습니다.</div>`); return; }
+  const H=rows[hr].map(c=>String(c||"").replace(/\s/g,"")); const ci={code:colIndex(H,["상품코드"]),price:colIndex(H,["매입가"],["기존","구매팀"])};
+  let n=0; for(let r=hr+1;r<rows.length;r++){ const c=toCode(rows[r][ci.code]); if(!c)continue; const p=toNum(rows[r][ci.price]); if(p>0){BUY[c]=p;n++;} }
+  document.querySelector('#drop-buy [data-file]').textContent=`매입가 ${n}건 보충됨`;
+  if(LAST)rerun();
+}); }
+function processPrev(file){ readRows(file, rows=>{ PREVRES=parsePrev(rows); if(LAST)rerun(); }); }
+
 function bindDrop(id){
-  const drop = document.getElementById(id);
-  const input = drop.querySelector("input[type=file]");
-  const kind = input.dataset.kind;
-  const fileLabel = drop.querySelector("[data-file]");
-  function handle(file){
-    if(!file) return;
-    FILES[kind] = file;
-    fileLabel.textContent = file.name;
-    sheetToRows(file, rows => { CACHE[kind] = rows; tryEnable(); });
+  const drop=document.getElementById(id), input=drop.querySelector("input[type=file]"), kind=input.dataset.kind, lbl=drop.querySelector("[data-file]");
+  function handle(fl){ if(!fl||!fl.length)return;
+    if(kind==="pos"){ FILES.pos=[...fl]; lbl.textContent=FILES.pos.map(f=>f.name).join(", "); processPos(FILES.pos); }
+    else { FILES[kind]=fl[0]; lbl.textContent=fl[0].name;
+      if(kind==="logi")processLogi(fl[0]); else if(kind==="buy")processBuy(fl[0]); else if(kind==="prev")processPrev(fl[0]); }
   }
-  input.addEventListener("change", e=> handle(e.target.files[0]));
+  input.addEventListener("change",e=>handle(e.target.files));
   ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
   ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
-  drop.addEventListener("drop", e=> handle(e.dataTransfer.files[0]));
+  drop.addEventListener("drop",e=>handle(e.dataTransfer.files));
 }
-["drop-sales","drop-logi","drop-prev"].forEach(bindDrop);
+["drop-pos","drop-logi","drop-buy","drop-prev"].forEach(bindDrop);
 
-document.getElementById("calcBtn").addEventListener("click", runCalc);
-document.getElementById("exportBtn").addEventListener("click", exportXlsx);
-const thInput = document.getElementById("threshold");
-thInput.value = (THRESHOLD*100);
-thInput.addEventListener("change", e=>{
-  const v = parseFloat(e.target.value);
-  THRESHOLD = isNaN(v)?0.075:v/100;
-  localStorage.setItem(TH_KEY, String(THRESHOLD*100));
-  if(LAST){ classify(LAST); render(LAST, !!CACHE.prev); }
-});
+document.getElementById("calcBtn").addEventListener("click",rerun);
+["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(LAST)rerun(); }));
+const th=document.getElementById("threshold"); th.value=THRESHOLD*100;
+th.addEventListener("change",e=>{ const v=parseFloat(e.target.value); THRESHOLD=isNaN(v)?0.075:v/100; localStorage.setItem(TH_KEY,String(THRESHOLD*100)); if(LAST)rerun(); });
+
+// ===== 내보내기 =====
+function exportXlsx(){
+  if(!LAST)return;
+  const aoa=[["브랜드","물류코드","메이트코드","매장명","구분","매출","전용물류매출","전용이익","전용발주율","전용이익률","기준대비(%p)"]];
+  LAST.list.forEach(b=>{
+    b.stores.forEach(s=>aoa.push([b.brand,s.logi,s.mate,s.name,s.isRef?"기준매장":(s.saip?"사입":""),
+      Math.round(s.cur.sales),Math.round(s.cur.ex),Math.round(s.cur.profit),
+      +orderRate(s.cur).toFixed(6),+profitRate(s.cur).toFixed(6), s.gap==null?"":+(-s.gap*100).toFixed(2)]));
+    aoa.push([b.brand+" 합계","","","","",Math.round(b.cur.sales),Math.round(b.cur.ex),Math.round(b.cur.profit),
+      +orderRate(b.cur).toFixed(6),+profitRate(b.cur).toFixed(6),""]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa), wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"월마감결과");
+  XLSX.writeFile(wb,`월마감결과_${LAST.cur||""}.xlsx`);
+}
+document.getElementById("exportBtn").addEventListener("click",exportXlsx);
 </script>
 </body>
 </html>
