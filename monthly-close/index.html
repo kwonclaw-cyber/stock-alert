@@ -159,6 +159,31 @@ const MATCH = window.STORE_MATCH||{};                  // 메이트코드 -> {lo
 const LOGI2MATE = {}; for(const m in MATCH){ LOGI2MATE[MATCH[m].logi]=m; }
 const TARGET_BRANDS = ["밥구정로데오","육식사관학교"];
 
+// 사용자 매장 매칭 (물류코드 -> 메이트코드), localStorage 영구 저장
+const MATCH_KEY = "monthlyClose.match.v1";
+let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"{}");}catch(e){return {};} })();
+function saveUserMatch(){ localStorage.setItem(MATCH_KEY, JSON.stringify(USER_MATCH)); }
+function mateFor(logi){ return USER_MATCH[logi] || LOGI2MATE[logi] || null; }
+
+// 매장명 유사도 (POS↔물류 명칭 차이 보정용)
+const REGION = ["서울","부산","대구","인천","광주","대전","울산","세종","경기","강원","충북","충남","전북","전남","경북","경남","제주","전라","경상","충청"];
+function nameCore(n){
+  let s=String(n||"");
+  TARGET_BRANDS.forEach(b=>s=s.split(b).join(""));
+  s=s.replace(/[\s_()]/g,"").replace(/[0-9]/g,"");
+  REGION.forEach(r=>s=s.split(r).join(""));
+  if(s.endsWith("점")) s=s.slice(0,-1);
+  return s;
+}
+function nameSim(a,b){
+  a=nameCore(a); b=nameCore(b);
+  if(!a||!b) return 0;
+  if(a===b) return 100;
+  if(a.includes(b)||b.includes(a)) return 75;
+  let common=0; const sb=new Set(b); for(const ch of new Set(a)) if(sb.has(ch)) common++;
+  return common/Math.max(a.length,b.length)*60;
+}
+
 // ===== 상태 =====
 const FILES = { pos:[], logi:null, buy:null, prev:null };
 let LOGI_AGG = null;     // {month: {logi: {name, brand, items:{pcode:{qty,supply,total}}}}}
@@ -254,7 +279,7 @@ function parsePos(rows, into){
   if(hr<0) return "POS 파일에서 헤더(매장코드/매장명)를 찾지 못했습니다.";
   const H=rows[hr].map(c=>String(c||"").replace(/\s/g,""));
   const ci={
-    code:colIndex(H,["매장코드"]),
+    code:colIndex(H,["매장코드"]), name:colIndex(H,["매장명"]),
     real:colIndex(H,["실매출액"]), net:colIndex(H,["순매출액"]),
     order:colIndex(H,["매출액"],["실","순"])
   };
@@ -262,7 +287,7 @@ function parsePos(rows, into){
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]; const code=toCode(row[ci.code]); if(!code)continue;
     if(String(row[ci.code]).includes("합계"))continue;
-    into[code]={ real:ci.real>=0?toNum(row[ci.real]):0, net:ci.net>=0?toNum(row[ci.net]):0, order:ci.order>=0?toNum(row[ci.order]):0 };
+    into[code]={ name:ci.name>=0?String(row[ci.name]||"").trim():"", real:ci.real>=0?toNum(row[ci.real]):0, net:ci.net>=0?toNum(row[ci.net]):0, order:ci.order>=0?toNum(row[ci.order]):0 };
   }
   return null;
 }
@@ -311,7 +336,7 @@ function compute(){
     const b=getBrand(meta.brand);
     const ca=storeAgg(meta.items);
     for(const pc in ca.missing){ missingGlobal[pc]=(missingGlobal[pc]||0)+ca.missing[pc]; }
-    const mate=LOGI2MATE[code]||null;
+    const mate=mateFor(code);
     const posRow = mate&&POS?POS[mate]:null;
     const sales = posRow?posRow[salesField]:0;
     const pmeta=prevAgg[code];
@@ -354,6 +379,55 @@ function classify(list){
 function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur,prev||0)}</td>`; }
 function rcell(cur,prev,extra){ return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur,prev)}${extra||""}</td>`; }
 
+function renderMatchPanel(res, root){
+  const salesField=document.getElementById("salesCol").value;
+  // 현재 사용 중인 메이트코드(이미 매칭된 것)
+  const used=new Set();
+  res.list.forEach(b=>b.stores.forEach(s=>{ const m=mateFor(s.logi); if(m&&s.matched.sales)used.add(m); }));
+  // 매출 미매칭 물류매장
+  const unmatched=[];
+  res.list.forEach(b=>b.stores.forEach(s=>{ if(!s.matched.sales)unmatched.push(s); }));
+  // 매칭 안 된(남은) POS 매장 후보
+  const avail=[];
+  if(POS) for(const m in POS){ if(!used.has(m))avail.push({mate:m, name:POS[m].name||m, sales:POS[m][salesField]||0}); }
+
+  const sec=document.createElement("section");
+  if(!unmatched.length){
+    const ucount=Object.keys(USER_MATCH).length;
+    sec.innerHTML=`<h2>매장 매칭 <span class="muted" style="font-weight:400">· 모든 매장 매칭됨 ✓${ucount?` (사용자 지정 ${ucount}건 적용)`:""}</span></h2>`;
+    root.appendChild(sec); return;
+  }
+  let rows="";
+  unmatched.forEach(s=>{
+    const cands=avail.map(a=>({...a, sim:nameSim(s.name,a.name)})).sort((x,y)=>y.sim-x.sim);
+    const opts=['<option value="">(연결 안 함)</option>'].concat(
+      cands.map((a,i)=>`<option value="${a.mate}" ${i===0&&a.sim>=40?"selected":""}>${a.name} · ${won(a.sales)}원${a.sim>=40?` (추천)`:""}</option>`)
+    ).join("");
+    rows+=`<tr><td style="padding:5px 8px">${s.brand}</td><td style="padding:5px 8px">${s.name} <span class="sub">(${s.logi})</span></td>
+      <td style="padding:5px 8px"><select class="box match-sel" data-logi="${s.logi}" style="min-width:260px">${opts}</select></td></tr>`;
+  });
+  sec.innerHTML=`<h2>매장 매칭 관리 <span class="muted" style="font-weight:400">· 매출 미매칭 ${unmatched.length}개</span></h2>
+    <div class="note">물류 매장명과 POS 매장명이 시스템마다 달라 자동연결이 안 된 매장입니다. 아래에서 같은 매장의 POS를 골라(추천이 미리 선택됨) <b>매칭 저장</b>을 누르면, 한 번만 지정하면 브라우저에 저장되어 다음 달부터 자동 적용됩니다.</div>
+    <div class="tablewrap" style="margin-top:8px"><table>
+      <thead><tr><th class="l">브랜드</th><th class="l">물류 매장 (미매칭)</th><th class="l">연결할 POS 매장 (매출)</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="btnrow"><button id="saveMatch">매칭 저장</button>
+      <button class="ghost" id="resetMatch">사용자 매칭 초기화</button>
+      <span class="muted">${Object.keys(USER_MATCH).length?`사용자 지정 매칭 ${Object.keys(USER_MATCH).length}건 적용 중`:""}</span></div>`;
+  root.appendChild(sec);
+
+  document.getElementById("saveMatch").addEventListener("click",()=>{
+    document.querySelectorAll(".match-sel").forEach(sel=>{
+      const logi=sel.dataset.logi, mate=sel.value;
+      if(mate) USER_MATCH[logi]=mate; else delete USER_MATCH[logi];
+    });
+    saveUserMatch(); rerun();
+  });
+  document.getElementById("resetMatch").addEventListener("click",()=>{
+    if(confirm("사용자가 지정한 매장 매칭을 모두 삭제할까요? (내장 매칭표는 유지)")){ USER_MATCH={}; saveUserMatch(); rerun(); }
+  });
+}
+
 function render(res){
   const {list, missingGlobal, cur, prev}=res;
   const root=document.getElementById("results"); root.innerHTML="";
@@ -368,6 +442,9 @@ function render(res){
   });
   cfg.innerHTML=`<h2>사입 분류 기준매장 <span class="muted" style="font-weight:400">· 당월 ${cur}${prev?` / 전월 ${prev}`:""}</span></h2><div class="cfg">${items}</div>`;
   root.appendChild(cfg);
+
+  // 매장 매칭 관리 (매출 미매칭 물류매장 ↔ POS 매장 수동 연결)
+  renderMatchPanel(res, root);
 
   // 요약
   const sum=document.createElement("section"); let cards="";
