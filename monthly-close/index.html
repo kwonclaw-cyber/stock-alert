@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>월마감 정산 페이지</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --up:#e03131; --down:#1971c2; --flat:#666;
+    --line:#dee2e6; --head:#f1f3f5; --zebra:#f8f9fa;
+    --accent:#1971c2; --accent-bg:#e7f5ff; --sa:#c2255c; --sa-bg:#fff0f6;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+       margin:0;color:#222;background:#f5f6f8;}
+  header{background:#fff;border-bottom:2px solid #333;padding:18px 24px;}
+  header h1{margin:0;font-size:20px;}
+  header p{margin:4px 0 0;font-size:13px;color:#666;}
+  main{max-width:1180px;margin:0 auto;padding:20px 24px 80px;}
+  section{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:20px;}
+  h2{font-size:16px;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  h3{font-size:15px;margin:24px 0 8px;padding:8px 12px;background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 6px 6px 0;}
+  .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfc;}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-bg);}
+  .drop .label{font-weight:700;font-size:14px;}
+  .drop .hint{font-size:12px;color:#888;margin-top:4px;}
+  .drop .file{font-size:12px;color:var(--accent);margin-top:8px;word-break:break-all;font-weight:600;}
+  .drop.req .label::after{content:" *";color:var(--up);}
+  .drop input[type=file]{display:none;}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center;}
+  button{font-family:inherit;font-size:14px;border:1px solid var(--accent);background:var(--accent);color:#fff;
+          padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:600;}
+  button.ghost{background:#fff;color:var(--accent);}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  th{background:var(--head);text-align:right;font-weight:700;position:sticky;top:0;}
+  th.l,td.l{text-align:left;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  tr.brandtot td{background:#fff9db;font-weight:700;border-top:2px solid #ffe066;border-bottom:2px solid #ffe066;}
+  tr.grand td{background:#e7f5ff;font-weight:700;}
+  .tablewrap{overflow:auto;max-height:none;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
+  .up{color:var(--up);} .down{color:var(--down);} .flat{color:var(--flat);}
+  .delta{font-size:12px;}
+  .sub{font-size:11px;color:#888;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;
+         background:var(--sa-bg);color:var(--sa);border:1px solid #faa2c1;margin-left:6px;vertical-align:middle;}
+  .saip-chk{transform:scale(1.15);cursor:pointer;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px;}
+  .card .bn{font-weight:700;font-size:14px;margin-bottom:8px;color:var(--accent);}
+  .card .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
+  .card .row .v{font-weight:700;font-variant-numeric:tabular-nums;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px;}
+  .msg.warn{background:#fff9db;border:1px solid #ffe066;}
+  .msg.err{background:#fff0f0;border:1px solid #ffc9c9;color:#c92a2a;}
+  .muted{color:#888;font-size:12px;}
+  .note{font-size:12px;color:#666;margin:2px 0 0;}
+  .legend{font-size:12px;color:#666;margin-top:6px;}
+  details summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600;}
+  .unmatched{font-size:12px;color:#c92a2a;margin-top:8px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>월마감 정산 페이지</h1>
+  <p>매출 로우데이터 · 물류매출 엑셀을 올리면 브랜드별·매장별 매출 / 전용물류매출 / 전용이익을 전월대비로 정리합니다. (데이터는 브라우저 안에서만 처리되며 서버로 전송되지 않습니다.)</p>
+</header>
+<main>
+
+  <section>
+    <h2>1. 데이터 업로드</h2>
+    <div class="uploads">
+      <label class="drop req" id="drop-sales">
+        <div class="label">당월 매출 로우데이터</div>
+        <div class="hint">매장코드 · 매장명 · 총매출액</div>
+        <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <input type="file" accept=".xlsx,.xls,.csv" data-kind="sales">
+      </label>
+      <label class="drop req" id="drop-logi">
+        <div class="label">당월 물류매출</div>
+        <div class="hint">매장코드 · 전용상품발주금액 · 본사이익</div>
+        <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <input type="file" accept=".xlsx,.xls,.csv" data-kind="logi">
+      </label>
+      <label class="drop" id="drop-prev">
+        <div class="label">전월 결과파일 (선택)</div>
+        <div class="hint">지난달 "결과 내보내기" 파일</div>
+        <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <input type="file" accept=".xlsx,.xls,.csv" data-kind="prev">
+      </label>
+    </div>
+    <div class="btnrow">
+      <button id="calcBtn" disabled>정산 계산</button>
+      <button class="ghost" id="exportBtn" disabled>결과 엑셀 내보내기</button>
+      <button class="ghost" id="resetSaip" title="사입매장 지정 초기화">사입 지정 초기화</button>
+      <span class="muted" id="saipInfo"></span>
+    </div>
+    <div id="messages"></div>
+    <p class="note">* 브랜드는 매장명 접두어(예: <b>밥구정로데오</b>_서울영등포점)로 자동 분류합니다. 매장코드로 매출·물류 데이터를 연결합니다.</p>
+  </section>
+
+  <div id="results"></div>
+
+</main>
+
+<script>
+"use strict";
+
+// ---------- 상태 ----------
+const FILES = { sales:null, logi:null, prev:null };
+const SAIP_KEY = "monthlyClose.saip.v1";   // 사입매장 매장코드 집합 (localStorage)
+let LAST = null;                            // 마지막 계산 결과(내보내기용)
+
+function loadSaip(){ try{ return new Set(JSON.parse(localStorage.getItem(SAIP_KEY)||"[]").map(String)); }catch(e){ return new Set(); } }
+function saveSaip(s){ localStorage.setItem(SAIP_KEY, JSON.stringify([...s])); }
+let SAIP = loadSaip();
+const SAIP_DISCOUNT = 0.075; // 기준매장 대비 -7.5% (표시용)
+
+// ---------- 유틸 ----------
+const won = n => (Math.round(n||0)).toLocaleString("ko-KR");
+const pct = (n,d=1) => (n*100).toFixed(d)+"%";
+function num(v){
+  if(v==null||v==="") return 0;
+  if(typeof v==="number") return v;
+  const x = parseFloat(String(v).replace(/[^0-9.\-]/g,""));
+  return isNaN(x)?0:x;
+}
+function brandOf(name){
+  if(!name) return "기타";
+  const s = String(name).trim();
+  const m = s.split(/[_\s]/)[0];
+  return m || "기타";
+}
+function normKey(code, name){
+  const c = String(code==null?"":code).trim();
+  if(c) return "C:"+c.replace(/[^0-9A-Za-z]/g,"");
+  return "N:"+String(name||"").replace(/[\s_()]/g,"");
+}
+
+// 증감 HTML (금액/건수 → %)
+function deltaPct(cur, prev){
+  if(!prev) return `<span class="delta flat">신규</span>`;
+  const d = (cur-prev)/prev*100;
+  const cls = d>0.05?"up":(d<-0.05?"down":"flat");
+  const arrow = d>0.05?"▲":(d<-0.05?"▼":"━");
+  return `<span class="delta ${cls}">${arrow} ${Math.abs(d).toFixed(1)}%</span>`;
+}
+// 증감 (비율 → %p 차이)
+function deltaPp(cur, prev){
+  if(prev==null) return `<span class="delta flat">-</span>`;
+  const d = (cur-prev)*100;
+  const cls = d>0.05?"up":(d<-0.05?"down":"flat");
+  const arrow = d>0.05?"▲":(d<-0.05?"▼":"━");
+  return `<span class="delta ${cls}">${arrow} ${Math.abs(d).toFixed(1)}%p</span>`;
+}
+
+// ---------- 엑셀 파싱 ----------
+function sheetToRows(file, cb){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, {type:"array"});
+    // 모든 시트의 행을 합쳐서 헤더를 탐색 (월마감 raw가 여러 시트일 수 있음)
+    let best = [];
+    wb.SheetNames.forEach(sn => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, blankrows:false, defval:""});
+      if(rows.length > best.length) best = rows;  // 가장 행이 많은 시트 사용
+    });
+    cb(best, wb);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// 한 헤더 행에 대해 점수 기반·중복 방지로 필드→컬럼 매핑
+function mapHeaderRow(cells, spec){
+  // 후보 수집: (field, col, score)  score = 매칭된 키워드 길이(긴 키워드 우선)
+  const cands = [];
+  for(const field in spec){
+    const kws = spec[field];
+    const pos = kws.filter(k=>!k.startsWith("!"));
+    const neg = kws.filter(k=>k.startsWith("!")).map(k=>k.slice(1));
+    for(let c=0; c<cells.length; c++){
+      const cell = cells[c];
+      if(!cell) continue;
+      if(neg.some(k=>cell.includes(k))) continue;
+      let best = 0;
+      pos.forEach(k=>{ if(cell.includes(k) && k.length>best) best=k.length; });
+      if(best>0) cands.push({field, col:c, score:best});
+    }
+  }
+  // 점수 높은 순으로 그리디 배정 (필드·컬럼 각각 1회만)
+  cands.sort((a,b)=>b.score-a.score);
+  const map = {}, usedCol = new Set();
+  cands.forEach(x=>{
+    if(map[x.field]!=null || usedCol.has(x.col)) return;
+    map[x.field]=x.col; usedCol.add(x.col);
+  });
+  return map;
+}
+
+// 헤더 행 찾기 + 컬럼 인덱스 매핑
+function detectColumns(rows, spec){
+  // spec: { field: [keywords...] }  음수 키워드는 "!"로 시작
+  let headerRow = -1, map = {};
+  for(let r=0; r<Math.min(rows.length, 15); r++){
+    const cells = rows[r].map(c => String(c||"").replace(/\s/g,""));
+    const tryMap = mapHeaderRow(cells, spec);
+    if(Object.keys(tryMap).length > Object.keys(map).length){ map = tryMap; headerRow = r; }
+    // 매장명 + 값 컬럼 1개 이상 잡히면 그 행을 헤더로 확정
+    if(tryMap.name!=null && (tryMap.sales!=null || tryMap.exorder!=null || tryMap.profit!=null)){ map=tryMap; headerRow=r; break; }
+  }
+  return { headerRow, map };
+}
+
+const SALES_SPEC = {
+  code:["매장코드","물류코드","포스코드","코드","!사업자"],
+  name:["매장명","점명","매장","!코드","!번호"],
+  sales:["총매출액","실매출액","실매출","매출액","당월매출","매출","!율","!률","!대비"]
+};
+const LOGI_SPEC = {
+  code:["매장코드","물류코드","코드","!사업자"],
+  name:["매장명","물류매장명","매장","!코드","!번호"],
+  exorder:["전용상품발주금액","전용물류매출","전용발주금액","전용상품금액","!율","!률","!대비"],
+  profit:["본사이익","전용이익","!율","!률","!대비"]
+};
+const PREV_SPEC = {
+  code:["매장코드","코드","!사업자"],
+  name:["매장명","매장","!코드","!번호","!여부","!브랜드"],
+  sales:["매출","!율","!률","!대비","!물류"],
+  exorder:["전용물류매출","전용발주","전용상품","!율","!률","!대비"],
+  profit:["전용이익","본사이익","!율","!률","!대비"]
+};
+
+function parseSales(rows){
+  const {headerRow, map} = detectColumns(rows, SALES_SPEC);
+  if(map.name==null || map.sales==null) return {error:"매출 데이터에서 '매장명' 또는 '매출액' 컬럼을 찾지 못했습니다.", items:{}};
+  const items = {};
+  for(let r=headerRow+1; r<rows.length; r++){
+    const row = rows[r];
+    const name = String(row[map.name]||"").trim();
+    if(!name) continue;
+    const code = map.code!=null?row[map.code]:"";
+    const sales = num(row[map.sales]);
+    if(!code && !sales) continue;
+    items[normKey(code,name)] = { code:String(code||"").trim(), name, sales };
+  }
+  return {items, map, headerRow};
+}
+
+function parseLogi(rows){
+  const {headerRow, map} = detectColumns(rows, LOGI_SPEC);
+  if(map.name==null && map.code==null) return {error:"물류매출 데이터에서 매장코드/매장명 컬럼을 찾지 못했습니다.", items:{}};
+  const items = {};
+  for(let r=headerRow+1; r<rows.length; r++){
+    const row = rows[r];
+    const name = String(row[map.name!=null?map.name:map.code]||"").trim();
+    const code = map.code!=null?row[map.code]:"";
+    if(!name && !code) continue;
+    items[normKey(code,name)] = {
+      code:String(code||"").trim(), name,
+      exorder: map.exorder!=null?num(row[map.exorder]):0,
+      profit:  map.profit!=null?num(row[map.profit]):0
+    };
+  }
+  return {items, map, headerRow};
+}
+
+function parsePrev(rows){
+  const {headerRow, map} = detectColumns(rows, PREV_SPEC);
+  const items = {};
+  if(map.name==null && map.code==null) return {items};
+  for(let r=headerRow+1; r<rows.length; r++){
+    const row = rows[r];
+    const name = String(row[map.name!=null?map.name:map.code]||"").trim();
+    const code = map.code!=null?row[map.code]:"";
+    if(!name && !code) continue;
+    const k = normKey(code,name);
+    items[k] = {
+      code:String(code||"").trim(), name,
+      sales:   map.sales!=null?num(row[map.sales]):0,
+      exorder: map.exorder!=null?num(row[map.exorder]):0,
+      profit:  map.profit!=null?num(row[map.profit]):0
+    };
+  }
+  return {items, map, headerRow};
+}
+
+// ---------- 계산 ----------
+function compute(salesItems, logiItems, prevItems){
+  // 매장 단위 병합 (매출 + 물류). 키: normKey
+  const stores = {};
+  function ensure(k, code, name){
+    if(!stores[k]) stores[k] = {code:code||"", name:name||"", sales:0, exorder:0, profit:0, matched:{sales:false,logi:false}};
+    if(!stores[k].name && name) stores[k].name = name;
+    if(!stores[k].code && code) stores[k].code = code;
+    return stores[k];
+  }
+  for(const k in salesItems){ const s=salesItems[k]; const st=ensure(k,s.code,s.name); st.sales=s.sales; st.matched.sales=true; }
+  for(const k in logiItems){ const l=logiItems[k]; const st=ensure(k,l.code,l.name); st.exorder=l.exorder; st.profit=l.profit; st.matched.logi=true; }
+
+  // 브랜드별 그룹
+  const brands = {};
+  for(const k in stores){
+    const st = stores[k];
+    const b = brandOf(st.name);
+    if(!brands[b]) brands[b]={brand:b, stores:[], cur:{sales:0,exorder:0,profit:0}, prev:{sales:0,exorder:0,profit:0}};
+    const prev = prevItems[k] || null;
+    const row = {
+      key:k, code:st.code, name:st.name,
+      saip: SAIP.has(String(st.code)),
+      cur:{sales:st.sales, exorder:st.exorder, profit:st.profit},
+      prev: prev?{sales:prev.sales, exorder:prev.exorder, profit:prev.profit}:null,
+      matched: st.matched
+    };
+    brands[b].stores.push(row);
+    brands[b].cur.sales+=row.cur.sales; brands[b].cur.exorder+=row.cur.exorder; brands[b].cur.profit+=row.cur.profit;
+    if(prev){ brands[b].prev.sales+=prev.sales; brands[b].prev.exorder+=prev.exorder; brands[b].prev.profit+=prev.profit; }
+  }
+  // 정렬: 브랜드 이름, 매장은 매출 내림차순
+  const list = Object.values(brands).sort((a,b)=>b.cur.sales-a.cur.sales);
+  list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
+  return list;
+}
+
+// 비율들
+const orderRate = m => m.sales? m.exorder/m.sales : 0;        // 전용발주율
+const profitRate = m => m.exorder? m.profit/m.exorder : 0;    // 전용이익률
+
+// ---------- 렌더 ----------
+function metricCell(cur, prev, kind){
+  // kind: "won" 금액 / "won-delta-pp" not used
+  return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur, prev||0)}</td>`;
+}
+function rateCell(cur, prev){
+  return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur, prev)}</td>`;
+}
+
+function render(brandList, hasPrev){
+  const root = document.getElementById("results");
+  root.innerHTML = "";
+
+  // ---- 브랜드 요약 ----
+  const sum = document.createElement("section");
+  let cards = "";
+  let g = {sales:0,exorder:0,profit:0}, gp={sales:0,exorder:0,profit:0};
+  brandList.forEach(b=>{
+    g.sales+=b.cur.sales; g.exorder+=b.cur.exorder; g.profit+=b.cur.profit;
+    gp.sales+=b.prev.sales; gp.exorder+=b.prev.exorder; gp.profit+=b.prev.profit;
+    cards += `<div class="card">
+      <div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
+      <div class="row"><span>총매출</span><span class="v">${won(b.cur.sales)}원 ${deltaPct(b.cur.sales,b.prev.sales)}</span></div>
+      <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.exorder)}원 ${deltaPct(b.cur.exorder,b.prev.exorder)}</span></div>
+      <div class="row"><span>전용이익</span><span class="v">${won(b.cur.profit)}원 ${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
+      <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))}</span></div>
+      <div class="row"><span>전용이익률</span><span class="v">${pct(profitRate(b.cur))}</span></div>
+    </div>`;
+  });
+  sum.innerHTML = `<h2>브랜드별 요약 ${hasPrev?'<span class="muted" style="font-weight:400">· 전월대비</span>':'<span class="muted" style="font-weight:400">· 전월파일 없음(전월=0)</span>'}</h2>
+    <div class="cards">${cards}</div>
+    <div style="margin-top:14px" class="card">
+      <div class="bn">전체 합계</div>
+      <div class="row"><span>총매출</span><span class="v">${won(g.sales)}원 ${deltaPct(g.sales,gp.sales)}</span></div>
+      <div class="row"><span>전용물류매출</span><span class="v">${won(g.exorder)}원 ${deltaPct(g.exorder,gp.exorder)}</span></div>
+      <div class="row"><span>전용이익</span><span class="v">${won(g.profit)}원 ${deltaPct(g.profit,gp.profit)}</span></div>
+    </div>
+    <div class="legend">증감: <span class="up">▲ 증가</span> / <span class="down">▼ 감소</span> · 비율은 %p(퍼센트포인트) 기준</div>`;
+  root.appendChild(sum);
+
+  // ---- 브랜드별 상세 ----
+  brandList.forEach(b=>{
+    const sec = document.createElement("section");
+    let rows = "";
+    b.stores.forEach(s=>{
+      const o = orderRate(s.cur), p = profitRate(s.cur);
+      const po = s.prev?orderRate(s.prev):null, pp = s.prev?profitRate(s.prev):null;
+      const saipNote = s.saip
+        ? `<div class="sub">사입(-7.5%) 기준 매출 ${won(s.cur.sales*(1-SAIP_DISCOUNT))}원</div>` : "";
+      rows += `<tr>
+        <td class="l"><label style="cursor:pointer"><input type="checkbox" class="saip-chk" data-code="${s.code}" ${s.saip?"checked":""}> 사입</label></td>
+        <td class="l">${s.name}${s.saip?'<span class="badge">사입 -7.5%</span>':""}${!s.matched.logi?'<span class="badge" title="물류 데이터 없음">물류X</span>':""}${!s.matched.sales?'<span class="badge" title="매출 데이터 없음">매출X</span>':""}
+            ${saipNote}</td>
+        ${metricCell(s.cur.sales, s.prev&&s.prev.sales)}
+        ${metricCell(s.cur.exorder, s.prev&&s.prev.exorder)}
+        ${rateCell(o, po)}
+        ${metricCell(s.cur.profit, s.prev&&s.prev.profit)}
+        ${rateCell(p, pp)}
+      </tr>`;
+    });
+    const o=orderRate(b.cur), p=profitRate(b.cur);
+    const po=orderRate(b.prev), pp=profitRate(b.prev);
+    const totRow = `<tr class="brandtot">
+        <td class="l"></td><td class="l">합계 (${b.stores.length}개)</td>
+        ${metricCell(b.cur.sales,b.prev.sales)}
+        ${metricCell(b.cur.exorder,b.prev.exorder)}
+        ${rateCell(o,po)}
+        ${metricCell(b.cur.profit,b.prev.profit)}
+        ${rateCell(p,pp)}
+      </tr>`;
+    sec.innerHTML = `<h3>${b.brand}</h3>
+      <div class="tablewrap"><table>
+        <thead><tr>
+          <th class="l">사입</th><th class="l">매장명</th>
+          <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th>
+        </tr></thead>
+        <tbody>${totRow}${rows}</tbody>
+      </table></div>`;
+    root.appendChild(sec);
+  });
+
+  // 사입 체크박스 이벤트
+  root.querySelectorAll(".saip-chk").forEach(cb=>{
+    cb.addEventListener("change", e=>{
+      const code = String(e.target.dataset.code||"");
+      if(!code){ alert("이 매장은 매장코드가 없어 사입 지정을 저장할 수 없습니다."); e.target.checked=false; return; }
+      if(e.target.checked) SAIP.add(code); else SAIP.delete(code);
+      saveSaip(SAIP);
+      runCalc(); // 재계산하여 배지/요약 갱신
+    });
+  });
+  updateSaipInfo();
+}
+
+function updateSaipInfo(){
+  document.getElementById("saipInfo").textContent = SAIP.size? `사입매장 ${SAIP.size}개 지정됨` : "";
+}
+
+// ---------- 메시지 ----------
+function setMsg(html){ document.getElementById("messages").innerHTML = html; }
+
+// ---------- 실행 ----------
+let CACHE = {sales:null, logi:null, prev:null};
+function tryEnable(){
+  document.getElementById("calcBtn").disabled = !(FILES.sales && FILES.logi);
+}
+
+function runCalc(){
+  if(!(FILES.sales && FILES.logi)) return;
+  const msgs = [];
+  const sales = parseSales(CACHE.sales);
+  const logi  = parseLogi(CACHE.logi);
+  const prev  = CACHE.prev? parsePrev(CACHE.prev) : {items:{}};
+  if(sales.error){ setMsg(`<div class="msg err">${sales.error}</div>`); return; }
+  if(logi.error){ setMsg(`<div class="msg err">${logi.error}</div>`); return; }
+
+  const brandList = compute(sales.items, logi.items, prev.items);
+  LAST = brandList;
+
+  // 매칭 경고
+  const noLogi = [], noSales = [];
+  brandList.forEach(b=>b.stores.forEach(s=>{
+    if(!s.matched.logi) noLogi.push(s.name);
+    if(!s.matched.sales) noSales.push(s.name);
+  }));
+  let warn = "";
+  if(noLogi.length) warn += `<div class="msg warn">물류 데이터가 없는 매장 ${noLogi.length}개: ${noLogi.slice(0,8).join(", ")}${noLogi.length>8?" 외":""}</div>`;
+  if(noSales.length) warn += `<div class="msg warn">매출 데이터가 없는 매장 ${noSales.length}개: ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
+  if(!CACHE.prev) warn += `<div class="msg warn">전월 결과파일이 없어 전월대비는 0 기준으로 표시됩니다. (전월 결과 엑셀을 올리면 비교됩니다.)</div>`;
+  setMsg(warn);
+
+  render(brandList, !!CACHE.prev);
+  document.getElementById("exportBtn").disabled = false;
+}
+
+// ---------- 내보내기 ----------
+function exportXlsx(){
+  if(!LAST) return;
+  const aoa = [["브랜드","매장코드","매장명","사입여부","매출","전용물류매출","전용이익","전용발주율","전용이익률"]];
+  LAST.forEach(b=>{
+    b.stores.forEach(s=>{
+      aoa.push([b.brand, s.code, s.name, s.saip?"사입":"",
+        Math.round(s.cur.sales), Math.round(s.cur.exorder), Math.round(s.cur.profit),
+        +orderRate(s.cur).toFixed(6), +profitRate(s.cur).toFixed(6)]);
+    });
+    aoa.push([b.brand+" 합계","","","",
+      Math.round(b.cur.sales), Math.round(b.cur.exorder), Math.round(b.cur.profit),
+      +orderRate(b.cur).toFixed(6), +profitRate(b.cur).toFixed(6)]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "월마감결과");
+  const d = new Date();
+  const ym = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  XLSX.writeFile(wb, `월마감결과_${ym}.xlsx`);
+}
+
+// ---------- 파일 입력 바인딩 ----------
+function bindDrop(id){
+  const drop = document.getElementById(id);
+  const input = drop.querySelector("input[type=file]");
+  const kind = input.dataset.kind;
+  const fileLabel = drop.querySelector("[data-file]");
+  function handle(file){
+    if(!file) return;
+    FILES[kind] = file;
+    fileLabel.textContent = file.name;
+    sheetToRows(file, rows => { CACHE[kind] = rows; tryEnable(); });
+  }
+  input.addEventListener("change", e=> handle(e.target.files[0]));
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+  drop.addEventListener("drop", e=> handle(e.dataTransfer.files[0]));
+}
+["drop-sales","drop-logi","drop-prev"].forEach(bindDrop);
+
+document.getElementById("calcBtn").addEventListener("click", runCalc);
+document.getElementById("exportBtn").addEventListener("click", exportXlsx);
+document.getElementById("resetSaip").addEventListener("click", ()=>{
+  if(confirm("지정된 사입매장을 모두 해제할까요?")){ SAIP=new Set(); saveSaip(SAIP); if(LAST) runCalc(); updateSaipInfo(); }
+});
+updateSaipInfo();
+</script>
+</body>
+</html>
