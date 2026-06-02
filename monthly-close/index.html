@@ -165,6 +165,49 @@ let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"
 function saveUserMatch(){ localStorage.setItem(MATCH_KEY, JSON.stringify(USER_MATCH)); }
 function mateFor(logi){ return USER_MATCH[logi] || LOGI2MATE[logi] || null; }
 
+// 양도양수 매장 통합 (member 물류코드 -> 대표 물류코드), localStorage 영구 저장
+const GROUP_KEY = "monthlyClose.group.v1";
+let USER_GROUP = (()=>{ try{return JSON.parse(localStorage.getItem(GROUP_KEY)||"{}");}catch(e){return {};} })();
+function saveUserGroup(){ localStorage.setItem(GROUP_KEY, JSON.stringify(USER_GROUP)); }
+function canon(logi){ return USER_GROUP[logi] || logi; }
+let STORE_DIR = {};   // {logi: {name, brand, months:Set}} — 전체 기간 매장 디렉터리(통합 추천용)
+
+// 한 달 집계(month->logi->{name,brand,items})를 대표코드 기준으로 합산
+function consolidate(agg){
+  const out={};
+  for(const code in agg){
+    const c=canon(code), src=agg[code];
+    if(!out[c]) out[c]={name:src.name, brand:src.brand, items:{}, members:[]};
+    out[c].members.push(code);
+    if(code===c){ out[c].name=src.name; out[c].brand=src.brand; }   // 대표코드 이름 우선
+    for(const p in src.items){ const it=src.items[p];
+      if(!out[c].items[p])out[c].items[p]={qty:0,supply:0,total:0};
+      out[c].items[p].qty+=it.qty; out[c].items[p].supply+=it.supply; out[c].items[p].total+=it.total; }
+  }
+  return out;
+}
+// 지역명 유지 코어(통합 신뢰도 판정용)
+function coreKeepRegion(n){
+  let s=String(n||""); TARGET_BRANDS.forEach(b=>s=s.split(b).join(""));
+  s=s.replace(/[\s_()]/g,"").replace(/[0-9]/g,"").replace(/폐업|폐점/g,"");
+  if(s.endsWith("점")) s=s.slice(0,-1); return s;
+}
+function latestMonth(code){ const d=STORE_DIR[code]; if(!d||!d.months.size)return ""; return [...d.months].sort().pop(); }
+// 양도양수 통합 후보 그룹 탐지: 브랜드+지역제거코어 동일 & 코드 2개 이상
+function detectGroups(){
+  const by={};
+  for(const code in STORE_DIR){ const d=STORE_DIR[code]; const k=d.brand+"|"+nameCore(d.name);
+    if(!nameCore(d.name))continue; (by[k]=by[k]||[]).push(code); }
+  const groups=[];
+  for(const k in by){ if(by[k].length<2)continue;
+    const codes=by[k].slice().sort((a,b)=>latestMonth(a)<latestMonth(b)?-1:1);
+    const canonical=codes[codes.length-1];           // 최신 활동 코드를 대표로
+    const regs=new Set(codes.map(c=>coreKeepRegion(STORE_DIR[c].name)));
+    groups.push({codes, canonical, high:regs.size===1}); // 지역명까지 같으면 높은 신뢰
+  }
+  return groups;
+}
+
 // 매장명 유사도 (POS↔물류 명칭 차이 보정용)
 const REGION = ["서울","부산","대구","인천","광주","대전","울산","세종","경기","강원","충북","충남","전북","전남","경북","경남","제주","전라","경상","충청"];
 function nameCore(n){
@@ -254,11 +297,14 @@ function parseLogi(rows){
     total:colIndex(H,["총합계","합계"],["부가","공급"])
   };
   if(ci.ym<0||ci.code<0||ci.supply<0||ci.jb<0) return {error:"물류 원장 컬럼 인식 실패 (발주일/사업장코드/공급가/전·범용 확인)"};
-  const agg={};
+  const agg={}, dir={};
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]; if(!row||row[ci.ym]==null||row[ci.ym]==="")continue;
     const brand=String(row[ci.brand]||"").trim();
     if(TARGET_BRANDS.indexOf(brand)<0) continue;
+    const ymA=toCode(row[ci.ym]), codeA=toCode(row[ci.code]);
+    if(!dir[codeA])dir[codeA]={name:String(row[ci.sname]||"").trim(), brand, months:new Set()};
+    dir[codeA].months.add(ymA);
     if(String(row[ci.jb]||"").trim()!=="전용") continue;       // 전용만 집계
     const ym=toCode(row[ci.ym]), code=toCode(row[ci.code]), pcode=toCode(row[ci.pcode]);
     const qty=toNum(row[ci.qty]), supply=toNum(row[ci.supply]);
@@ -270,7 +316,7 @@ function parseLogi(rows){
     if(!it[pcode])it[pcode]={qty:0,supply:0,total:0};
     it[pcode].qty+=qty; it[pcode].supply+=supply; it[pcode].total+=total;
   }
-  return {agg};
+  return {agg, dir};
 }
 
 // ===== POS 매출 파싱 =====
@@ -326,7 +372,8 @@ function compute(){
   const cur=document.getElementById("curMonth").value;
   const idx=MONTHS.indexOf(cur); const prev=idx>0?MONTHS[idx-1]:null;
   const salesField=document.getElementById("salesCol").value;
-  const curAgg=LOGI_AGG[cur]||{}, prevAgg=prev?(LOGI_AGG[prev]||{}):{};
+  // 양도양수 통합: 대표코드 기준으로 합산
+  const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
 
   const brands={}; const missingGlobal={};
   function getBrand(b){ if(!brands[b])brands[b]={brand:b,stores:[],cur:{sales:0,ex:0,profit:0},prev:{sales:0,ex:0,profit:0}}; return brands[b]; }
@@ -336,17 +383,20 @@ function compute(){
     const b=getBrand(meta.brand);
     const ca=storeAgg(meta.items);
     for(const pc in ca.missing){ missingGlobal[pc]=(missingGlobal[pc]||0)+ca.missing[pc]; }
-    const mate=mateFor(code);
-    const posRow = mate&&POS?POS[mate]:null;
-    const sales = posRow?posRow[salesField]:0;
+    // 매출: 통합 멤버들의 POS 매출 합산(전환월엔 한 코드만 활동)
+    let sales=0, anyMatch=false, mate="";
+    meta.members.forEach(mc=>{ const m=mateFor(mc); if(m&&POS&&POS[m]){ sales+=POS[m][salesField]||0; anyMatch=true; if(!mate)mate=m; } });
     const pmeta=prevAgg[code];
     const pa=pmeta?storeAgg(pmeta.items):null;
-    const psales = PREVRES&&PREVRES[code]?PREVRES[code].sales:0;
+    let psales=0;
+    const pmembers=(pmeta?pmeta.members:meta.members);
+    pmembers.forEach(mc=>{ if(PREVRES&&PREVRES[mc])psales+=PREVRES[mc].sales||0; });
     const st={
-      logi:code, mate:mate||"", name:meta.name, brand:meta.brand,
+      logi:code, mate:mate||mateFor(code)||"", name:meta.name, brand:meta.brand,
+      members:meta.members,
       cur:{sales, ex:ca.ex, profit:ca.profit},
       prev: (pa||psales)?{sales:psales, ex:pa?pa.ex:0, profit:pa?pa.profit:0}:null,
-      matched:{ logi:true, sales:!!posRow },
+      matched:{ logi:true, sales:anyMatch },
       missing:Object.keys(ca.missing).length>0
     };
     b.stores.push(st);
@@ -378,6 +428,49 @@ function classify(list){
 // ===== 렌더 =====
 function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev||0)}</span><br>${deltaPct(cur,prev||0)}</td>`; }
 function rcell(cur,prev,extra){ return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur,prev)}${extra||""}</td>`; }
+
+function monthsLabel(code){ const d=STORE_DIR[code]; if(!d||!d.months.size)return "-"; const m=[...d.months].sort(); return m[0]===m[m.length-1]?m[0]:`${m[0]}~${m[m.length-1]}`; }
+
+function renderGroupPanel(root){
+  const groups=detectGroups();
+  if(!groups.length) return;
+  const sec=document.createElement("section");
+  let html="";
+  groups.sort((a,b)=>(b.high?1:0)-(a.high?1:0));
+  groups.forEach((g,gi)=>{
+    // 현재 통합 상태: 멤버들이 모두 같은 canon이면 통합됨
+    const merged = g.codes.every(c=>canon(c)===canon(g.codes[0])) && canon(g.codes[0])!==g.codes[0] || g.codes.some(c=>USER_GROUP[c]);
+    const checked = merged || g.high; // 신뢰 높으면 기본 체크
+    const memberRows=g.codes.map(c=>{
+      const sel=c===g.canonical;
+      return `<label style="display:block;padding:2px 0"><input type="radio" name="canon-${gi}" value="${c}" ${sel?"checked":""}> ${STORE_DIR[c].name} <span class="sub">(${c} · ${monthsLabel(c)})</span>${sel?' <span class="badge ref">대표</span>':''}</label>`;
+    }).join("");
+    html+=`<div class="item" data-gi="${gi}" data-codes="${g.codes.join(',')}">
+      <label style="font-weight:700"><input type="checkbox" class="grp-chk" ${checked?"checked":""}> 통합${g.high?'':' <span class="badge warnb">지역명 다름·확인</span>'}</label>
+      <div style="margin-top:4px">${memberRows}</div></div>`;
+  });
+  sec.innerHTML=`<h2>양도양수 매장 통합 <span class="muted" style="font-weight:400">· 후보 ${groups.length}그룹</span></h2>
+    <div class="note">같은 매장인데 양도양수로 코드가 갈린 경우를 하나로 묶어 당월·전월 모두 합산하고 전월대비를 연속 처리합니다. <b>대표</b>(최신 코드)는 라디오로 선택, 묶을 그룹은 체크 후 <b>통합 저장</b>. 한 번 저장하면 영구 적용됩니다. (지역명이 다른 후보는 서로 다른 매장일 수 있으니 확인하세요.)</div>
+    <div class="cfg" style="margin-top:8px">${html}</div>
+    <div class="btnrow"><button id="saveGroup">통합 저장</button>
+      <button class="ghost" id="resetGroup">통합 초기화</button>
+      <span class="muted">${Object.keys(USER_GROUP).length?`통합 적용 ${new Set(Object.values(USER_GROUP)).size}그룹`:""}</span></div>`;
+  root.appendChild(sec);
+
+  document.getElementById("saveGroup").addEventListener("click",()=>{
+    document.querySelectorAll('#results .item[data-gi]').forEach(div=>{
+      const codes=div.dataset.codes.split(',');
+      const on=div.querySelector('.grp-chk').checked;
+      const canonSel=(div.querySelector('input[type=radio]:checked')||{}).value||codes[codes.length-1];
+      codes.forEach(c=>{ delete USER_GROUP[c]; });
+      if(on){ codes.forEach(c=>{ if(c!==canonSel)USER_GROUP[c]=canonSel; }); }
+    });
+    saveUserGroup(); rerun();
+  });
+  document.getElementById("resetGroup").addEventListener("click",()=>{
+    if(confirm("저장된 양도양수 통합 설정을 모두 삭제할까요?")){ USER_GROUP={}; saveUserGroup(); rerun(); }
+  });
+}
 
 function renderMatchPanel(res, root){
   const salesField=document.getElementById("salesCol").value;
@@ -443,6 +536,8 @@ function render(res){
   cfg.innerHTML=`<h2>사입 분류 기준매장 <span class="muted" style="font-weight:400">· 당월 ${cur}${prev?` / 전월 ${prev}`:""}</span></h2><div class="cfg">${items}</div>`;
   root.appendChild(cfg);
 
+  // 양도양수 매장 통합
+  renderGroupPanel(root);
   // 매장 매칭 관리 (매출 미매칭 물류매장 ↔ POS 매장 수동 연결)
   renderMatchPanel(res, root);
 
@@ -553,7 +648,7 @@ function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.le
 // 파일 처리
 function processLogi(file){ readRows(file, rows=>{ const r=parseLogi(rows);
   if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); return; }
-  LOGI_AGG=r.agg; MONTHS=Object.keys(r.agg).sort();
+  LOGI_AGG=r.agg; STORE_DIR=r.dir; MONTHS=Object.keys(r.agg).sort();
   const sel=document.getElementById("curMonth"); sel.innerHTML="";
   MONTHS.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
   sel.value=MONTHS[MONTHS.length-1];
