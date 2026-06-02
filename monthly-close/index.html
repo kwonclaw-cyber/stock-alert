@@ -415,6 +415,25 @@ function storeAgg(itemsByPcode){
 const orderRate=m=>m.sales?m.ex/m.sales:0;
 const profitRate=m=>m.ex?m.profit/m.ex:0;
 
+// 리스트 정렬·필터 상태
+let LIST_SORT="sales", LIST_DIR=-1, LIST_FILTER="all";
+const SORT_VAL={ sales:s=>s.cur.sales, ex:s=>s.cur.ex, profit:s=>s.cur.profit,
+  orate:s=>orderRate(s.cur), prate:s=>profitRate(s.cur), name:s=>s.name };
+function applyFilterSort(stores){
+  let arr=stores.filter(s=>{
+    if(LIST_FILTER==="saip")return s.saip;
+    if(LIST_FILTER==="open")return s.isNew;
+    if(LIST_FILTER==="ref")return s.isRef;
+    if(LIST_FILTER==="normal")return !s.saip&&!s.isNew&&!s.isRef;
+    return true;
+  });
+  const f=SORT_VAL[LIST_SORT]||SORT_VAL.sales;
+  arr=arr.slice().sort((a,b)=>{ const x=f(a),y=f(b);
+    if(LIST_SORT==="name")return LIST_DIR*String(x).localeCompare(String(y),"ko");
+    return LIST_DIR*((x||0)-(y||0)); });
+  return arr;
+}
+
 // ===== 계산 =====
 function compute(){
   const cur=document.getElementById("curMonth").value;
@@ -630,10 +649,28 @@ function render(res){
     <div class="legend">증감 <span class="up">▲</span>/<span class="down">▼</span> · 비율 %p · <span class="badge ref" style="margin:0">기준</span> <span class="badge" style="margin:0 0 0 4px">사입</span> <span class="badge openb" style="margin:0 0 0 4px">당월오픈</span>(전월 데이터 없음)</div>`;
   root.appendChild(sum);
 
+  // 정렬·필터 툴바
+  const bar=document.createElement("section");
+  const sortOpts=[["sales","매출"],["ex","전용물류매출"],["profit","전용이익"],["orate","전용발주율"],["prate","전용이익률"],["name","매장명"]]
+    .map(([v,t])=>`<option value="${v}" ${LIST_SORT===v?"selected":""}>${t}</option>`).join("");
+  const filtOpts=[["all","전체"],["saip","사입"],["open","당월오픈"],["ref","기준매장"],["normal","일반"]]
+    .map(([v,t])=>`<option value="${v}" ${LIST_FILTER===v?"selected":""}>${t}</option>`).join("");
+  bar.innerHTML=`<h2>리스트 정렬·필터</h2>
+    <div class="opts">
+      <label>정렬: <select class="box" id="listSort">${sortOpts}</select></label>
+      <label><select class="box" id="listDir"><option value="-1" ${LIST_DIR<0?"selected":""}>내림차순 ▼</option><option value="1" ${LIST_DIR>0?"selected":""}>오름차순 ▲</option></select></label>
+      <label>구분: <select class="box" id="listFilter">${filtOpts}</select></label>
+    </div>`;
+  root.appendChild(bar);
+  bar.querySelector("#listSort").addEventListener("change",e=>{ LIST_SORT=e.target.value; render(LAST); });
+  bar.querySelector("#listDir").addEventListener("change",e=>{ LIST_DIR=+e.target.value; render(LAST); });
+  bar.querySelector("#listFilter").addEventListener("change",e=>{ LIST_FILTER=e.target.value; render(LAST); });
+
   // 브랜드 상세
   list.forEach(b=>{
     const sec=document.createElement("section"); let rows="";
-    b.stores.forEach(s=>{
+    const shown=applyFilterSort(b.stores);
+    shown.forEach(s=>{
       const o=s.rate,p=profitRate(s.cur), po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
       let badges=""; if(s.isNew)badges+='<span class="badge openb">당월오픈</span>';
       if(s.isRef)badges+='<span class="badge ref">기준매장</span>'; else if(s.saip)badges+='<span class="badge">사입</span>';
@@ -647,7 +684,8 @@ function render(res){
         <td class="l">${gubun}</td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
-    const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount})</td>
+    const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
+    const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td></tr>`;
     sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
       <div class="tablewrap"><table><thead><tr><th class="l">매장명</th>
