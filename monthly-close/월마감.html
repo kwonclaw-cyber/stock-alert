@@ -81,6 +81,26 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
   .up{color:var(--up);} .down{color:var(--down);} .flat{color:var(--flat);}
   .delta{font-size:12px;}
+  /* KPI */
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;}
+  .kc{position:relative;border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:12px;padding:14px 16px;background:#fbfdff;}
+  .kc.ok{border-left-color:#2b8a3e;background:#f4fdf6;} .kc.bad{border-left-color:var(--up);background:#fff6f6;} .kc.warn{border-left-color:#f59f00;background:#fffaf0;}
+  .kc .kt{font-weight:800;font-size:14px;} .kc .kgoal{font-size:12px;color:#666;margin-top:2px;}
+  .kc .kv{font-size:23px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums;}
+  .kc .ksub{font-size:12px;color:#555;margin-top:2px;}
+  .kstat{position:absolute;top:12px;right:14px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;}
+  .kstat.ok{background:#d3f9d8;color:#2b8a3e;} .kstat.bad{background:#ffe3e3;color:var(--up);} .kstat.warn{background:#fff3bf;color:#a37f00;}
+  /* 브랜드 요약 도식화 */
+  .bcard .big{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .pill{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:12px;vertical-align:middle;margin-left:4px;}
+  .pill.up{background:#ffe3e3;color:var(--up);} .pill.down{background:#d0ebff;color:var(--down);} .pill.flat{background:#f1f3f5;color:#666;}
+  .bar2{margin:10px 0 4px;} .bar2 .lbl{font-size:11px;color:#999;}
+  .bar2 .tr{height:9px;background:#f1f3f5;border-radius:5px;overflow:hidden;margin-top:3px;}
+  .bar2 .tr>i{display:block;height:100%;border-radius:5px;background:#adb5bd;}
+  .bar2 .tr>i.up{background:#ff8787;} .bar2 .tr>i.down{background:#74c0fc;}
+  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:10px;}
+  .kgrid .s{font-size:12px;display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed #eee;padding:4px 0;}
+  .kgrid .s b{font-variant-numeric:tabular-nums;}
   .sub{font-size:11px;color:#888;}
   .badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;
          background:var(--sa-bg);color:var(--sa);border:1px solid #faa2c1;margin-left:6px;vertical-align:middle;}
@@ -113,6 +133,8 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   <p>POS 매출 + 물류 발주원장을 올리면 브랜드별·매장별 매출 / 전용물류매출 / 전용이익을 전월대비로 산출합니다. (모든 처리는 브라우저 안에서만 이루어지며 데이터는 외부로 전송되지 않습니다.)</p>
 </header>
 <main>
+
+  <section id="kpiSection"></section>
 
   <section>
     <h2>1. 데이터 업로드</h2>
@@ -321,6 +343,10 @@ function deltaPct(cur,prev){ if(!prev)return `<span class="delta flat">신규</s
 function deltaPp(cur,prev){ if(prev==null)return `<span class="delta flat">-</span>`;
   const d=(cur-prev)*100, cls=d>0.05?"up":(d<-0.05?"down":"flat"), a=d>0.05?"▲":(d<-0.05?"▼":"━");
   return `<span class="delta ${cls}">${a} ${Math.abs(d).toFixed(1)}%p</span>`; }
+// pill 형태 증감 배지
+function pillPct(cur,prev){ if(!prev)return `<span class="pill flat">신규</span>`;
+  const d=(cur-prev)/prev*100, cls=d>0.05?"up":(d<-0.05?"down":"flat"), a=d>0.05?"▲":(d<-0.05?"▼":"━");
+  return `<span class="pill ${cls}">${a} ${Math.abs(d).toFixed(1)}%</span>`; }
 
 // ===== 엑셀 읽기 =====
 function readRows(file, cb){
@@ -687,15 +713,22 @@ function render(res){
     const n=b.stores.length, pn=b.stores.filter(s=>!s.isNew).length; gN+=n; gPN+=pn;
     const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
     const por=b.prev.sales?orderRate(b.prev):null, ppr=b.prev.ex?profitRate(b.prev):null;
-    cards+=`<div class="card"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
-      <div class="row"><span>총매출</span><span class="v">${won(b.cur.sales)}원 ${deltaPct(b.cur.sales,b.prev.sales)}</span></div>
-      <div class="row"><span>점당 평균매출</span><span class="v">${won(avg)}원 ${pavg==null?"":deltaPct(avg,pavg)}</span></div>
-      <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.ex)}원 ${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
-      <div class="row"><span>전용이익</span><span class="v">${won(b.cur.profit)}원 ${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
-      <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))} ${deltaPp(orderRate(b.cur), b.prev.sales?orderRate(b.prev):null)}</span></div>
-      <div class="row"><span>전용이익률</span><span class="v">${pct(profitRate(b.cur))} ${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</span></div>
-      <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${b.saipCount}개</span></div>
-      <div class="row"><span>당월오픈</span><span class="v" style="color:#2b8a3e">${b.openCount}개</span></div></div>`;
+    const mx=Math.max(b.cur.sales,b.prev.sales,1), cw=b.cur.sales/mx*100, pw=b.prev.sales/mx*100;
+    const dir=b.cur.sales>=b.prev.sales?"up":"down";
+    cards+=`<div class="card bcard"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
+      <div style="margin-top:6px"><span class="big">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
+      <div class="sub">점당 평균매출 ${won(avg)}원 ${pavg==null?"":pillPct(avg,pavg)}</div>
+      <div class="bar2"><div class="lbl">총매출 · 당월 vs 전월</div>
+        <div class="tr"><i class="${dir}" style="width:${cw.toFixed(1)}%"></i></div>
+        <div class="tr"><i style="width:${pw.toFixed(1)}%"></i></div></div>
+      <div class="kgrid">
+        <div class="s"><span>전용물류매출</span><b>${won(b.cur.ex)} ${deltaPct(b.cur.ex,b.prev.ex)}</b></div>
+        <div class="s"><span>전용이익</span><b>${won(b.cur.profit)} ${deltaPct(b.cur.profit,b.prev.profit)}</b></div>
+        <div class="s"><span>전용발주율</span><b>${pct(orderRate(b.cur))} ${deltaPp(orderRate(b.cur), b.prev.sales?orderRate(b.prev):null)}</b></div>
+        <div class="s"><span>전용이익률</span><b>${pct(profitRate(b.cur))} ${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</b></div>
+        <div class="s"><span>사입매장</span><b style="color:var(--sa)">${b.saipCount}개</b></div>
+        <div class="s"><span>당월오픈</span><b style="color:#2b8a3e">${b.openCount}개</b></div>
+      </div></div>`;
   });
   sum.innerHTML=`<h2>브랜드별 요약</h2><div class="cards">${cards}</div>
     <div style="margin-top:14px" class="card"><div class="bn">전체 합계</div>
@@ -773,9 +806,51 @@ function render(res){
   }));
 }
 
+// ===== KPI 관리 =====
+const JEJU_KEY="monthlyClose.jeju.v1";
+let JEJU_PS=(()=>{ const v=parseFloat(localStorage.getItem(JEJU_KEY)); return isNaN(v)?0:v; })();
+function brandStat(name){
+  if(!LAST)return null; const b=LAST.list.find(x=>x.brand===name); if(!b)return null;
+  const n=b.stores.length, pn=b.stores.filter(s=>!s.isNew).length;
+  const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
+  return {avg, pavg, mom: (pavg? (avg-pavg)/pavg : null)};
+}
+function kpiCard(title, goal, statusCls, statusTxt, bigHtml, subHtml){
+  return `<div class="kc ${statusCls}"><span class="kstat ${statusCls}">${statusTxt}</span>
+    <div class="kt">${title}</div><div class="kgoal">목표 · ${goal}</div>
+    <div class="kv">${bigHtml}</div><div class="ksub">${subHtml||""}</div></div>`;
+}
+function renderKPI(){
+  const el=document.getElementById("kpiSection"); if(!el)return;
+  const mlabel=LAST&&LAST.cur?` <span class="muted" style="font-weight:400">· ${LAST.cur} 기준</span>`:"";
+  let cards="";
+  // 1) 육식사관학교: 점당매출 전월대비 +5%
+  { const s=brandStat("육식사관학교");
+    if(!s){ cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑","warn","계산 필요","—","정산 계산 후 표시"); }
+    else { const mom=s.mom; const cls=mom==null?"warn":(mom>=0.05?"ok":(mom>=0?"warn":"bad"));
+      const st=mom==null?"-":(mom>=0.05?"달성":(mom>=0?"근접":"하락"));
+      cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑",cls,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)} (목표 +5%)`); } }
+  // 2) 밥구정로데오: 점당매출 현상태 유지
+  { const s=brandStat("밥구정로데오");
+    if(!s){ cards+=kpiCard("밥구정로데오","점당매출 현상태 유지","warn","계산 필요","—","정산 계산 후 표시"); }
+    else { const mom=s.mom; const cls=mom==null?"warn":(mom>=-0.005?"ok":(mom>=-0.03?"warn":"bad"));
+      const st=mom==null?"-":(mom>=-0.005?"유지":(mom>=-0.03?"주의":"하락"));
+      cards+=kpiCard("밥구정로데오","점당매출 현상태 유지(0%↑)",cls,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)}`); } }
+  // 3) 제주할멍고기국수: 점당매출 1,200만원 (수기 입력)
+  { const target=12000000, cur=JEJU_PS;
+    const cls=cur<=0?"warn":(cur>=target?"ok":(cur>=target*0.9?"warn":"bad"));
+    const st=cur<=0?"입력":(cur>=target?"달성":(cur>=target*0.9?"근접":"미달"));
+    cards+=kpiCard("제주할멍고기국수","점당매출 1,200만원",cls,st,
+      `<input class="box" id="jejuPS" type="number" value="${cur||""}" placeholder="점당매출 입력" style="width:150px;text-align:right;font-size:18px;font-weight:800"> 원`,
+      `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`); }
+  el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>`;
+  const j=document.getElementById("jejuPS");
+  if(j) j.addEventListener("change",e=>{ JEJU_PS=toNum(e.target.value); localStorage.setItem(JEJU_KEY,String(JEJU_PS)); renderKPI(); });
+}
+
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
-function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); document.getElementById("exportBtn").disabled=false; }
+function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI(); document.getElementById("exportBtn").disabled=false; }
 
 function showWarnings(res){
   let w="";
@@ -916,6 +991,7 @@ function renderExtra(){
 }
 document.getElementById("addExtra").addEventListener("click",()=>{ EXTRA.push({name:"",cur:0,prev:0}); saveExtra(); renderExtra(); });
 renderExtra();
+renderKPI();
 
 // ===== 내보내기 =====
 function exportXlsx(){
