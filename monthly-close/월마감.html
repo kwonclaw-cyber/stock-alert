@@ -197,12 +197,24 @@ let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"
 function saveUserMatch(){ localStorage.setItem(MATCH_KEY, JSON.stringify(USER_MATCH)); }
 function mateFor(logi){ return USER_MATCH[logi] || LOGI2MATE[logi] || null; }
 
-// 양도양수 매장 통합 (member 물류코드 -> 대표 물류코드), localStorage 영구 저장
-const GROUP_KEY = "monthlyClose.group.v1";
-let USER_GROUP = (()=>{ try{return JSON.parse(localStorage.getItem(GROUP_KEY)||"{}");}catch(e){return {};} })();
-function saveUserGroup(){ localStorage.setItem(GROUP_KEY, JSON.stringify(USER_GROUP)); }
-function canon(logi){ return USER_GROUP[logi] || logi; }
+// 양도양수 매장 통합: 그룹키별 사용자 결정(병합여부·대표)만 저장. 높은 신뢰 그룹은 저장 없이 자동 적용.
+const GDEC_KEY = "monthlyClose.gdec.v2";
+let USER_GDEC = (()=>{ try{return JSON.parse(localStorage.getItem(GDEC_KEY)||"{}");}catch(e){return {};} })();
+function saveUserGdec(){ localStorage.setItem(GDEC_KEY, JSON.stringify(USER_GDEC)); }
 let STORE_DIR = {};   // {logi: {name, brand, months:Set}} — 전체 기간 매장 디렉터리(통합 추천용)
+let GMAP = {};        // member 물류코드 -> 대표 물류코드 (자동+사용자결정 반영, compute마다 갱신)
+function canon(logi){ return GMAP[logi] || logi; }
+// 자동(높은신뢰)+사용자결정으로 통합 매핑 산출
+function buildGroupMap(){
+  GMAP={};
+  detectGroups().forEach(g=>{
+    const dec=USER_GDEC[g.key];
+    const merge = dec ? dec.merge : g.high;                 // 결정 없으면: 높은신뢰=병합, 낮음=미병합
+    const canonical = (dec&&dec.canonical&&g.codes.indexOf(dec.canonical)>=0) ? dec.canonical : g.canonical;
+    if(merge) g.codes.forEach(c=>{ if(c!==canonical)GMAP[c]=canonical; });
+  });
+  return GMAP;
+}
 
 // 한 달 집계(month->logi->{name,brand,items})를 대표코드 기준으로 합산
 function consolidate(agg){
@@ -226,6 +238,7 @@ function coreKeepRegion(n){
 }
 function latestMonth(code){ const d=STORE_DIR[code]; if(!d||!d.months.size)return ""; return [...d.months].sort().pop(); }
 // 양도양수 통합 후보 그룹 탐지: 브랜드+지역제거코어 동일 & 코드 2개 이상
+function hasParenNum(n){ return /\(\s*\d+\s*\)/.test(String(n||"")); }
 function detectGroups(){
   const by={};
   for(const code in STORE_DIR){ const d=STORE_DIR[code]; const k=d.brand+"|"+nameCore(d.name);
@@ -235,7 +248,9 @@ function detectGroups(){
     const codes=by[k].slice().sort((a,b)=>latestMonth(a)<latestMonth(b)?-1:1);
     const canonical=codes[codes.length-1];           // 최신 활동 코드를 대표로
     const regs=new Set(codes.map(c=>coreKeepRegion(STORE_DIR[c].name)));
-    groups.push({codes, canonical, high:regs.size===1}); // 지역명까지 같으면 높은 신뢰
+    // 지역명까지 같거나, (2)/(3) 재등록 표기가 있으면 동일매장 재등록으로 높은 신뢰
+    const high = regs.size===1 || codes.some(c=>hasParenNum(STORE_DIR[c].name));
+    groups.push({key:k, codes, canonical, high});
   }
   return groups;
 }
@@ -419,7 +434,8 @@ function compute(){
   const cur=document.getElementById("curMonth").value;
   const idx=MONTHS.indexOf(cur); const prev=idx>0?MONTHS[idx-1]:null;
   const salesField=document.getElementById("salesCol").value;
-  // 양도양수 통합: 대표코드 기준으로 합산
+  // 양도양수 통합: 자동(높은신뢰)+사용자결정으로 매핑 산출 후 대표코드 기준 합산
+  buildGroupMap();
   const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
   // 전월 결과파일(있으면)을 대표코드 기준으로 합산 — 양도양수 구코드도 대표코드로 묶임
   const prevByCanon={};
@@ -494,40 +510,42 @@ function renderGroupPanel(root){
   const groups=detectGroups();
   if(!groups.length) return;
   const sec=document.createElement("section");
-  let html="";
+  let html=""; let autoN=0;
   groups.sort((a,b)=>(b.high?1:0)-(a.high?1:0));
   groups.forEach((g,gi)=>{
-    // 현재 통합 상태: 멤버들이 모두 같은 canon이면 통합됨
-    const merged = g.codes.every(c=>canon(c)===canon(g.codes[0])) && canon(g.codes[0])!==g.codes[0] || g.codes.some(c=>USER_GROUP[c]);
-    const checked = merged || g.high; // 신뢰 높으면 기본 체크
+    const dec=USER_GDEC[g.key];
+    const merge = dec ? dec.merge : g.high;                 // 현재 적용 상태
+    const canonSel = (dec&&dec.canonical&&g.codes.indexOf(dec.canonical)>=0) ? dec.canonical : g.canonical;
+    if(merge) autoN++;
+    const tag = g.high ? '<span class="badge openb" title="자동 적용됨">자동</span>' : '<span class="badge warnb">지역명 다름·확인</span>';
     const memberRows=g.codes.map(c=>{
-      const sel=c===g.canonical;
+      const sel=c===canonSel;
       return `<label style="display:block;padding:2px 0"><input type="radio" name="canon-${gi}" value="${c}" ${sel?"checked":""}> ${STORE_DIR[c].name} <span class="sub">(${c} · ${monthsLabel(c)})</span>${sel?' <span class="badge ref">대표</span>':''}</label>`;
     }).join("");
-    html+=`<div class="item" data-gi="${gi}" data-codes="${g.codes.join(',')}">
-      <label style="font-weight:700"><input type="checkbox" class="grp-chk" ${checked?"checked":""}> 통합${g.high?'':' <span class="badge warnb">지역명 다름·확인</span>'}</label>
+    html+=`<div class="item" data-key="${encodeURIComponent(g.key)}" data-codes="${g.codes.join(',')}">
+      <label style="font-weight:700"><input type="checkbox" class="grp-chk" ${merge?"checked":""}> 통합 ${tag}</label>
       <div style="margin-top:4px">${memberRows}</div></div>`;
   });
-  sec.innerHTML=`<h2>양도양수 매장 통합 <span class="muted" style="font-weight:400">· 후보 ${groups.length}그룹</span></h2>
-    <div class="note">같은 매장인데 양도양수로 코드가 갈린 경우를 하나로 묶어 당월·전월 모두 합산하고 전월대비를 연속 처리합니다. <b>대표</b>(최신 코드)는 라디오로 선택, 묶을 그룹은 체크 후 <b>통합 저장</b>. 한 번 저장하면 영구 적용됩니다. (지역명이 다른 후보는 서로 다른 매장일 수 있으니 확인하세요.)</div>
+  sec.innerHTML=`<h2>양도양수 매장 통합 <span class="muted" style="font-weight:400">· 후보 ${groups.length}그룹 · 적용 ${autoN}</span></h2>
+    <div class="note"><b>높은 신뢰(자동) 그룹은 저장 없이 바로 적용</b>됩니다. 잘못 묶였으면 체크 해제, 낮은신뢰(확인) 그룹을 묶으려면 체크, 대표(최신 코드)는 라디오로 바꾼 뒤 <b>통합 저장</b>을 누르면 그 결정이 영구 저장됩니다.</div>
     <div class="cfg" style="margin-top:8px">${html}</div>
     <div class="btnrow"><button id="saveGroup">통합 저장</button>
-      <button class="ghost" id="resetGroup">통합 초기화</button>
-      <span class="muted">${Object.keys(USER_GROUP).length?`통합 적용 ${new Set(Object.values(USER_GROUP)).size}그룹`:""}</span></div>`;
+      <button class="ghost" id="resetGroup">결정 초기화(자동만)</button>
+      <span class="muted">${Object.keys(USER_GDEC).length?`사용자 결정 ${Object.keys(USER_GDEC).length}건 저장됨`:"사용자 결정 없음 (자동만 적용)"}</span></div>`;
   root.appendChild(sec);
 
   document.getElementById("saveGroup").addEventListener("click",()=>{
-    document.querySelectorAll('#results .item[data-gi]').forEach(div=>{
+    document.querySelectorAll('#results .item[data-key]').forEach(div=>{
+      const key=decodeURIComponent(div.dataset.key);
       const codes=div.dataset.codes.split(',');
       const on=div.querySelector('.grp-chk').checked;
       const canonSel=(div.querySelector('input[type=radio]:checked')||{}).value||codes[codes.length-1];
-      codes.forEach(c=>{ delete USER_GROUP[c]; });
-      if(on){ codes.forEach(c=>{ if(c!==canonSel)USER_GROUP[c]=canonSel; }); }
+      USER_GDEC[key]={merge:on, canonical:canonSel};
     });
-    saveUserGroup(); rerun();
+    saveUserGdec(); rerun();
   });
   document.getElementById("resetGroup").addEventListener("click",()=>{
-    if(confirm("저장된 양도양수 통합 설정을 모두 삭제할까요?")){ USER_GROUP={}; saveUserGroup(); rerun(); }
+    if(confirm("저장된 통합 결정을 모두 삭제할까요? (높은 신뢰 그룹은 자동 적용으로 되돌아갑니다)")){ USER_GDEC={}; saveUserGdec(); rerun(); }
   });
 }
 
