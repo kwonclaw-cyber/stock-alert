@@ -326,10 +326,14 @@ function parseLogi(rows){
     total:colIndex(H,["총합계","합계"],["부가","공급"])
   };
   if(ci.ym<0||ci.code<0||ci.supply<0||ci.jb<0) return {error:"물류 원장 컬럼 인식 실패 (발주일/사업장코드/공급가/전·범용 확인)"};
-  const agg={}, dir={};
+  const agg={}, dir={}, sis={};   // sis: 샵인샵(+신규샵인샵) 월별 총합계 합
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]; if(!row||row[ci.ym]==null||row[ci.ym]==="")continue;
     const brand=String(row[ci.brand]||"").trim();
+    const ymR=toCode(row[ci.ym]);
+    if(brand.indexOf("샵인샵")>=0){   // 샵인샵 + 신규샵인샵: 전 품목 총합계 합
+      sis[ymR]=(sis[ymR]||0)+(ci.total>=0?toNum(row[ci.total]):toNum(row[ci.supply])*1.1);
+    }
     if(TARGET_BRANDS.indexOf(brand)<0) continue;
     const ymA=toCode(row[ci.ym]), codeA=toCode(row[ci.code]);
     if(!dir[codeA])dir[codeA]={name:String(row[ci.sname]||"").trim(), brand, months:new Set()};
@@ -345,7 +349,7 @@ function parseLogi(rows){
     if(!it[pcode])it[pcode]={qty:0,supply:0,total:0};
     it[pcode].qty+=qty; it[pcode].supply+=supply; it[pcode].total+=total;
   }
-  return {agg, dir};
+  return {agg, dir, sis};
 }
 
 // ===== POS 매출 파싱 =====
@@ -713,10 +717,11 @@ function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.le
 // 파일 처리
 function processLogi(file){ readRows(file, rows=>{ const r=parseLogi(rows);
   if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); return; }
-  LOGI_AGG=r.agg; STORE_DIR=r.dir; MONTHS=Object.keys(r.agg).sort();
+  LOGI_AGG=r.agg; STORE_DIR=r.dir; SIS_BY_MONTH=r.sis||{}; MONTHS=Object.keys(r.agg).sort();
   const sel=document.getElementById("curMonth"); sel.innerHTML="";
   MONTHS.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
   sel.value=MONTHS[MONTHS.length-1];
+  renderExtra();   // 샵인샵 자동행 갱신
   tryEnable();
 }); }
 function processPos(files){ POS={}; let done=0, err=null;
@@ -745,34 +750,45 @@ function bindDrop(id){
 ["drop-pos","drop-logi","drop-buy","drop-prev"].forEach(bindDrop);
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
-["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(LAST)rerun(); }));
+["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(id==="curMonth")renderExtra(); if(LAST)rerun(); }));
 if(Object.keys(BUY_USER).length){ document.querySelector('#drop-buy [data-file]').textContent=`내장값 + 추가 ${Object.keys(BUY_USER).length}건 (저장됨)`; }
 const th=document.getElementById("threshold"); th.value=THRESHOLD*100;
 th.addEventListener("change",e=>{ const v=parseFloat(e.target.value); THRESHOLD=isNaN(v)?0.075:v/100; localStorage.setItem(TH_KEY,String(THRESHOLD*100)); if(LAST)rerun(); });
 
 // ===== 추가 매출 비교 (직접 입력) =====
-const EXTRA_KEY="monthlyClose.extra.v1";
-let EXTRA=(()=>{ try{const v=JSON.parse(localStorage.getItem(EXTRA_KEY)); if(Array.isArray(v)&&v.length)return v;}catch(e){}
-  return [{name:"샵인샵 매출",cur:0,prev:0},{name:"제주할멍 매출",cur:0,prev:0}]; })();
+const EXTRA_KEY="monthlyClose.extra.v2";
+const SIS_MULT=1.5;                       // 샵인샵 추정매출 배수 (총합계 ×150%)
+let SIS_BY_MONTH={};                       // {월: 샵인샵+신규샵인샵 총합계 합}
+let EXTRA=(()=>{ try{const v=JSON.parse(localStorage.getItem(EXTRA_KEY)); if(Array.isArray(v))return v.filter(x=>x&&(x.name||"").indexOf("샵인샵")<0);}catch(e){}
+  return [{name:"제주할멍 매출",cur:0,prev:0}]; })();
 function saveExtra(){ localStorage.setItem(EXTRA_KEY, JSON.stringify(EXTRA)); }
+function sisVal(month){ return (SIS_BY_MONTH[month]||0)*SIS_MULT; }
+function curPrevMonths(){ const sel=document.getElementById("curMonth"); const cur=sel?sel.value:""; const i=MONTHS.indexOf(cur); return [cur, i>0?MONTHS[i-1]:""]; }
 function extraDeltaTotals(){
-  let ct=0,pt=0; EXTRA.forEach(x=>{ct+=(+x.cur||0);pt+=(+x.prev||0);});
+  const [cm,pm]=curPrevMonths();
+  let ct=sisVal(cm), pt=sisVal(pm); EXTRA.forEach(x=>{ct+=(+x.cur||0);pt+=(+x.prev||0);});
   document.getElementById("extraCurT").textContent=won(ct);
   document.getElementById("extraPrevT").textContent=won(pt);
   document.getElementById("extraDeltaT").innerHTML=deltaPct(ct,pt);
 }
 function renderExtra(){
   const body=document.getElementById("extraBody"); if(!body)return;
-  body.innerHTML="";
+  const [cm,pm]=curPrevMonths();
+  const sc=sisVal(cm), sp=sisVal(pm);
+  // 샵인샵 자동행 (물류원장 샵인샵+신규샵인샵 총합계 ×150%, 읽기전용)
+  let html=`<tr style="background:#f8f9fa">
+    <td class="l">샵인샵 매출 <span class="badge openb" title="물류원장 샵인샵 품목 총합계 ×150% 자동계산">자동</span>
+      <div class="sub">샵인샵 발주 총합계 ×150% · 당월 ${cm||"-"} / 전월 ${pm||"-"}</div></td>
+    <td class="num">${won(sc)}</td><td class="num">${won(sp)}</td>
+    <td class="num">${deltaPct(sc,sp)}</td><td></td></tr>`;
   EXTRA.forEach((x,i)=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td class="l"><input class="box ex-name" data-i="${i}" value="${(x.name||"").replace(/"/g,'&quot;')}" style="width:200px"></td>
+    html+=`<tr><td class="l"><input class="box ex-name" data-i="${i}" value="${(x.name||"").replace(/"/g,'&quot;')}" style="width:200px"></td>
       <td class="num"><input class="box ex-cur" data-i="${i}" type="number" value="${x.cur||0}" style="width:140px;text-align:right"></td>
       <td class="num"><input class="box ex-prev" data-i="${i}" type="number" value="${x.prev||0}" style="width:140px;text-align:right"></td>
       <td class="num ex-delta" data-i="${i}">${deltaPct(+x.cur||0,+x.prev||0)}</td>
-      <td class="l"><button class="ghost ex-del" data-i="${i}" style="padding:4px 10px">삭제</button></td>`;
-    body.appendChild(tr);
+      <td class="l"><button class="ghost ex-del" data-i="${i}" style="padding:4px 10px">삭제</button></td></tr>`;
   });
+  body.innerHTML=html;
   body.querySelectorAll(".ex-name").forEach(el=>el.addEventListener("input",e=>{ EXTRA[+e.target.dataset.i].name=e.target.value; saveExtra(); }));
   ["ex-cur","ex-prev"].forEach(cls=>body.querySelectorAll("."+cls).forEach(el=>el.addEventListener("input",e=>{
     const i=+e.target.dataset.i, x=EXTRA[i];
@@ -800,10 +816,12 @@ function exportXlsx(){
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa), wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"월마감결과");
-  // 추가 매출 비교 시트
-  if(EXTRA.length){
+  // 추가 매출 비교 시트 (샵인샵 자동행 포함)
+  {
     const ex=[["항목","당월 매출","전월 매출","전월대비"]];
-    let ct=0,pt=0;
+    const [cm,pm]=curPrevMonths(); const sc=sisVal(cm), sp=sisVal(pm);
+    let ct=sc,pt=sp;
+    ex.push(["샵인샵 매출(발주 총합계×150%)", Math.round(sc), Math.round(sp), sp?+(((sc-sp)/sp)).toFixed(4):""]);
     EXTRA.forEach(x=>{ const c=+x.cur||0,p=+x.prev||0; ct+=c;pt+=p;
       ex.push([x.name||"", Math.round(c), Math.round(p), p?+(((c-p)/p)).toFixed(4):""]); });
     ex.push(["합계",Math.round(ct),Math.round(pt), pt?+(((ct-pt)/pt)).toFixed(4):""]);
