@@ -169,7 +169,7 @@ let LAST = null;
 
 // 사입 설정
 const REF_KEY="monthlyClose.ref.v3", TH_KEY="monthlyClose.threshold.v3";
-const REF_TOKEN={ "밥구정로데오":"광주서구본점", "육식사관학교":"_본점$" };
+const REF_TOKEN={ "밥구정로데오":"광주서구본점", "육식사관학교":"남양읍점" };
 let REF=(()=>{try{return JSON.parse(localStorage.getItem(REF_KEY)||"{}");}catch(e){return {};}})();
 let THRESHOLD=(()=>{const v=parseFloat(localStorage.getItem(TH_KEY));return isNaN(v)?0.075:v/100;})();
 
