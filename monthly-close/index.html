@@ -99,7 +99,7 @@
       </label>
       <label class="drop" id="drop-buy">
         <div class="label">전용상품 매입가 (선택·보충)</div>
-        <div class="hint">신규 전용상품 매입가 갱신용</div>
+        <div class="hint">신규 전용상품 매입가 갱신용 · 한 번 추가하면 계속 유지됨</div>
         <div class="file" data-file>내장값 사용 중</div>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="buy">
       </label>
@@ -149,7 +149,12 @@
 "use strict";
 
 // ===== 내장 참조 =====
-const BUY = Object.assign({}, window.BUY_PRICE||{});   // 상품코드 -> 매입가
+const BUY_KEY = "monthlyClose.buyUser.v1";              // 사용자 추가 매입가 (localStorage 영구 저장)
+let BUY_USER = (()=>{ try{return JSON.parse(localStorage.getItem(BUY_KEY)||"{}");}catch(e){return {};} })();
+const BUY = Object.assign({}, window.BUY_PRICE||{}, BUY_USER); // 내장 마스터 + 사용자 추가분 병합
+const PNAME = {};                                      // 상품코드 -> 상품명 (물류원장에서 수집)
+function saveBuyUser(){ localStorage.setItem(BUY_KEY, JSON.stringify(BUY_USER)); }
+function setBuyPrice(code, price){ code=String(code).trim(); if(!code)return; BUY[code]=price; BUY_USER[code]=price; saveBuyUser(); }
 const MATCH = window.STORE_MATCH||{};                  // 메이트코드 -> {logi, name, brand}
 const LOGI2MATE = {}; for(const m in MATCH){ LOGI2MATE[MATCH[m].logi]=m; }
 const TARGET_BRANDS = ["밥구정로데오","육식사관학교"];
@@ -219,6 +224,7 @@ function parseLogi(rows){
     ym:colIndex(H,["발주일"]), brand:colIndex(H,["브랜드"]),
     jb:colIndex(H,["전/범용","전범용","전용여부"]), code:colIndex(H,["사업장코드"]),
     sname:colIndex(H,["사업장"],["코드"]), pcode:colIndex(H,["상품코드"]),
+    pname:colIndex(H,["상품명","품명"]),
     qty:colIndex(H,["수량"]), supply:colIndex(H,["공급가"]),
     total:colIndex(H,["총합계","합계"],["부가","공급"])
   };
@@ -232,6 +238,7 @@ function parseLogi(rows){
     const ym=toCode(row[ci.ym]), code=toCode(row[ci.code]), pcode=toCode(row[ci.pcode]);
     const qty=toNum(row[ci.qty]), supply=toNum(row[ci.supply]);
     const total=ci.total>=0?toNum(row[ci.total]):supply*1.1;
+    if(pcode && !PNAME[pcode]){ const nm=ci.pname>=0?String(row[ci.pname]||"").trim():""; if(nm)PNAME[pcode]=nm; }
     if(!agg[ym])agg[ym]={};
     if(!agg[ym][code])agg[ym][code]={name:String(row[ci.sname]||"").trim(), brand, items:{}};
     const it=agg[ym][code].items;
@@ -420,14 +427,48 @@ function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnin
 
 function showWarnings(res){
   let w="";
+  const ucount=Object.keys(BUY_USER).length;
+  if(ucount) w+=`<div class="msg ok">사용자 추가 매입가 <b>${ucount}건</b> 적용 중 (브라우저에 저장됨). <a href="#" id="clearBuy">초기화</a></div>`;
   const noSales=[]; res.list.forEach(b=>b.stores.forEach(s=>{ if(!s.matched.sales)noSales.push(s.name); }));
-  const miss=Object.keys(res.missingGlobal);
-  if(miss.length){ const tot=Object.values(res.missingGlobal).reduce((a,b)=>a+b,0);
-    w+=`<div class="msg err"><b>전용상품 매입가 누락 ${miss.length}개</b> (관련 공급가 ${won(tot)}원) → 해당 전용이익이 과대 계산됩니다. 상품코드: ${miss.slice(0,10).join(", ")}${miss.length>10?" 외":""}<br>"전용상품 매입가" 파일을 올려 매입가를 보충하세요.</div>`; }
+  const miss=Object.entries(res.missingGlobal).sort((a,b)=>b[1]-a[1]); // [code, supply] 공급가 큰 순
+  if(miss.length){ const tot=miss.reduce((a,x)=>a+x[1],0);
+    let rowsH="";
+    miss.forEach(([code,sup])=>{
+      const nm=PNAME[code]||"";
+      rowsH+=`<tr><td style="padding:3px 8px;font-variant-numeric:tabular-nums">${code}</td>
+        <td style="padding:3px 8px">${nm}</td>
+        <td style="padding:3px 8px;text-align:right;font-variant-numeric:tabular-nums">${won(sup)}원</td>
+        <td style="padding:3px 8px"><input class="box buy-in" data-code="${code}" type="number" placeholder="매입가" style="width:110px"> <button class="buy-save" data-code="${code}" style="padding:4px 10px">저장</button></td></tr>`;
+    });
+    w+=`<div class="msg err"><b>전용상품 매입가 누락 ${miss.length}개</b> (관련 공급가 ${won(tot)}원) → 해당 전용이익이 과대 계산됩니다.
+      아래에 매입가를 입력해 저장하거나(저장 시 영구 반영), "전용상품 매입가" 파일을 올려 한 번에 보충하세요.
+      <div style="overflow:auto;margin-top:8px"><table style="width:100%;font-size:12px">
+        <thead><tr style="background:#fff5f5"><th style="padding:3px 8px;text-align:left">상품코드</th><th style="padding:3px 8px;text-align:left">상품명</th><th style="padding:3px 8px;text-align:right">관련 공급가</th><th style="padding:3px 8px;text-align:left">매입가 입력</th></tr></thead>
+        <tbody>${rowsH}</tbody></table></div></div>`;
+  }
   if(noSales.length) w+=`<div class="msg warn">POS 매출이 매칭되지 않은 매장 ${noSales.length}개: ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""} (매장 매칭표/메이트코드 확인)</div>`;
   if(!PREVRES) w+=`<div class="msg warn">전월 결과파일이 없어 "매출" 전월대비는 0 기준입니다. (전용물류매출·전용이익은 물류원장 전월로 비교됨)</div>`;
   if(!w) w=`<div class="msg ok">정산 완료.</div>`;
   setMsg(w);
+
+  // 인라인 매입가 저장 이벤트
+  document.querySelectorAll(".buy-save").forEach(btn=>btn.addEventListener("click",()=>{
+    const code=btn.dataset.code;
+    const inp=document.querySelector(`.buy-in[data-code="${code}"]`);
+    const v=parseFloat(inp.value);
+    if(isNaN(v)||v<0){ inp.focus(); return; }
+    setBuyPrice(code, v); rerun();
+  }));
+  document.querySelectorAll(".buy-in").forEach(inp=>inp.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ const code=inp.dataset.code; const v=parseFloat(inp.value); if(!isNaN(v)&&v>=0){ setBuyPrice(code,v); rerun(); } }
+  }));
+  const cb=document.getElementById("clearBuy");
+  if(cb) cb.addEventListener("click",e=>{ e.preventDefault();
+    if(confirm("사용자가 추가한 매입가를 모두 삭제할까요? (내장 마스터는 유지)")){
+      Object.keys(BUY_USER).forEach(c=>{ delete BUY[c]; if((window.BUY_PRICE||{})[c]!=null)BUY[c]=window.BUY_PRICE[c]; });
+      BUY_USER={}; saveBuyUser(); rerun();
+    }
+  });
 }
 
 function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.length&&FILES.logi&&LOGI_AGG); }
@@ -446,8 +487,8 @@ function processPos(files){ POS={}; let done=0, err=null;
 function processBuy(file){ readRows(file, rows=>{ // 상품코드 -> 매입가 보충
   const hr=findHeader(rows,["상품코드","매입가"]); if(hr<0){ setMsg(`<div class="msg err">매입가 파일에서 상품코드/매입가 컬럼을 못 찾았습니다.</div>`); return; }
   const H=rows[hr].map(c=>String(c||"").replace(/\s/g,"")); const ci={code:colIndex(H,["상품코드"]),price:colIndex(H,["매입가"],["기존","구매팀"])};
-  let n=0; for(let r=hr+1;r<rows.length;r++){ const c=toCode(rows[r][ci.code]); if(!c)continue; const p=toNum(rows[r][ci.price]); if(p>0){BUY[c]=p;n++;} }
-  document.querySelector('#drop-buy [data-file]').textContent=`매입가 ${n}건 보충됨`;
+  let n=0; for(let r=hr+1;r<rows.length;r++){ const c=toCode(rows[r][ci.code]); if(!c)continue; const p=toNum(rows[r][ci.price]); if(p>0){ setBuyPrice(c,p); n++; } }
+  document.querySelector('#drop-buy [data-file]').textContent=`매입가 ${n}건 보충·저장됨`;
   if(LAST)rerun();
 }); }
 function processPrev(file){ readRows(file, rows=>{ PREVRES=parsePrev(rows); if(LAST)rerun(); }); }
@@ -468,6 +509,7 @@ function bindDrop(id){
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
 ["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(LAST)rerun(); }));
+if(Object.keys(BUY_USER).length){ document.querySelector('#drop-buy [data-file]').textContent=`내장값 + 추가 ${Object.keys(BUY_USER).length}건 (저장됨)`; }
 const th=document.getElementById("threshold"); th.value=THRESHOLD*100;
 th.addEventListener("change",e=>{ const v=parseFloat(e.target.value); THRESHOLD=isNaN(v)?0.075:v/100; localStorage.setItem(TH_KEY,String(THRESHOLD*100)); if(LAST)rerun(); });
 
