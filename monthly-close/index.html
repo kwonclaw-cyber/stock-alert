@@ -627,11 +627,15 @@ function render(res){
 
   // 요약
   const sum=document.createElement("section"); let cards="";
-  let g={sales:0,ex:0,profit:0}, gp={sales:0,ex:0,profit:0}, gS=0, gO=0;
+  let g={sales:0,ex:0,profit:0}, gp={sales:0,ex:0,profit:0}, gS=0, gO=0, gN=0, gPN=0;
   list.forEach(b=>{ b.openCount=b.stores.filter(s=>s.isNew).length;
     g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit; gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit; gS+=b.saipCount; gO+=b.openCount;
+    const n=b.stores.length, pn=b.stores.filter(s=>!s.isNew).length; gN+=n; gPN+=pn;
+    const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
+    const por=b.prev.sales?orderRate(b.prev):null, ppr=b.prev.ex?profitRate(b.prev):null;
     cards+=`<div class="card"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
       <div class="row"><span>총매출</span><span class="v">${won(b.cur.sales)}원 ${deltaPct(b.cur.sales,b.prev.sales)}</span></div>
+      <div class="row"><span>점당 평균매출</span><span class="v">${won(avg)}원 ${pavg==null?"":deltaPct(avg,pavg)}</span></div>
       <div class="row"><span>전용물류매출</span><span class="v">${won(b.cur.ex)}원 ${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
       <div class="row"><span>전용이익</span><span class="v">${won(b.cur.profit)}원 ${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
       <div class="row"><span>전용발주율</span><span class="v">${pct(orderRate(b.cur))} ${deltaPp(orderRate(b.cur), b.prev.sales?orderRate(b.prev):null)}</span></div>
@@ -642,6 +646,7 @@ function render(res){
   sum.innerHTML=`<h2>브랜드별 요약</h2><div class="cards">${cards}</div>
     <div style="margin-top:14px" class="card"><div class="bn">전체 합계</div>
       <div class="row"><span>총매출</span><span class="v">${won(g.sales)}원 ${deltaPct(g.sales,gp.sales)}</span></div>
+      <div class="row"><span>점당 평균매출</span><span class="v">${won(gN?g.sales/gN:0)}원 ${gPN?deltaPct(gN?g.sales/gN:0, gp.sales/gPN):""}</span></div>
       <div class="row"><span>전용물류매출</span><span class="v">${won(g.ex)}원 ${deltaPct(g.ex,gp.ex)}</span></div>
       <div class="row"><span>전용이익</span><span class="v">${won(g.profit)}원 ${deltaPct(g.profit,gp.profit)}</span></div>
       <div class="row"><span>사입매장</span><span class="v" style="color:var(--sa)">${gS}개</span></div>
