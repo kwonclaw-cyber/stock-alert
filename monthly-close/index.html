@@ -55,6 +55,7 @@
   .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;}
   .kc{position:relative;border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:12px;padding:14px 16px;background:#fbfdff;}
   .kc.ok{border-left-color:#2b8a3e;background:#f4fdf6;} .kc.bad{border-left-color:var(--up);background:#fff6f6;} .kc.warn{border-left-color:#f59f00;background:#fffaf0;}
+  .kc.kc-green{border-left-color:#1b5e20;background:#e6f4ea;} .kc.kc-sky{border-left-color:#4dabf7;background:#e7f5ff;}
   .kc .kt{font-weight:800;font-size:14px;} .kc .kgoal{font-size:12px;color:#666;margin-top:2px;}
   .kc .kv{font-size:23px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums;}
   .kc .ksub{font-size:12px;color:#555;margin-top:2px;}
@@ -120,12 +121,6 @@
         <div class="hint">푸드가이드 상품별 실적 · 전/범용 · 공급가</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="logi">
-      </label>
-      <label class="drop" id="drop-buy">
-        <div class="label">전용상품 매입가 (선택·보충)</div>
-        <div class="hint">신규 전용상품 매입가 갱신용 · 한 번 추가하면 계속 유지됨</div>
-        <div class="file" data-file>내장값 사용 중</div>
-        <input type="file" accept=".xlsx,.xls,.csv" data-kind="buy">
       </label>
       <label class="drop" id="drop-prev">
         <div class="label">전월 데이터 (선택)</div>
@@ -785,8 +780,8 @@ function brandStat(name){
   const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
   return {avg, pavg, mom: (pavg? (avg-pavg)/pavg : null)};
 }
-function kpiCard(title, goal, statusCls, statusTxt, bigHtml, subHtml){
-  return `<div class="kc ${statusCls}"><span class="kstat ${statusCls}">${statusTxt}</span>
+function kpiCard(title, goal, statusCls, statusTxt, bigHtml, subHtml, cardCls){
+  return `<div class="kc ${cardCls||statusCls}"><span class="kstat ${statusCls}">${statusTxt}</span>
     <div class="kt">${title}</div><div class="kgoal">목표 · ${goal}</div>
     <div class="kv">${bigHtml}</div><div class="ksub">${subHtml||""}</div></div>`;
 }
@@ -794,12 +789,12 @@ function renderKPI(){
   const el=document.getElementById("kpiSection"); if(!el)return;
   const mlabel=LAST&&LAST.cur?` <span class="muted" style="font-weight:400">· ${LAST.cur} 기준</span>`:"";
   let cards="";
-  // 1) 육식사관학교: 점당매출 전월대비 +5%
+  // 1) 육식사관학교: 점당매출 전월대비 +5% (카드색 짙은 녹색)
   { const s=brandStat("육식사관학교");
-    if(!s){ cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑","warn","계산 필요","—","정산 계산 후 표시"); }
-    else { const mom=s.mom; const cls=mom==null?"warn":(mom>=0.05?"ok":(mom>=0?"warn":"bad"));
-      const st=mom==null?"-":(mom>=0.05?"달성":(mom>=0?"근접":"하락"));
-      cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑",cls,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)} (목표 +5%)`); } }
+    if(!s){ cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑","warn","계산 필요","—","정산 계산 후 표시","kc-green"); }
+    else { const mom=s.mom; const st=mom==null?"-":(mom>=0.05?"달성":(mom>=0?"근접":"하락"));
+      const stc=mom==null?"warn":(mom>=0.05?"ok":(mom>=0?"warn":"bad"));
+      cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑",stc,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)} (목표 +5%)`,"kc-green"); } }
   // 2) 밥구정로데오: 점당매출 현상태 유지
   { const s=brandStat("밥구정로데오");
     if(!s){ cards+=kpiCard("밥구정로데오","점당매출 현상태 유지","warn","계산 필요","—","정산 계산 후 표시"); }
@@ -812,7 +807,7 @@ function renderKPI(){
     const st=cur<=0?"입력":(cur>=target?"달성":(cur>=target*0.9?"근접":"미달"));
     cards+=kpiCard("제주할멍고기국수","점당매출 1,200만원",cls,st,
       `<input class="box" id="jejuPS" type="number" value="${cur||""}" placeholder="점당매출 입력" style="width:150px;text-align:right;font-size:18px;font-weight:800"> 원`,
-      `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`); }
+      `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`,"kc-sky"); }
   el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>`;
   const j=document.getElementById("jejuPS");
   if(j) j.addEventListener("change",e=>{ JEJU_PS=toNum(e.target.value); localStorage.setItem(JEJU_KEY,String(JEJU_PS)); renderKPI(); });
@@ -838,7 +833,7 @@ function showWarnings(res){
         <td style="padding:3px 8px"><input class="box buy-in" data-code="${code}" type="number" placeholder="매입가" style="width:110px"> <button class="buy-save" data-code="${code}" style="padding:4px 10px">저장</button></td></tr>`;
     });
     w+=`<div class="msg err"><b>전용상품 매입가 누락 ${miss.length}개</b> (관련 공급가 ${won(tot)}원) → 해당 전용이익이 과대 계산됩니다.
-      아래에 매입가를 입력해 저장하거나(저장 시 영구 반영), "전용상품 매입가" 파일을 올려 한 번에 보충하세요.
+      아래 표에 매입가를 입력해 저장하면 반영됩니다(저장 시 브라우저에 영구 저장).
       <div style="overflow:auto;margin-top:8px"><table style="width:100%;font-size:12px">
         <thead><tr style="background:#fff5f5"><th style="padding:3px 8px;text-align:left">상품코드</th><th style="padding:3px 8px;text-align:left">상품명</th><th style="padding:3px 8px;text-align:right">관련 공급가</th><th style="padding:3px 8px;text-align:left">매입가 입력</th></tr></thead>
         <tbody>${rowsH}</tbody></table></div></div>`;
@@ -906,11 +901,10 @@ function bindDrop(id){
   ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
   drop.addEventListener("drop",e=>handle(e.dataTransfer.files));
 }
-["drop-pos","drop-logi","drop-buy","drop-prev"].forEach(bindDrop);
+["drop-pos","drop-logi","drop-prev"].forEach(bindDrop);
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
 ["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(id==="curMonth")renderExtra(); if(LAST)rerun(); }));
-if(Object.keys(BUY_USER).length){ document.querySelector('#drop-buy [data-file]').textContent=`내장값 + 추가 ${Object.keys(BUY_USER).length}건 (저장됨)`; }
 const th=document.getElementById("threshold"); th.value=THRESHOLD*100;
 th.addEventListener("change",e=>{ const v=parseFloat(e.target.value); THRESHOLD=isNaN(v)?0.075:v/100; localStorage.setItem(TH_KEY,String(THRESHOLD*100)); if(LAST)rerun(); });
 
