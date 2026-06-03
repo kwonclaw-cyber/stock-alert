@@ -3,27 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>다매장 주간보고 생성기</title>
+<title>제로고기찜 주간보고 생성기</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#f0f4f8;font-family:-apple-system,'Malgun Gothic',sans-serif;padding:12px;}
 .inp-panel{background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px;margin-bottom:12px;}
-.inp-title{font-size:13px;font-weight:700;color:#1a2235;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.inp-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
-.inp-group{display:flex;flex-direction:column;gap:4px;}
+.inp-title{font-size:13px;font-weight:700;color:#1a2235;margin-bottom:10px;}
+.inp-group{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
 label{font-size:10px;font-weight:600;color:#64748b;}
-input[type=text]{border:1px solid #e2e8f0;border-radius:6px;padding:6px 9px;font-size:11px;color:#1a2235;outline:none;width:100%;}
-input[type=text]:focus{border-color:#4B7BE8;}
-textarea{border:1px solid #e2e8f0;border-radius:6px;padding:8px;font-size:10px;color:#1a2235;outline:none;width:100%;resize:vertical;font-family:monospace;line-height:1.5;}
+textarea{border:1px solid #e2e8f0;border-radius:6px;padding:8px;font-size:10px;color:#1a2235;outline:none;width:100%;resize:vertical;font-family:monospace;line-height:1.6;}
 textarea:focus{border-color:#4B7BE8;}
-.hint{font-size:9.5px;color:#94a3b8;margin-top:3px;line-height:1.5;}
+.hint{font-size:9.5px;color:#94a3b8;margin-top:4px;line-height:1.6;}
 .hint code{background:#f1f5f9;padding:1px 4px;border-radius:3px;color:#475569;}
-.run-btn{width:100%;padding:10px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;}
+.run-btn{width:100%;padding:10px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:2px;}
 .run-btn:hover{background:#3566d0;}
-.run-btn:disabled{background:#94a3b8;cursor:default;}
 .err{background:#fff1f1;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:11px;color:#dc2626;margin-bottom:10px;display:none;}
-/* Dashboard */
 .dash{display:none;}
 .dash.on{display:block;}
 .page-header{background:#1a2235;border-radius:8px 8px 0 0;padding:12px 16px 10px;}
@@ -40,6 +34,8 @@ textarea:focus{border-color:#4B7BE8;}
 .tab-bar{display:flex;align-items:stretch;border-bottom:2px solid #e2e8f0;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}
 .tab{flex:1;padding:8px 0;text-align:center;font-size:11px;font-weight:600;color:#8896b0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
 .tab.on{color:#4B7BE8;border-bottom:2px solid #4B7BE8;background:#f8faff;}
+.edit-btn{display:flex;align-items:center;padding:0 12px;font-size:10px;font-weight:600;color:#475569;background:#f1f5f9;border:none;border-left:1px solid #e2e8f0;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.edit-btn:hover{background:#e2e8f0;}
 .page{display:none;background:#f0f4f8;padding:10px;border-radius:0 0 8px 8px;}
 .page.on{display:block;}
 .card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #e8edf5;}
@@ -62,7 +58,7 @@ textarea:focus{border-color:#4B7BE8;}
 .store-label{font-size:10.5px;font-weight:700;color:#1a2235;margin-bottom:4px;}
 .wk-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
 .wk-row:last-child{margin-bottom:0;}
-.wk-tag{font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;flex-shrink:0;width:28px;text-align:center;}
+.wk-tag{font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;flex-shrink:0;width:44px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tag-prev{background:#e8edf5;color:#4a5568;}
 .tag-curr{background:#dbeafe;color:#1d4ed8;}
 .bar-track{flex:1;height:13px;border-radius:4px;overflow:hidden;display:flex;}
@@ -96,42 +92,27 @@ textarea:focus{border-color:#4B7BE8;}
 .sb-txt{font-size:10.5px;color:#374151;line-height:1.7;border-left:2px solid #e2e8f0;padding-left:9px;}
 .sb-txt strong{color:#1a2235;}
 .act{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:3px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:4px;}
-.edit-btn{font-size:10px;padding:4px 10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;cursor:pointer;color:#475569;font-weight:600;}
-.edit-btn:hover{background:#e2e8f0;}
 </style>
 </head>
 <body>
 
 <div class="inp-panel" id="inputPanel">
-  <div class="inp-title">📋 다매장 주간보고 생성기</div>
-
-  <div class="inp-row3">
-    <div class="inp-group">
-      <label>브랜드/보고서 제목</label>
-      <input type="text" id="iTitle" placeholder="예: 제로고기찜 주간매출분석">
-    </div>
-    <div class="inp-group">
-      <label>전주 주차명</label>
-      <input type="text" id="iW1" placeholder="예: 4주차">
-    </div>
-    <div class="inp-group">
-      <label>금주 주차명</label>
-      <input type="text" id="iW2" placeholder="예: 5주차">
+  <div class="inp-title">🥩 제로고기찜 주간보고 생성기</div>
+  <div class="inp-group">
+    <label>데이터 붙여넣기 (엑셀에서 전체 복사 → 여기에 붙여넣기)</label>
+    <textarea id="tData" rows="22" placeholder="5월4주차	산들그린_도곡점	5,310,800	3,141,000	2,169,800	810	2,000	15%	2,000
+	위드저니파트너스_대구봉산점	1,088,300	740,600	347,700	510	2,000	19%	1,000
+	산들그린_인천간석점	735,400	478,100	257,300	700	2,000	10%	2,000
+	위드저니파트너스_봉천점	4,234,700	2,093,900	2,140,800	690	3,000	19%	0
+...
+5월5주차	산들그린_도곡점	3,736,300	2,421,500	1,314,800	450	2,000	12%	1,000
+	위드저니파트너스_대구봉산점	845,800	338,900	506,900	350	2,000	19%	1,000
+..."></textarea>
+    <div class="hint">
+      형식: 전주 블록(첫 행에 주차명+첫 매장, 이후 행에 나머지 매장) → 금주 블록 동일<br>
+      열 순서: <code>주차명(첫 행만)</code> <code>매장명</code> <code>총매출</code> <code>배민매출</code> <code>쿠팡매출</code> <code>우가클릭비</code> <code>배민즉할</code> <code>쿠팡광고율%</code> <code>쿠팡즉할</code>
     </div>
   </div>
-
-  <div class="inp-group" style="margin-bottom:10px;">
-    <label>① 매출 데이터 (엑셀에서 복사 후 붙여넣기)</label>
-    <textarea id="tSales" rows="8" placeholder="매장	전주합계	전주배민	전주쿠팡	금주합계	금주배민	금주쿠팡&#10;도곡점	5310800	3141000	2169800	3736300	2421500	1314800&#10;대구봉산점	1088300	740600	347700	845800	338900	506900&#10;인천간석점	735400	478100	257300	1062600	700100	362500"></textarea>
-    <div class="hint">첫 행은 헤더(자동 무시). 열 순서: <code>매장명</code> <code>전주합계</code> <code>전주배민</code> <code>전주쿠팡</code> <code>금주합계</code> <code>금주배민</code> <code>금주쿠팡</code></div>
-  </div>
-
-  <div class="inp-group" style="margin-bottom:12px;">
-    <label>② 광고 설정 데이터 (선택 · 없으면 비워두세요)</label>
-    <textarea id="tAd" rows="6" placeholder="매장	전주클릭비	전주배민즉할	전주쿠팡광고율	전주쿠팡즉할	금주클릭비	금주배민즉할	금주쿠팡광고율	금주쿠팡즉할&#10;도곡점	810	2000	15	2000	450	2000	12	1000&#10;대구봉산점	510	2000	19	1000	350	2000	19	1000"></textarea>
-    <div class="hint">열 순서: <code>매장명</code> <code>전주우가클릭비</code> <code>전주배민즉할</code> <code>전주쿠팡광고율(%)</code> <code>전주쿠팡즉할</code> → 금주 동일 순서 4개</div>
-  </div>
-
   <div id="errMsg" class="err"></div>
   <button class="run-btn" onclick="runAnalyze()">📊 보고서 생성</button>
 </div>
@@ -142,7 +123,7 @@ textarea:focus{border-color:#4B7BE8;}
       <div class="brand-badge">
         <div class="brand-icon">🥩</div>
         <div>
-          <div class="brand-name" id="hTitle"></div>
+          <div class="brand-name" id="hTitle">제로고기찜 주간매출분석</div>
           <div class="brand-sub" id="hSub"></div>
         </div>
       </div>
@@ -150,83 +131,90 @@ textarea:focus{border-color:#4B7BE8;}
         <span class="wbadge wbadge-prev" id="hW1"></span>
         <span class="wbadge-arrow">→</span>
         <span class="wbadge wbadge-curr" id="hW2"></span>
-        <button class="edit-btn" onclick="editMode()" style="margin-left:8px;">✏ 수정</button>
       </div>
     </div>
   </div>
   <div class="tab-bar">
     <div class="tab on" onclick="showTab(0)">📊 매출분석</div>
     <div class="tab" onclick="showTab(1)">📋 분석보고용</div>
+    <button class="edit-btn" onclick="editMode()">✏ 수정</button>
   </div>
   <div class="page on" id="p0"><div id="b0"></div></div>
   <div class="page" id="p1"><div id="b1"></div></div>
 </div>
 
 <script>
-let S=[],W1=[],W2=[],AD1=[],AD2=[];
-let w1L='전주',w2L='금주';
+let D=null;
 
 function showTab(n){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===n));
   document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('on',i===n));
 }
-
 function editMode(){
   document.getElementById('inputPanel').style.display='';
   document.getElementById('dash').classList.remove('on');
 }
+function showErr(msg){const el=document.getElementById('errMsg');el.textContent=msg;el.style.display='block';}
+function toNum(v){return parseFloat(String(v).replace(/,/g,'').replace(/%/g,'').trim())||0;}
 
-function showErr(msg){
-  const el=document.getElementById('errMsg');
-  el.textContent=msg;
-  el.style.display='block';
+// 파서: 행=매장, col0=주차명(첫 행만), col1=매장명, col2~8=지표
+// 전주블록과 금주블록을 col0의 주차명으로 구분
+function parseData(text){
+  const lines=text.trim().split('\n').map(l=>l.split('\t'));
+
+  const S=[],W1=[],W2=[],AD1=[],AD2=[];
+  let w1L='',w2L='';
+  let weekBlocks=[];  // [{label, rows:[{name,vals}]}]
+
+  let curBlock=null;
+  for(const line of lines){
+    const col0=(line[0]||'').trim();
+    const col1=(line[1]||'').trim();
+    // col0에 값 있으면 새 주차 블록 시작
+    if(col0){
+      if(curBlock) weekBlocks.push(curBlock);
+      curBlock={label:col0,rows:[]};
+      if(col1) curBlock.rows.push({name:col1,vals:line.slice(2)});
+    } else if(col1&&curBlock){
+      curBlock.rows.push({name:col1,vals:line.slice(2)});
+    }
+  }
+  if(curBlock) weekBlocks.push(curBlock);
+
+  if(weekBlocks.length<2) return {err:'전주/금주 블록 2개를 찾을 수 없습니다. 주차명이 첫 열에 있는지 확인해주세요.'};
+
+  w1L=weekBlocks[0].label; w2L=weekBlocks[1].label;
+  const b1=weekBlocks[0].rows, b2=weekBlocks[1].rows;
+  if(b1.length===0) return {err:'전주 매장 데이터가 없습니다.'};
+  if(b2.length===0) return {err:'금주 매장 데이터가 없습니다.'};
+
+  // 매장명 기준으로 매칭 (순서가 같으면 그냥 순서대로)
+  const names=b1.map(r=>r.name);
+  for(let i=0;i<b1.length;i++){
+    const r1=b1[i], r2=b2[i]||b2.find(r=>r.name===r1.name)||b2[0];
+    S.push(r1.name);
+    // col: 총매출=0, 배민=1, 쿠팡=2, 클릭비=3, 배민즉할=4, 쿠팡광고율=5, 쿠팡즉할=6
+    W1.push([toNum(r1.vals[0]),toNum(r1.vals[1]),toNum(r1.vals[2])]);
+    W2.push([toNum(r2.vals[0]),toNum(r2.vals[1]),toNum(r2.vals[2])]);
+    // 광고 설정 (있으면)
+    AD1.push([toNum(r1.vals[3]),toNum(r1.vals[4]),toNum(r1.vals[5]),toNum(r1.vals[6])]);
+    AD2.push([toNum(r2.vals[3]),toNum(r2.vals[4]),toNum(r2.vals[5]),toNum(r2.vals[6])]);
+  }
+
+  const hasAd=AD1.some(a=>a.some(v=>v>0));
+  return {S,W1,W2,AD1,AD2,w1L,w2L,hasAd};
 }
-
-function parseRows(text){
-  return text.trim().split('\n').map(r=>r.split('\t').map(c=>c.trim()));
-}
-
-function toNum(v){return parseFloat(String(v).replace(/,/g,''))||0;}
 
 function runAnalyze(){
   document.getElementById('errMsg').style.display='none';
-  const salesTxt=document.getElementById('tSales').value.trim();
-  if(!salesTxt){showErr('매출 데이터를 붙여넣어 주세요.');return;}
-
-  const salesRows=parseRows(salesTxt);
-  const dataRows=salesRows.filter(r=>r.length>=7&&!/^(매장|store)/i.test(r[0]));
-  if(dataRows.length===0){showErr('유효한 데이터 행이 없습니다. 헤더 없이 7열 이상 붙여넣어 주세요.');return;}
-
-  S=[];W1=[];W2=[];
-  for(const r of dataRows){
-    S.push(r[0]);
-    W1.push([toNum(r[1]),toNum(r[2]),toNum(r[3])]);
-    W2.push([toNum(r[4]),toNum(r[5]),toNum(r[6])]);
-  }
-
-  AD1=S.map(()=>[0,0,0,0]);
-  AD2=S.map(()=>[0,0,0,0]);
-  const adTxt=document.getElementById('tAd').value.trim();
-  if(adTxt){
-    const adRows=parseRows(adTxt).filter(r=>r.length>=9&&!/^(매장|store)/i.test(r[0]));
-    for(const r of adRows){
-      const idx=S.findIndex(s=>s===r[0]);
-      if(idx>=0){
-        AD1[idx]=[toNum(r[1]),toNum(r[2]),toNum(r[3]),toNum(r[4])];
-        AD2[idx]=[toNum(r[5]),toNum(r[6]),toNum(r[7]),toNum(r[8])];
-      }
-    }
-  }
-
-  w1L=document.getElementById('iW1').value.trim()||'전주';
-  w2L=document.getElementById('iW2').value.trim()||'금주';
-  const title=document.getElementById('iTitle').value.trim()||'주간매출분석';
-
-  document.getElementById('hTitle').textContent=title;
-  document.getElementById('hSub').textContent=`${S.length}개 매장`;
-  document.getElementById('hW1').textContent=w1L;
-  document.getElementById('hW2').textContent=w2L;
-
+  const txt=document.getElementById('tData').value.trim();
+  if(!txt){showErr('데이터를 붙여넣어 주세요.');return;}
+  const result=parseData(txt);
+  if(result.err){showErr(result.err);return;}
+  D=result;
+  document.getElementById('hW1').textContent=D.w1L;
+  document.getElementById('hW2').textContent=D.w2L;
+  document.getElementById('hSub').textContent=`${D.S.length}개 매장`;
   renderDash();
   document.getElementById('inputPanel').style.display='none';
   document.getElementById('dash').classList.add('on');
@@ -237,12 +225,12 @@ const fm=v=>Math.round(v/10000).toLocaleString('ko-KR')+'만';
 const fp=g=>g>=0?`<span class="bup">▲${(g*100).toFixed(1)}%</span>`:`<span class="bdn">▼${(Math.abs(g)*100).toFixed(1)}%</span>`;
 
 function renderDash(){
+  const {S,W1,W2,AD1,AD2,w1L,w2L,hasAd}=D;
   const TW1=W1.reduce((s,d)=>s+d[0],0),TW2=W2.reduce((s,d)=>s+d[0],0),tgr=(TW2-TW1)/TW1;
   const TB1=W1.reduce((s,d)=>s+d[1],0),TB2=W2.reduce((s,d)=>s+d[1],0);
   const TC1=W1.reduce((s,d)=>s+d[2],0),TC2=W2.reduce((s,d)=>s+d[2],0);
   const upN=S.filter((_,i)=>W2[i][0]>W1[i][0]).length,dnN=S.filter((_,i)=>W2[i][0]<W1[i][0]).length;
   const ord=[...S.keys()].sort((a,b)=>W2[b][0]-W2[a][0]);
-  const hasAd=AD1.some(a=>a.some(v=>v>0));
 
   function cmpTable(){
     let h=`<table class="cmp-tbl"><thead><tr><th>매장</th><th style="color:#4a5568;">${w1L}</th><th style="color:#1d4ed8;">${w2L}</th><th>증감액</th><th>전주대비</th></tr></thead><tbody>`;
@@ -258,9 +246,10 @@ function renderDash(){
   function shareSection(){
     let h='<div class="share-wrap">';
     const gb1=Math.round(TB1/TW1*100),gc1=100-gb1,gb2=Math.round(TB2/TW2*100),gc2=100-gb2;
+    const bar=(p,cls)=>`<div class="${cls}" style="width:${p}%">${p>15?`<span class="bar-label">${p}%</span>`:'&nbsp;'}</div>`;
     h+=`<div class="share-row"><div style="margin-bottom:4px;"><span class="store-label" style="color:#8896b0;font-size:10px;">전체 합산</span></div>
-      <div class="wk-row"><span class="wk-tag tag-prev">전주</span><div class="bar-track"><div class="bar-bm" style="width:${gb1}%">${gb1>15?`<span class="bar-label">${gb1}%</span>`:'&nbsp;'}</div><div class="bar-cp" style="width:${gc1}%">${gc1>10?`<span class="bar-label">${gc1}%</span>`:'&nbsp;'}</div></div><div class="wk-vals"><span style="color:#4B7BE8;">${gb1}%</span>/<span style="color:#E86035;">${gc1}%</span></div></div>
-      <div class="wk-row"><span class="wk-tag tag-curr">금주</span><div class="bar-track"><div class="bar-bm" style="width:${gb2}%">${gb2>15?`<span class="bar-label">${gb2}%</span>`:'&nbsp;'}</div><div class="bar-cp" style="width:${gc2}%">${gc2>10?`<span class="bar-label">${gc2}%</span>`:'&nbsp;'}</div></div><div class="wk-vals"><span style="color:#4B7BE8;">${gb2}%</span>/<span style="color:#E86035;">${gc2}%</span></div></div>
+      <div class="wk-row"><span class="wk-tag tag-prev">${w1L}</span><div class="bar-track">${bar(gb1,'bar-bm')}${bar(gc1,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${gb1}%</span>/<span style="color:#E86035;">${gc1}%</span></div></div>
+      <div class="wk-row"><span class="wk-tag tag-curr">${w2L}</span><div class="bar-track">${bar(gb2,'bar-bm')}${bar(gc2,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${gb2}%</span>/<span style="color:#E86035;">${gc2}%</span></div></div>
     </div>`;
     ord.forEach(i=>{
       const t1=W1[i][0],t2=W2[i][0];
@@ -272,8 +261,8 @@ function renderDash(){
           <span class="store-label">${S[i]}</span>
           <span style="font-size:9px;color:${dcp>0?'#dc2626':'#2563eb'};font-weight:600;">쿠팡 ${dcp>=0?'+':''}${dcp}%p</span>
         </div>
-        <div class="wk-row"><span class="wk-tag tag-prev">전주</span><div class="bar-track"><div class="bar-bm" style="width:${bp1}%">${bp1>15?`<span class="bar-label">${bp1}%</span>`:'&nbsp;'}</div><div class="bar-cp" style="width:${cp1}%">${cp1>10?`<span class="bar-label">${cp1}%</span>`:'&nbsp;'}</div></div><div class="wk-vals"><span style="color:#4B7BE8;">${bp1}%</span>/<span style="color:#E86035;">${cp1}%</span></div></div>
-        <div class="wk-row"><span class="wk-tag tag-curr">금주</span><div class="bar-track"><div class="bar-bm" style="width:${bp2}%">${bp2>15?`<span class="bar-label">${bp2}%</span>`:'&nbsp;'}</div><div class="bar-cp" style="width:${cp2}%">${cp2>10?`<span class="bar-label">${cp2}%</span>`:'&nbsp;'}</div></div><div class="wk-vals"><span style="color:#4B7BE8;">${bp2}%</span>/<span style="color:#E86035;">${cp2}%</span></div></div>
+        <div class="wk-row"><span class="wk-tag tag-prev">${w1L}</span><div class="bar-track">${bar(bp1,'bar-bm')}${bar(cp1,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${bp1}%</span>/<span style="color:#E86035;">${cp1}%</span></div></div>
+        <div class="wk-row"><span class="wk-tag tag-curr">${w2L}</span><div class="bar-track">${bar(bp2,'bar-bm')}${bar(cp2,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${bp2}%</span>/<span style="color:#E86035;">${cp2}%</span></div></div>
       </div>`;
     });
     return h+'</div>';
@@ -288,7 +277,7 @@ function renderDash(){
         const v1=AD1[i][k],v2=AD2[i][k],c=v1!==v2;
         h+=`<td>${fmt(v1,k)}${c?`<br><span class="chg">→${fmt(v2,k)}</span>`:`<br><span class="same-txt">동일</span>`}</td>`;
       });
-      h+=`</tr>`;
+      h+='</tr>';
     });
     return h+'</tbody></table>';
   }
@@ -317,10 +306,9 @@ function renderDash(){
   }
 
   function buildReport(){
-    const title=document.getElementById('iTitle').value.trim()||'주간매출분석';
     const topStores=ord.slice(0,Math.min(3,ord.length));
     return`<div class="report">
-      <div class="rp-hd"><div class="rp-hd-tit">주간 분석 보고서</div><div class="rp-hd-sub">${w1L} vs ${w2L} · ${title} ${S.length}개 매장</div></div>
+      <div class="rp-hd"><div class="rp-hd-tit">주간 분석 보고서</div><div class="rp-hd-sub">${w1L} vs ${w2L} · 제로고기찜 ${S.length}개 매장</div></div>
       <div class="rp-body">
         <div class="sb">
           <div class="sb-nm">전체 총평 <span class="rtag ${tgr>=0?'tg':'tw'}">${tgr>=0?'▲':'▼'}${(Math.abs(tgr)*100).toFixed(1)}%</span></div>
@@ -330,7 +318,7 @@ function renderDash(){
             <div class="m"><div class="ml">상승</div><div class="mv" style="color:#dc2626;">${upN}개</div></div>
             <div class="m"><div class="ml">하락</div><div class="mv" style="color:#2563eb;">${dnN}개</div></div>
           </div>
-          <div class="sb-txt">${w2L} <strong>${fm(TW2)}</strong>으로 전주 대비 <strong>${Math.abs(Math.round((TW2-TW1)/10000)).toLocaleString('ko-KR')}만원(${(Math.abs(tgr)*100).toFixed(1)}%) ${tgr>=0?'증가':'감소'}</strong>했습니다. 쿠팡이츠 비중이 ${Math.round(TC1/TW1*100)}%→${Math.round(TC2/TW2*100)}%로 변화했으며, 전반적인 매출 변동에 대한 매장별 원인 파악이 필요합니다.</div>
+          <div class="sb-txt">${w2L} <strong>${fm(TW2)}</strong>으로 전주 대비 <strong>${Math.abs(Math.round((TW2-TW1)/10000)).toLocaleString('ko-KR')}만원(${(Math.abs(tgr)*100).toFixed(1)}%) ${tgr>=0?'증가':'감소'}</strong>했습니다. 쿠팡이츠 비중이 ${Math.round(TC1/TW1*100)}%→${Math.round(TC2/TW2*100)}%로 변화했습니다.</div>
         </div>
         ${topStores.map(i=>{
           const g=(W2[i][0]-W1[i][0])/W1[i][0];
@@ -339,8 +327,8 @@ function renderDash(){
             <div class="metrics">
               <div class="m"><div class="ml">${w1L}</div><div class="mv">${fm(W1[i][0])}</div></div>
               <div class="m"><div class="ml">${w2L}</div><div class="mv" style="color:${g>=0?'#16a34a':'#dc2626'};">${fm(W2[i][0])}</div></div>
-              <div class="m"><div class="ml">배민비중</div><div class="mv" style="font-size:11px;">${Math.round(W1[i][1]/W1[i][0]*100)}%→${Math.round(W2[i][1]/W2[i][0]*100)}%</div></div>
-              <div class="m"><div class="ml">쿠팡비중</div><div class="mv" style="font-size:11px;">${Math.round(W1[i][2]/W1[i][0]*100)}%→${Math.round(W2[i][2]/W2[i][0]*100)}%</div></div>
+              <div class="m"><div class="ml">배민비중</div><div class="mv" style="font-size:11px;">${Math.round(W1[i][1]/(W1[i][0]||1)*100)}%→${Math.round(W2[i][1]/(W2[i][0]||1)*100)}%</div></div>
+              <div class="m"><div class="ml">쿠팡비중</div><div class="mv" style="font-size:11px;">${Math.round(W1[i][2]/(W1[i][0]||1)*100)}%→${Math.round(W2[i][2]/(W2[i][0]||1)*100)}%</div></div>
             </div>
             <div class="sb-txt">${w2L} ${fm(W2[i][0])}으로 전주 대비 ${g>=0?'<span style="color:#dc2626;font-weight:700;">+'+Math.round((W2[i][0]-W1[i][0])/10000).toLocaleString('ko-KR')+'만 증가':'<span style="color:#2563eb;font-weight:700;">'+Math.round((W2[i][0]-W1[i][0])/10000).toLocaleString('ko-KR')+'만 감소'}</span>했습니다.<br><span class="act">▶ 세팅 모니터링 및 매장 소통 지속</span></div>
           </div>`;
