@@ -138,6 +138,7 @@
     <div class="btns" style="margin:0 0 12px">
       <button id="saveImg">🖼️ 이미지 저장(PNG)</button>
       <button class="ghost" id="copyImg">📋 이미지 복사</button>
+      <button id="shareImg" style="background:#fee500;color:#3c1e1e;border-color:#fee500">💬 카톡 공유</button>
       <button class="ghost" id="printBtn">🖨️ 인쇄</button>
       <span class="muted" id="imgMsg" style="align-self:center"></span>
     </div>
@@ -490,8 +491,24 @@ document.getElementById("copyImg").addEventListener("click",()=>{
     catch(e){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=imgName(); a.click(); setImgMsg("복사 미지원 브라우저 — 대신 저장함"); }
   },"image/png"));
 });
+document.getElementById("shareImg").addEventListener("click",()=>{
+  setImgMsg("이미지 생성 중…");
+  capture(canvas=>canvas.toBlob(async blob=>{
+    const file=new File([blob], imgName(), {type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:"손익계산서", text:document.getElementById("storeName").value.trim()||"손익계산서"});
+        setImgMsg("공유창 열림 — 카카오톡 선택"); }
+      catch(e){ setImgMsg("공유 취소됨"); }
+    } else {
+      try{ await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
+        setImgMsg("이 기기는 직접 공유 미지원 — 이미지를 복사했어요. 카톡에 붙여넣기(Ctrl+V)하세요"); }
+      catch(e2){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=imgName(); a.click();
+        setImgMsg("공유 미지원 — 이미지를 저장했어요. 카톡에 첨부하세요"); }
+    }
+  },"image/png"));
+});
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
-function setImgMsg(t){ document.getElementById("imgMsg").textContent=t; setTimeout(()=>{ if(document.getElementById("imgMsg").textContent===t)document.getElementById("imgMsg").textContent=""; },4000); }
+function setImgMsg(t){ document.getElementById("imgMsg").textContent=t; setTimeout(()=>{ if(document.getElementById("imgMsg").textContent===t)document.getElementById("imgMsg").textContent=""; },5000); }
 
 // ===== 상단 입력(매장명/기준월/건수) =====
 ["storeName","period","orders"].forEach(id=>{
