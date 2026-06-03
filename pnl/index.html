@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>가맹점 손익계산서(P&L) 생성기</title>
+<script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
 <style>
   :root{ --line:#e3e6ea; --accent:#1971c2; --accent-bg:#e7f5ff; --up:#e8590c; --down:#1c7ed6;
@@ -30,6 +31,40 @@
   button.ghost{background:#fff;color:var(--accent);}
   button.mini{padding:6px 12px;font-size:13px;}
   .muted{color:#888;font-size:12px;}
+  .drops{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .drop{border:2px dashed var(--line);border-radius:9px;padding:10px;text-align:center;cursor:pointer;background:#fafbfc;display:block;}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-bg);}
+  .drop b{display:block;font-size:12.5px;} .drop span{display:block;font-size:10.5px;color:#999;margin-top:2px;}
+  .drop i{display:block;font-size:11px;color:var(--accent);margin-top:5px;font-style:normal;font-weight:700;word-break:break-all;}
+  .drop input{display:none;}
+  /* 차트 */
+  .chartbox{margin-top:6px;}
+  .chartbox .ct{font-weight:800;font-size:13.5px;margin:14px 0 8px;}
+  .hbar{display:grid;grid-template-columns:92px 1fr 96px;align-items:center;gap:8px;font-size:12px;margin:5px 0;}
+  .hbar .nm{text-align:right;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .hbar .tk{height:16px;background:#f1f3f5;border-radius:8px;overflow:hidden;}
+  .hbar .tk>i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#4dabf7,#1971c2);}
+  .hbar .vv{text-align:right;font-variant-numeric:tabular-nums;color:#333;font-weight:700;}
+  .vbars{display:flex;align-items:flex-end;gap:3px;height:120px;padding:6px 2px 0;border-bottom:2px solid var(--line);}
+  .vbars .vb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;}
+  .vbars .vb>i{width:74%;background:linear-gradient(180deg,#ffa94d,#e8590c);border-radius:3px 3px 0 0;display:block;}
+  .vlabels{display:flex;gap:3px;margin-top:3px;}
+  .vlabels .vl{flex:1;font-size:8.5px;color:#999;text-align:center;overflow:hidden;white-space:nowrap;}
+
+  .tabs{display:flex;gap:6px;margin-bottom:10px;}
+  .tab{background:#fff;color:#555;border:1px solid var(--line);font-weight:800;}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  /* 상세분석: 평균대비 변동비 바 */
+  .cmp{margin:7px 0;font-size:12.5px;}
+  .cmp .top{display:flex;justify-content:space-between;align-items:baseline;}
+  .cmp .top .nm{font-weight:700;}
+  .cmp .top .df{font-weight:800;font-size:11.5px;}
+  .cmp .trk{position:relative;height:15px;background:#eef0f2;border-radius:8px;margin-top:4px;overflow:hidden;}
+  .cmp .trk>i{display:block;height:100%;border-radius:8px;}
+  .cmp .trk>.avg{position:absolute;top:-2px;bottom:-2px;width:2px;background:#495057;}
+  .cmp .sub{font-size:11px;color:#888;margin-top:2px;}
+  .over{color:var(--bad);} .under{color:var(--ok);}
+  .mixnote{font-size:12px;color:#555;background:#f8f9fa;border-radius:8px;padding:9px 12px;margin-top:8px;line-height:1.5;}
 
   /* ===== 리포트(이미지 캡처 영역) ===== */
   #report{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
@@ -74,7 +109,16 @@
 <main>
   <!-- 입력 -->
   <section>
-    <h2>항목 입력</h2>
+    <h2>전매장 데이터 (선택)</h2>
+    <div class="drops">
+      <label class="drop" id="drop-ch"><b>주문경로별 매출</b><span>전매장 · 끌어다 놓기</span><i data-f>파일 선택</i><input type="file" accept=".xlsx,.xls,.csv" data-kind="ch"></label>
+      <label class="drop" id="drop-tm"><b>시간대별 매출</b><span>전매장 · 끌어다 놓기</span><i data-f>파일 선택</i><input type="file" accept=".xlsx,.xls,.csv" data-kind="tm"></label>
+    </div>
+    <div class="fld" style="margin-top:8px"><label>매장 선택</label>
+      <select class="txt" id="storeSel" style="width:230px;text-align:left"><option value="">파일 업로드 후 선택</option></select></div>
+    <div class="muted" id="dataMsg"></div>
+
+    <h2 style="margin-top:18px">항목 입력</h2>
     <div class="fld"><label>매장명</label><input class="txt" id="storeName" placeholder="예) OO치킨 강남점" style="width:200px;text-align:left"></div>
     <div class="fld"><label>기준월</label><input class="txt" id="period" placeholder="예) 2026년 5월" style="width:200px;text-align:left"></div>
     <div class="fld"><label>주문 건수(선택)</label><input id="orders" type="number" placeholder="0"></div>
@@ -87,6 +131,10 @@
 
   <!-- 리포트 -->
   <section style="background:transparent;border:none;padding:0">
+    <div class="tabs">
+      <button class="tab active" data-tab="report">손익계산서</button>
+      <button class="tab" data-tab="detail">상세분석</button>
+    </div>
     <div class="btns" style="margin:0 0 12px">
       <button id="saveImg">🖼️ 이미지 저장(PNG)</button>
       <button class="ghost" id="copyImg">📋 이미지 복사</button>
@@ -94,6 +142,7 @@
       <span class="muted" id="imgMsg" style="align-self:center"></span>
     </div>
     <div id="report"></div>
+    <div id="detail" style="display:none"></div>
   </section>
 </main>
 
@@ -111,12 +160,12 @@ const REVENUE=[
 ];
 // hi = 총매출 대비 경고 임계, rec = 권장, tip = 개선 제안
 const VARIABLE=[
-  {k:"c_food",label:"식자재비(원재료)",hi:0.38,rec:"35% 이하",tip:"레시피·1인분량 표준화, 발주량 점검, 폐기(로스) 관리로 원가율을 낮추세요."},
-  {k:"c_delivery",label:"배달대행비",hi:0.13,rec:"12% 내외",tip:"배차 단가·권역 재조정, 묶음배달, 자체배달 비중 확대를 검토하세요."},
-  {k:"c_platform",label:"플랫폼 중개수수료",hi:0.12,rec:"12% 이하",tip:"배민/쿠팡이츠 요금제 점검, 전화·자사 주문 유도로 수수료 비중을 낮추세요."},
-  {k:"c_pg",label:"결제·PG 수수료",hi:0.035,rec:"3% 내외",tip:"결제대행 수수료율을 재협상하세요."},
-  {k:"c_pack",label:"포장재·소모품비",hi:0.05,rec:"4% 이하",tip:"포장재 규격 표준화·공동구매로 단가를 낮추세요."},
-  {k:"c_ad",label:"광고선전비",hi:0.08,rec:"5~8%",tip:"광고비 대비 매출(ROAS)을 측정해 효율 낮은 광고를 줄이세요."},
+  {k:"c_food",label:"식자재비(원재료)",hi:0.38,avg:0.33,rec:"35% 이하",tip:"레시피·1인분량 표준화, 발주량 점검, 폐기(로스) 관리로 원가율을 낮추세요."},
+  {k:"c_delivery",label:"배달대행비",hi:0.13,avg:0.10,rec:"12% 내외",tip:"배차 단가·권역 재조정, 묶음배달, 자체배달 비중 확대를 검토하세요."},
+  {k:"c_platform",label:"플랫폼 중개수수료",hi:0.12,avg:0.09,rec:"12% 이하",tip:"배민/쿠팡이츠 요금제 점검, 전화·자사 주문 유도로 수수료 비중을 낮추세요."},
+  {k:"c_pg",label:"결제·PG 수수료",hi:0.035,avg:0.025,rec:"3% 내외",tip:"결제대행 수수료율을 재협상하세요."},
+  {k:"c_pack",label:"포장재·소모품비",hi:0.05,avg:0.03,rec:"4% 이하",tip:"포장재 규격 표준화·공동구매로 단가를 낮추세요."},
+  {k:"c_ad",label:"광고선전비",hi:0.08,avg:0.06,rec:"5~8%",tip:"광고비 대비 매출(ROAS)을 측정해 효율 낮은 광고를 줄이세요."},
 ];
 const FIXED=[
   {k:"f_labor",label:"인건비(급여+4대보험)",hi:0.28,rec:"25% 이하",tip:"피크/한가 시간대 스케줄 최적화, 주방 동선 개선으로 인당 생산성을 높이세요."},
@@ -133,6 +182,101 @@ const KEY="storePnl.v1";
 
 let DATA=(()=>{ try{return JSON.parse(localStorage.getItem(KEY))||{};}catch(e){return {};} })();
 function save(){ localStorage.setItem(KEY, JSON.stringify(DATA)); }
+
+// ===== 전매장 데이터(주문경로/시간대) =====
+let STORES={};     // code -> {name, channels:{ch:amt}, slots:{slot:amt}, deli, take, hall}
+let SEL_CODE="";
+function readXlsx(file, cb){ const r=new FileReader();
+  r.onload=e=>{ const wb=XLSX.read(e.target.result,{type:"array"}); let best=[];
+    wb.SheetNames.forEach(sn=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,blankrows:false,defval:""}); if(rows.length>best.length)best=rows;}); cb(best); };
+  r.readAsArrayBuffer(file); }
+function Sx(v){ return String(v==null?"":v).replace(/\s/g,""); }
+function Nx(v){ if(typeof v==="number")return v; const x=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(x)?0:x; }
+function codeStr(v){ return v==null?"":(typeof v==="number"?String(v):String(v).trim()); }
+function headerInfo(rows){
+  let hr=-1;
+  for(let i=0;i<Math.min(rows.length,8);i++){ if(rows[i].some(c=>Sx(c)==="매장코드")){ hr=i; break; } }
+  if(hr<0)return null;
+  const labels=rows[hr].map(Sx);
+  const grRaw=(hr>0?rows[hr-1].map(c=>String(c||"").trim()):labels.map(()=>""));
+  const groups=[]; let last=""; for(let c=0;c<labels.length;c++){ if(grRaw[c])last=grRaw[c]; groups[c]=last; }
+  return {hr,labels,groups};
+}
+function findCol(h,test){ for(let c=0;c<h.labels.length;c++){ if(test(h.labels[c],h.groups[c],c))return c; } return -1; }
+function ensureStore(code){ return STORES[code]||(STORES[code]={name:"",channels:{},slots:{},deli:0,take:0,hall:0}); }
+function parseChannel(rows){
+  const h=headerInfo(rows); if(!h){ document.getElementById("dataMsg").textContent="주문경로 파일 헤더(매장코드)를 찾지 못했습니다."; return; }
+  const ci={ code:findCol(h,l=>l==="매장코드"), name:findCol(h,l=>l==="매장명"),
+    ch:findCol(h,l=>l.indexOf("주문채널")===0&&l.indexOf("상세")<0),
+    tot:findCol(h,(l,g)=>g.indexOf("합계")>=0&&l.indexOf("실매출")>=0),
+    hall:findCol(h,(l,g)=>g.indexOf("내점")>=0&&l.indexOf("실매출")>=0),
+    deli:findCol(h,(l,g)=>g.indexOf("배달")>=0&&l.indexOf("실매출")>=0),
+    take:findCol(h,(l,g)=>g.indexOf("포장")>=0&&l.indexOf("실매출")>=0),
+    table:findCol(h,(l,g)=>g.indexOf("테이블")>=0&&l.indexOf("실매출")>=0) };
+  let lastCh="";
+  for(let r=h.hr+1;r<rows.length;r++){ const row=rows[r];
+    const ch=String(row[ci.ch]||"").trim(); if(ch)lastCh=ch;
+    const code=codeStr(row[ci.code]); if(!/^\d+$/.test(code))continue;
+    const st=ensureStore(code); if(!st.name)st.name=String(row[ci.name]||"").trim();
+    st.channels[lastCh]=(st.channels[lastCh]||0)+Nx(row[ci.tot]);
+    if(ci.deli>=0)st.deli+=Nx(row[ci.deli]); if(ci.take>=0)st.take+=Nx(row[ci.take]);
+    st.hall+=(ci.hall>=0?Nx(row[ci.hall]):0)+(ci.table>=0?Nx(row[ci.table]):0);
+  }
+}
+function parseTime(rows){
+  const h=headerInfo(rows); if(!h){ document.getElementById("dataMsg").textContent="시간대 파일 헤더(매장코드)를 찾지 못했습니다."; return; }
+  let ci={ slot:findCol(h,l=>l==="시간대"), code:findCol(h,l=>l==="매장코드"), name:findCol(h,l=>l==="매장명"),
+    tot:findCol(h,(l,g)=>g.indexOf("합계")>=0&&l.indexOf("실매출")>=0) };
+  if(ci.tot<0)ci.tot=findCol(h,l=>l.indexOf("실매출")>=0);
+  let lastSlot="";
+  for(let r=h.hr+1;r<rows.length;r++){ const row=rows[r];
+    const slot=String(row[ci.slot]||"").trim(); if(slot&&slot!=="합계")lastSlot=slot;
+    const code=codeStr(row[ci.code]); if(!/^\d+$/.test(code))continue;
+    const st=ensureStore(code); if(!st.name)st.name=String(row[ci.name]||"").trim();
+    if(lastSlot)st.slots[lastSlot]=(st.slots[lastSlot]||0)+Nx(row[ci.tot]);
+  }
+}
+function refreshStoreSelect(){
+  const sel=document.getElementById("storeSel");
+  const list=Object.entries(STORES).map(([code,s])=>({code,name:s.name||code})).sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  const keep=sel.value;
+  sel.innerHTML=`<option value="">매장 선택 (${list.length}개)</option>`+list.map(s=>`<option value="${s.code}">${s.name}</option>`).join("");
+  if(keep)sel.value=keep;
+  document.getElementById("dataMsg").textContent=`전매장 데이터 ${list.length}개 매장 로드됨 — 매장을 선택하면 매출이 자동 입력됩니다`;
+}
+function bindDrop(id){
+  const d=document.getElementById(id), inp=d.querySelector("input"), kind=inp.dataset.kind, lab=d.querySelector("[data-f]");
+  function handle(f){ if(!f)return; lab.textContent=f.name; readXlsx(f, rows=>{ if(kind==="ch")parseChannel(rows); else parseTime(rows); refreshStoreSelect(); if(SEL_CODE)applyStore(SEL_CODE); }); }
+  inp.addEventListener("change",e=>handle(e.target.files[0]));
+  ["dragenter","dragover"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove("over");}));
+  d.addEventListener("drop",e=>handle(e.dataTransfer.files[0]));
+}
+function applyStore(code){
+  const st=STORES[code]; if(!st)return;
+  DATA._storeName=st.name;
+  if(st.deli)DATA.rev_delivery=Math.round(st.deli);
+  if(st.take)DATA.rev_takeout=Math.round(st.take);
+  if(st.hall)DATA.rev_hall=Math.round(st.hall);
+  save(); reloadAll();
+}
+// 차트 HTML (리포트 포함)
+function chartHtml(){
+  const st=STORES[SEL_CODE]; if(!st)return "";
+  let h="";
+  const ch=Object.entries(st.channels).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
+  if(ch.length){ const tot=ch.reduce((s,x)=>s+x[1],0)||1, mx=Math.max(ch[0][1],1);
+    h+=`<div class="chartbox"><div class="ct">📦 주문경로별 매출</div>`+
+      ch.map(([k,v])=>`<div class="hbar"><div class="nm">${escapeHtml(k)}</div><div class="tk"><i style="width:${(v/mx*100).toFixed(1)}%"></i></div><div class="vv">${won(v)} · ${pct(v/tot)}</div></div>`).join("")+`</div>`;
+  }
+  const sk=Object.keys(st.slots).filter(k=>st.slots[k]>0).sort();
+  if(sk.length){ const mx=Math.max(...sk.map(k=>st.slots[k]),1);
+    h+=`<div class="chartbox"><div class="ct">🕒 시간대별 매출</div><div class="vbars">`+
+      sk.map(k=>`<div class="vb" title="${escapeHtml(k)} ${won(st.slots[k])}원"><i style="height:${Math.max(st.slots[k]/mx*100,1).toFixed(1)}%"></i></div>`).join("")+
+      `</div><div class="vlabels">`+sk.map(k=>`<div class="vl">${escapeHtml(k.split("-")[0])}</div>`).join("")+`</div></div>`;
+  }
+  return h;
+}
 
 // ===== 입력 폼 렌더 =====
 function renderInputs(){
@@ -257,15 +401,75 @@ function update(){
     </div>
     <div class="rfoot">본 손익계산서는 입력값 기반 추정이며, 업종·지역에 따라 권장치는 달라질 수 있습니다.</div>
   `;
+  renderDetail(c);
 }
 function escapeHtml(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
+// ===== 상세분석 페이지 =====
+let ACTIVE="report";
+function renderDetail(c){
+  const el=document.getElementById("detail");
+  const store=document.getElementById("storeName").value.trim()||"(매장명)";
+  const period=document.getElementById("period").value.trim();
+  const st=STORES[SEL_CODE];
+
+  // 1) 플랫폼별 매출 비중
+  let mixCh="";
+  if(st && Object.keys(st.channels).length){
+    const ch=Object.entries(st.channels).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+    const tot=ch.reduce((s,x)=>s+x[1],0)||1, mx=Math.max(ch[0][1],1);
+    mixCh=`<div class="ct">📦 플랫폼(주문경로)별 매출 비중</div>`+
+      ch.map(([k,v])=>`<div class="hbar"><div class="nm">${escapeHtml(k)}</div><div class="tk"><i style="width:${(v/mx*100).toFixed(1)}%"></i></div><div class="vv">${pct(v/tot)} · ${won(v)}</div></div>`).join("");
+    const topShare=ch[0][1]/tot;
+    mixCh+=`<div class="mixnote">최대 채널 <b>${escapeHtml(ch[0][0])}</b>가 ${pct(topShare)} 차지${topShare>0.6?" — 특정 채널 의존도가 높습니다. 채널 다변화·자사주문 유도를 검토하세요.":"."}</div>`;
+  } else { mixCh=`<div class="ct">📦 플랫폼별 매출 비중</div><div class="mixnote">주문경로별 매출 파일을 올리고 매장을 선택하세요.</div>`; }
+
+  // 2) 시간대별 매출 비중
+  let mixTm="";
+  if(st && Object.keys(st.slots).length){
+    const sk=Object.keys(st.slots).filter(k=>st.slots[k]>0).sort();
+    const tot=sk.reduce((s,k)=>s+st.slots[k],0)||1, mx=Math.max(...sk.map(k=>st.slots[k]),1);
+    const peak=sk.slice().sort((a,b)=>st.slots[b]-st.slots[a])[0];
+    mixTm=`<div class="ct">🕒 시간대별 매출 비중</div><div class="vbars">`+
+      sk.map(k=>`<div class="vb" title="${escapeHtml(k)} ${pct(st.slots[k]/tot)}"><i style="height:${Math.max(st.slots[k]/mx*100,1).toFixed(1)}%"></i></div>`).join("")+
+      `</div><div class="vlabels">`+sk.map(k=>`<div class="vl">${escapeHtml(k.split("-")[0])}</div>`).join("")+`</div>`+
+      `<div class="mixnote">피크 시간대 <b>${escapeHtml(peak)}</b> (${pct(st.slots[peak]/tot)}). 피크엔 인력·조리 캐파를, 한가한 시간엔 타임할인·예약을 검토하세요.</div>`;
+  } else { mixTm=`<div class="ct" style="margin-top:16px">🕒 시간대별 매출 비중</div><div class="mixnote">시간대별 매출 파일을 올리고 매장을 선택하세요.</div>`; }
+
+  // 3) 평균값 대비 변동비 사용량
+  let cmp="", overItems=[];
+  if(c.rev>0){
+    cmp=VARIABLE.map(it=>{
+      const cur=num(DATA[it.k])/c.rev, avg=it.avg||0, diff=cur-avg;
+      const scale=Math.max(cur,avg,0.01)*1.35;
+      const cls=diff>0.005?"over":(diff<-0.005?"under":"");
+      if(diff>0.005)overItems.push(it.label);
+      return `<div class="cmp"><div class="top"><span class="nm">${it.label}</span>
+        <span class="df ${cls}">현재 ${pct(cur)} · 평균 ${pct(avg)} <b>(${diff>=0?"+":""}${(diff*100).toFixed(1)}%p)</b></span></div>
+        <div class="trk"><i style="width:${(cur/scale*100).toFixed(1)}%;background:${diff>0.005?'linear-gradient(90deg,#ff8787,#e03131)':'linear-gradient(90deg,#69db7c,#2b8a3e)'}"></i><span class="avg" style="left:${(avg/scale*100).toFixed(1)}%"></span></div>
+        <div class="sub">검정선 = 평균(권장) · ${diff>0.005?'절감 여지 있음':'평균 이하로 양호'}</div></div>`;
+    }).join("");
+  } else { cmp=`<div class="mixnote">손익 항목(매출·변동비)을 입력하면 평균 대비 사용량이 분석됩니다.</div>`; }
+  const varCur=c.rev?c.varCost/c.rev:0, varAvg=VARIABLE.reduce((s,i)=>s+(i.avg||0),0);
+  const cmpNote = c.rev?`<div class="mixnote">변동비 합계 <b>${pct(varCur)}</b> (평균 ${pct(varAvg)}, ${(varCur-varAvg>=0?"+":"")}${((varCur-varAvg)*100).toFixed(1)}%p). ${overItems.length?`평균 초과 항목: <b>${overItems.join(", ")}</b> — 우선 점검 대상.`:"모든 변동비가 평균 이하로 잘 관리되고 있습니다."}</div>`:"";
+
+  el.innerHTML=`
+    <div class="rhead" style="background:linear-gradient(120deg,#0b7285,#1098ad)">
+      <div class="store">${escapeHtml(store)}</div>
+      <div class="meta">${escapeHtml(period||"")} 매출 상세분석</div>
+      <span class="tag">플랫폼·시간대 매출비중 / 평균 대비 변동비</span>
+    </div>
+    <div class="body"><div class="chartbox">${mixCh}</div><div class="chartbox">${mixTm}</div></div>
+    <div class="analysis"><h3>💸 평균값 대비 변동비 사용량</h3>${cmp}${cmpNote}</div>
+    <div class="rfoot">평균(권장)값은 일반적인 배달전문 기준이며 업종·지역에 따라 달라질 수 있습니다.</div>`;
+}
+
 // ===== 이미지 저장/복사 =====
 function capture(cb){
-  const node=document.getElementById("report");
+  const node=document.getElementById(ACTIVE);
   html2canvas(node,{backgroundColor:"#ffffff",scale:2,useCORS:true}).then(cb);
 }
-function imgName(){ const s=(document.getElementById("storeName").value.trim()||"매장"); return `손익계산서_${s}.png`; }
+function imgName(){ const s=(document.getElementById("storeName").value.trim()||"매장"); return `${ACTIVE==="detail"?"상세분석":"손익계산서"}_${s}.png`; }
 document.getElementById("saveImg").addEventListener("click",()=>{
   setImgMsg("이미지 생성 중…");
   capture(canvas=>{ const a=document.createElement("a"); a.href=canvas.toDataURL("image/png"); a.download=imgName(); a.click(); setImgMsg("저장 완료"); });
@@ -305,6 +509,14 @@ function reloadAll(){
 }
 
 // init
+["drop-ch","drop-tm"].forEach(bindDrop);
+document.getElementById("storeSel").addEventListener("change",e=>{ SEL_CODE=e.target.value; if(SEL_CODE)applyStore(SEL_CODE); else update(); });
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  ACTIVE=t.dataset.tab;
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===ACTIVE));
+  document.getElementById("report").style.display=ACTIVE==="report"?"":"none";
+  document.getElementById("detail").style.display=ACTIVE==="detail"?"":"none";
+}));
 renderInputs();
 update();
 </script>

@@ -12,7 +12,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).parent
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 
-SRCS = ["vendor/html2canvas.min.js"]
+SRCS = ["vendor/xlsx.full.min.js", "vendor/html2canvas.min.js"]
 for src in SRCS:
     content = (ROOT / src).read_text(encoding="utf-8").replace("</script>", "<\\/script>")
     tag = re.compile(r'<script src="' + re.escape(src) + r'"></script>')
