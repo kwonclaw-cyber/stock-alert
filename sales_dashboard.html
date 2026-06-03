@@ -4,56 +4,50 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주간 매출 분석 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#f0f4f8;font-family:-apple-system,'Malgun Gothic',sans-serif;}
+body{background:#f0f4f8;font-family:-apple-system,"Malgun Gothic",sans-serif;}
 
 /* ── 업로드 화면 ── */
 #uploadScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
-.up-card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.10);border:1px solid #e8edf5;width:100%;max-width:680px;overflow:hidden;}
+.up-card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.10);border:1px solid #e8edf5;width:100%;max-width:700px;overflow:hidden;}
 .up-hd{background:#1a2235;padding:18px 22px;}
-.up-hd-tit{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;}
+.up-hd-tit{font-size:16px;font-weight:700;color:#fff;margin-bottom:3px;}
 .up-hd-sub{font-size:11px;color:#8896b0;}
 .up-body{padding:22px;}
 .up-sect{margin-bottom:20px;}
-.up-sect-tit{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-.up-sect-tit span{font-size:10px;font-weight:500;color:#8896b0;}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.up-sect-tit{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:8px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 label.lbl{display:block;font-size:10px;color:#8896b0;margin-bottom:4px;}
-input[type=text],input[type=number]{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;font-size:12px;color:#1a2235;outline:none;}
-input[type=text]:focus,input[type=number]:focus{border-color:#4B7BE8;}
-.drop-zone{border:2px dashed #c7d4f0;border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#f8faff;}
-.drop-zone:hover,.drop-zone.drag{border-color:#4B7BE8;background:#eef3ff;}
-.drop-zone .dz-icon{font-size:32px;margin-bottom:8px;}
-.drop-zone .dz-tit{font-size:13px;font-weight:600;color:#1a2235;margin-bottom:4px;}
-.drop-zone .dz-sub{font-size:11px;color:#8896b0;}
-input[type=file]{display:none;}
-.file-chosen{margin-top:8px;font-size:11px;color:#4B7BE8;font-weight:600;}
-.or-div{display:flex;align-items:center;gap:10px;margin:14px 0;}
-.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:#e8edf5;}
-.or-div span{font-size:10px;color:#a0aec0;}
-textarea.paste-area{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;color:#374151;resize:vertical;min-height:100px;font-family:monospace;outline:none;}
-textarea.paste-area:focus{border-color:#4B7BE8;}
-.tmpl-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #4B7BE8;border-radius:6px;font-size:11px;font-weight:600;color:#4B7BE8;background:#f8faff;cursor:pointer;text-decoration:none;}
-.tmpl-btn:hover{background:#eef3ff;}
-.gen-btn{width:100%;padding:13px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;}
+input[type=text]{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;font-size:12px;color:#1a2235;outline:none;}
+input[type=text]:focus{border-color:#4B7BE8;}
+select.box{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;font-size:12px;color:#1a2235;outline:none;background:#fff;}
+.file-zone{border:2px dashed #c7d4f0;border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#f8faff;position:relative;}
+.file-zone:hover,.file-zone.drag{border-color:#4B7BE8;background:#eef3ff;}
+.file-zone .dz-icon{font-size:26px;margin-bottom:6px;}
+.file-zone .dz-tit{font-size:12px;font-weight:600;color:#1a2235;margin-bottom:2px;}
+.file-zone .dz-sub{font-size:10px;color:#8896b0;}
+.file-zone .dz-week{font-size:10px;font-weight:700;color:#4B7BE8;margin-bottom:4px;}
+.file-zone input[type=file]{display:none;}
+.file-chosen{margin-top:8px;font-size:11px;color:#16a34a;font-weight:600;}
+.file-chosen.empty{color:#dc2626;}
+.gen-btn{width:100%;padding:13px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:4px;}
 .gen-btn:hover{background:#3566d0;}
-.gen-btn:disabled{background:#a0aec0;cursor:not-allowed;}
-.err{font-size:11px;color:#dc2626;margin-top:6px;display:none;}
-.fmt-box{background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:10.5px;color:#374151;line-height:1.8;border:1px solid #e8edf5;}
-.fmt-box code{background:#e8edf5;border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace;}
+.err{font-size:11px;color:#dc2626;margin-top:8px;padding:8px 12px;background:#fff1f1;border-radius:6px;display:none;}
+.hint-box{background:#f8fafc;border-radius:8px;padding:11px 14px;font-size:10.5px;color:#374151;line-height:1.9;border:1px solid #e8edf5;}
+.hint-box b{color:#1a2235;}
 
 /* ── 대시보드 ── */
 #dashScreen{display:none;}
-.wrap{font-family:-apple-system,'Malgun Gothic',sans-serif;}
+.wrap{font-family:-apple-system,"Malgun Gothic",sans-serif;}
 .tab-bar{display:flex;align-items:stretch;border-bottom:2px solid #e2e8f0;background:#fff;border-radius:10px 10px 0 0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .tab{flex:1;padding:11px 0;text-align:center;font-size:12px;font-weight:600;color:#8896b0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
 .tab.on{color:#4B7BE8;border-bottom:2px solid #4B7BE8;background:#f8faff;}
 .tab-btns{display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;}
-.save-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:600;color:#fff;background:#4B7BE8;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;transition:background .15s;}
+.save-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:600;color:#fff;background:#4B7BE8;border:none;border-radius:5px;cursor:pointer;}
 .save-btn:hover{background:#3566d0;}
-.save-btn svg{width:13px;height:13px;flex-shrink:0;}
+.save-btn svg{width:13px;height:13px;}
 .reset-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:600;color:#8896b0;background:#f0f4f8;border:1px solid #e2e8f0;border-radius:5px;cursor:pointer;}
 .reset-btn:hover{background:#e8edf5;}
 .page{display:none;background:#f0f4f8;padding:14px;border-radius:0 0 10px 10px;}
@@ -96,6 +90,9 @@ tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
 .cn{font-size:11px;font-weight:700;color:#1a2235;margin-bottom:5px;}
 .cr{display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;}
 .cl{color:#8896b0;}.cv{color:#374151;font-weight:500;}
+.brand-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.brand-tag{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#f8faff;color:#8896b0;}
+.brand-tag.on{background:#4B7BE8;color:#fff;border-color:#4B7BE8;}
 .report{background:#fff;border-radius:10px;border:1px solid #e8edf5;overflow:hidden;margin-top:10px;}
 .rp-hd{background:#1a2235;padding:13px 18px;}
 .rp-hd-tit{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
@@ -135,57 +132,72 @@ tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
 <div id="uploadScreen">
   <div class="up-card">
     <div class="up-hd">
-      <div class="up-hd-tit">📊 주간 매출 분석 대시보드</div>
-      <div class="up-hd-sub">매출 데이터를 업로드하면 자동으로 분석 보고서를 생성합니다</div>
+      <div class="up-hd-tit">📊 주간 매출 비교 대시보드</div>
+      <div class="up-hd-sub">POS 기간별 매출분석(매장별분리) 파일 두 개를 올리면 자동으로 비교 보고서를 생성합니다</div>
     </div>
     <div class="up-body">
 
       <!-- 기간 설정 -->
       <div class="up-sect">
-        <div class="up-sect-tit">📅 비교 기간 설정</div>
+        <div class="up-sect-tit">📅 비교 기간 입력</div>
         <div class="row2">
           <div>
             <label class="lbl">전주 기간 (예: 5/18~5/24)</label>
-            <input type="text" id="w1Label" placeholder="예: 5/18~5/24" value="">
+            <input type="text" id="w1Label" placeholder="예: 5/18~5/24">
           </div>
           <div>
             <label class="lbl">금주 기간 (예: 5/25~5/31)</label>
-            <input type="text" id="w2Label" placeholder="예: 5/25~5/31" value="">
+            <input type="text" id="w2Label" placeholder="예: 5/25~5/31">
           </div>
         </div>
-        <div style="margin-top:10px;">
-          <div class="up-sect-tit" style="margin-bottom:6px;">요일별 열 이름 <span>(차트 X축 표시용, 쉼표로 구분)</span></div>
-          <input type="text" id="dayLabels" value="월,화,수,목,금,토,일" placeholder="월,화,수,목,금,토,일">
-        </div>
       </div>
 
-      <!-- CSV 파일 업로드 -->
+      <!-- 매출 기준 -->
       <div class="up-sect">
-        <div class="up-sect-tit">📂 CSV 파일 업로드
-          <button class="tmpl-btn" onclick="downloadTemplate()" style="margin-left:auto;">⬇ 템플릿 다운로드</button>
-        </div>
-        <div class="fmt-box" style="margin-bottom:10px;">
-          CSV 형식: <code>매장명</code>, <code>신규(Y/N)</code>, <code>전주_월~일(7열)</code>, <code>금주_월~일(7열)</code> — 총 16열<br>
-          숫자는 원 단위 정수 (예: <code>1500000</code>), 영업 안 한 날은 <code>0</code> 또는 빈칸
-        </div>
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-          <div class="dz-icon">📁</div>
-          <div class="dz-tit">클릭하거나 파일을 여기에 드래그하세요</div>
-          <div class="dz-sub">CSV 파일만 지원합니다</div>
-          <div class="file-chosen" id="fileChosen"></div>
-        </div>
-        <input type="file" id="fileInput" accept=".csv" onchange="handleFile(this)">
+        <div class="up-sect-tit">💰 매출 기준 선택</div>
+        <select class="box" id="salesCol">
+          <option value="net">순매출액 (VAT 제외)</option>
+          <option value="real">실매출액 (VAT 포함)</option>
+          <option value="order">매출액 (완료주문)</option>
+        </select>
       </div>
 
-      <!-- 붙여넣기 -->
+      <!-- 파일 업로드 -->
       <div class="up-sect">
-        <div class="or-div"><span>또는 엑셀에서 직접 복사·붙여넣기</span></div>
-        <div class="up-sect-tit" style="margin-bottom:6px;">📋 데이터 붙여넣기 <span>(엑셀 선택 후 Ctrl+C → 아래 클릭 후 Ctrl+V)</span></div>
-        <textarea class="paste-area" id="pasteArea" placeholder="여기에 엑셀 데이터를 붙여넣으세요&#10;첫 행: 헤더(생략 가능), 이후 행: 매장별 데이터&#10;열 순서: 매장명 | 신규(Y/N) | 전주월~일(7개) | 금주월~일(7개)"></textarea>
-        <div class="err" id="errMsg">오류 메시지</div>
+        <div class="up-sect-tit">📂 POS 매출 파일 업로드 (xlsx / xls / csv)</div>
+        <div class="row2">
+          <!-- 전주 -->
+          <div>
+            <div class="file-zone" id="dz1" onclick="document.getElementById('fi1').click()" ondragover="dzDrag(event,'dz1')" ondragleave="dzLeave('dz1')" ondrop="dzDrop(event,'dz1',1)">
+              <div class="dz-week">① 전주 파일</div>
+              <div class="dz-icon">📁</div>
+              <div class="dz-tit">클릭 또는 드래그</div>
+              <div class="dz-sub">기간별매출분석_매장별분리.xlsx</div>
+              <div class="file-chosen empty" id="fc1">파일 미선택</div>
+            </div>
+            <input type="file" id="fi1" accept=".xlsx,.xls,.csv" onchange="loadFile(1,this)">
+          </div>
+          <!-- 금주 -->
+          <div>
+            <div class="file-zone" id="dz2" onclick="document.getElementById('fi2').click()" ondragover="dzDrag(event,'dz2')" ondragleave="dzLeave('dz2')" ondrop="dzDrop(event,'dz2',2)">
+              <div class="dz-week">② 금주 파일</div>
+              <div class="dz-icon">📁</div>
+              <div class="dz-tit">클릭 또는 드래그</div>
+              <div class="dz-sub">기간별매출분석_매장별분리.xlsx</div>
+              <div class="file-chosen empty" id="fc2">파일 미선택</div>
+            </div>
+            <input type="file" id="fi2" accept=".xlsx,.xls,.csv" onchange="loadFile(2,this)">
+          </div>
+        </div>
+        <div class="hint-box" style="margin-top:12px;">
+          <b>POS 파일 열 자동 인식:</b> 매장코드 · 매장명 · 순매출액 · 실매출액 · 매출액<br>
+          엑셀에서 <b>기간별 매출분석 → 매장별분리</b> 탭을 그대로 저장하면 됩니다.<br>
+          파일 내 헤더 위치와 시트를 자동으로 탐색합니다.
+        </div>
       </div>
 
-      <button class="gen-btn" onclick="generate()">📊 대시보드 생성</button>
+      <div class="err" id="errMsg"></div>
+      <button class="gen-btn" onclick="generate()">📊 비교 대시보드 생성</button>
     </div>
   </div>
 </div>
@@ -200,7 +212,7 @@ tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
           <div class="ov-hint">이미지를 꾹 누르거나 우클릭 → 저장 / 또는 아래 버튼으로 다운로드</div>
         </div>
         <div class="ov-btns">
-          <a class="ov-dl" id="dlBtn" download="주간보고.png">⬇ 다운로드</a>
+          <a class="ov-dl" id="dlBtn" download="주간매출보고.png">⬇ 다운로드</a>
           <button class="ov-close" onclick="closeOv()">✕</button>
         </div>
       </div>
@@ -230,269 +242,322 @@ tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-// ═══════ 전역 상태 ═══════
+// ═══════ STORE_MATCH (POS 매장코드 → 매장 정보) ═══════
+const STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_서울영등포점", "brand": "밥구정로데오", "short": "서울영등포점"}, "1058873": {"logi": "228437", "name": "밥구정로데오_서울봉천점(2)", "brand": "밥구정로데오", "short": "서울봉천점(2)"}, "1052002": {"logi": "272345", "name": "밥구정로데오 부산연산점(2)", "brand": "밥구정로데오", "short": "부산연산점(2)"}, "1018758": {"logi": "219318", "name": "밥구정로데오_광주서구본점", "brand": "밥구정로데오", "short": "광주서구본점"}, "1029264": {"logi": "219327", "name": "밥구정로데오_서울천호점", "brand": "밥구정로데오", "short": "서울천호점"}, "1020515": {"logi": "219336", "name": "밥구정로데오_광주계림점", "brand": "밥구정로데오", "short": "광주계림점"}, "1056987": {"logi": "236197", "name": "밥구정로데오_인천구월점", "brand": "밥구정로데오", "short": "인천구월점"}, "1030581": {"logi": "219328", "name": "밥구정로데오_부산개금점", "brand": "밥구정로데오", "short": "부산개금점"}, "1029203": {"logi": "219326", "name": "밥구정로데오_전주송천점", "brand": "밥구정로데오", "short": "전주송천점"}, "1043223": {"logi": "268556", "name": "밥구정로데오_수원화서점(2)", "brand": "밥구정로데오", "short": "수원화서점(2)"}, "1028764": {"logi": "219633", "name": "밥구정로데오_서울양천점", "brand": "밥구정로데오", "short": "서울양천점"}, "1029528": {"logi": "219640", "name": "밥구정로데오_용인경희대점", "brand": "밥구정로데오", "short": "용인경희대점"}, "1017875": {"logi": "219319", "name": "밥구정로데오_광주운암점", "brand": "밥구정로데오", "short": "광주운암점"}, "1044642": {"logi": "274145", "name": "밥구정로데오_전남여천점(2)", "brand": "밥구정로데오", "short": "전남여천점(2)"}, "1034793": {"logi": "265090", "name": "밥구정로데오 부천중동점", "brand": "밥구정로데오", "short": "부천중동점"}, "1036078": {"logi": "151514", "name": "밥구정로데오_천안성정점", "brand": "밥구정로데오", "short": "천안성정점"}, "1021136": {"logi": "219637", "name": "밥구정로데오_광주첨단점", "brand": "밥구정로데오", "short": "광주첨단점"}, "1027652": {"logi": "219331", "name": "밥구정로데오_서울화곡점", "brand": "밥구정로데오", "short": "서울화곡점"}, "1042380": {"logi": "268225", "name": "밥구정로데오 전주효자점", "brand": "밥구정로데오", "short": "전주효자점"}, "1051884": {"logi": "272507", "name": "밥구정로데오_흑석점", "brand": "밥구정로데오", "short": "흑석점"}, "1031002": {"logi": "219329", "name": "밥구정로데오_목포남악점", "brand": "밥구정로데오", "short": "목포남악점"}, "1032557": {"logi": "219641", "name": "밥구정로데오_세종나성점", "brand": "밥구정로데오", "short": "세종나성점"}, "1034489": {"logi": "265257", "name": "밥구정로데오 김해장유점", "brand": "밥구정로데오", "short": "김해장유점"}, "1035009": {"logi": "265203", "name": "밥구정로데오_하남망월점", "brand": "밥구정로데오", "short": "하남망월점"}, "1037811": {"logi": "266633", "name": "밥구정로데오_김포사우점", "brand": "밥구정로데오", "short": "김포사우점"}, "1037812": {"logi": "266602", "name": "밥구정로데오_춘천효자점", "brand": "밥구정로데오", "short": "춘천효자점"}, "1039620": {"logi": "267398", "name": "밥구정로데오_부산하단점", "brand": "밥구정로데오", "short": "부산하단점"}, "1039846": {"logi": "267338", "name": "밥구정로데오_성남상대원점", "brand": "밥구정로데오", "short": "성남상대원점"}, "1038291": {"logi": "267114", "name": "밥구정로데오_서귀포중앙점", "brand": "밥구정로데오", "short": "서귀포중앙점"}, "1041010": {"logi": "267826", "name": "밥구정로데오_제주연동점", "brand": "밥구정로데오", "short": "제주연동점"}, "1042045": {"logi": "268079", "name": "밥구정로데오_부평갈산점", "brand": "밥구정로데오", "short": "부평갈산점"}, "1042223": {"logi": "268372", "name": "밥구정로데오_안산고잔점", "brand": "밥구정로데오", "short": "안산고잔점"}, "1044080": {"logi": "268939", "name": "밥구정로데오_대구수성점", "brand": "밥구정로데오", "short": "대구수성점"}, "1044807": {"logi": "269264", "name": "밥구정로데오_서산동문점", "brand": "밥구정로데오", "short": "서산동문점"}, "1045623": {"logi": "269365", "name": "밥구정로데오_대구달서점", "brand": "밥구정로데오", "short": "대구달서점"}, "1045752": {"logi": "269452", "name": "밥구정로데오_김포구래점", "brand": "밥구정로데오", "short": "김포구래점"}, "1045649": {"logi": "269547", "name": "밥구정로데오_고양화정점", "brand": "밥구정로데오", "short": "고양화정점"}, "1045489": {"logi": "269582", "name": "밥구정로데오_전주인후점", "brand": "밥구정로데오", "short": "전주인후점"}, "1045928": {"logi": "269922", "name": "밥구정로데오_서울독산점", "brand": "밥구정로데오", "short": "서울독산점"}, "1045909": {"logi": "269806", "name": "밥구정로데오_서울왕십리점", "brand": "밥구정로데오", "short": "서울왕십리점"}, "1046142": {"logi": "269903", "name": "밥구정로데오_일산정발산점", "brand": "밥구정로데오", "short": "일산정발산점"}, "1046328": {"logi": "269974", "name": "밥구정로데오_서울홍대점", "brand": "밥구정로데오", "short": "서울홍대점"}, "1046329": {"logi": "270209", "name": "밥구정로데오_인천용현점", "brand": "밥구정로데오", "short": "인천용현점"}, "1046464": {"logi": "270334", "name": "밥구정로데오_울산병영점", "brand": "밥구정로데오", "short": "울산병영점"}, "1046500": {"logi": "270330", "name": "밥구정로데오_대전괴정점", "brand": "밥구정로데오", "short": "대전괴정점"}, "1046674": {"logi": "270421", "name": "밥구정로데오_경기이천점", "brand": "밥구정로데오", "short": "경기이천점"}, "1047569": {"logi": "270537", "name": "밥구정로데오_익산역점", "brand": "밥구정로데오", "short": "익산역점"}, "1047602": {"logi": "270753", "name": "밥구정로데오_충남논산점", "brand": "밥구정로데오", "short": "충남논산점"}, "1047579": {"logi": "270535", "name": "밥구정로데오_목포상동점", "brand": "밥구정로데오", "short": "목포상동점"}, "1047982": {"logi": "270998", "name": "밥구정로데오_건대중곡점", "brand": "밥구정로데오", "short": "건대중곡점"}, "1051935": {"logi": "272516", "name": "밥구정로데오_충북제천점", "brand": "밥구정로데오", "short": "충북제천점"}, "1050075": {"logi": "271793", "name": "밥구정로데오_은평역촌점", "brand": "밥구정로데오", "short": "은평역촌점"}, "1053516": {"logi": "273335", "name": "밥구정로데오_아산온양점", "brand": "밥구정로데오", "short": "아산온양점"}, "1055096": {"logi": "273865", "name": "밥구정로데오_광주남구점", "brand": "밥구정로데오", "short": "광주남구점"}, "1056404": {"logi": "274239", "name": "밥구정로데오_인천연수점", "brand": "밥구정로데오", "short": "인천연수점"}, "1056504": {"logi": "235802", "name": "밥구정로데오_중서구점", "brand": "밥구정로데오", "short": "중서구점"}, "1057286": {"logi": "236366", "name": "밥구정로데오 부산대연점", "brand": "밥구정로데오", "short": "부산대연점"}, "1057422": {"logi": "236367", "name": "밥구정로데오_안양금정점", "brand": "밥구정로데오", "short": "안양금정점"}, "1057603": {"logi": "236176", "name": "밥구정로데오_송탄점", "brand": "밥구정로데오", "short": "송탄점"}, "1058438": {"logi": "236853", "name": "밥구정로데오_광주역동점", "brand": "밥구정로데오", "short": "광주역동점"}, "1057167": {"logi": "236168", "name": "밥구정로데오_경북대점", "brand": "밥구정로데오", "short": "경북대점"}, "1057873": {"logi": "223742", "name": "밥구정로데오_용산점", "brand": "밥구정로데오", "short": "용산점"}, "1057896": {"logi": "236542", "name": "밥구정로데오_시흥신천점", "brand": "밥구정로데오", "short": "시흥신천점"}, "1024878": {"logi": "219301", "name": "육식사관학교_본점", "brand": "육식사관학교", "short": "본점"}, "1030208": {"logi": "219306", "name": "육식사관학교_광주남구점", "brand": "육식사관학교", "short": "광주남구점"}, "1023466": {"logi": "219300", "name": "육식사관학교_서울관악점", "brand": "육식사관학교", "short": "서울관악점"}, "1026943": {"logi": "219302", "name": "육식사관학교_광주첨단점", "brand": "육식사관학교", "short": "광주첨단점"}, "1028928": {"logi": "219304", "name": "육식사관학교_서울독산점", "brand": "육식사관학교", "short": "서울독산점"}, "1029164": {"logi": "219305", "name": "육식사관학교_서울영등포점", "brand": "육식사관학교", "short": "서울영등포점"}, "1032556": {"logi": "219309", "name": "육식사관학교_대전둔산점", "brand": "육식사관학교", "short": "대전둔산점"}, "1030390": {"logi": "219308", "name": "육식사관학교_충남천안역점", "brand": "육식사관학교", "short": "충남천안역점"}, "1030496": {"logi": "266674", "name": "육식사관학교_광주용봉점(2)", "brand": "육식사관학교", "short": "광주용봉점(2)"}, "1031692": {"logi": "219310", "name": "육식사관학교_서울강서점", "brand": "육식사관학교", "short": "서울강서점"}, "1032603": {"logi": "219312", "name": "육식사관학교_서울신촌점", "brand": "육식사관학교", "short": "서울신촌점"}, "1050029": {"logi": "271913", "name": "육식사관학교_여수신기점(2)", "brand": "육식사관학교", "short": "여수신기점(2)"}, "1033451": {"logi": "219314", "name": "육식사관학교_서울건대점", "brand": "육식사관학교", "short": "서울건대점"}, "1033158": {"logi": "219315", "name": "육식사관학교_광주동구점", "brand": "육식사관학교", "short": "광주동구점"}, "1034178": {"logi": "219316", "name": "육식사관학교_여수여서점", "brand": "육식사관학교", "short": "여수여서점"}, "1034126": {"logi": "264920", "name": "육식사관학교_안산중앙점", "brand": "육식사관학교", "short": "안산중앙점"}, "1034265": {"logi": "264932", "name": "육식사관학교_서대전점", "brand": "육식사관학교", "short": "서대전점"}, "1034814": {"logi": "265247", "name": "육식사관학교_대구달서점", "brand": "육식사관학교", "short": "대구달서점"}, "1035080": {"logi": "265406", "name": "육식사관학교_전주송천점", "brand": "육식사관학교", "short": "전주송천점"}, "1035464": {"logi": "265580", "name": "육식사관학교_광주광산점", "brand": "육식사관학교", "short": "광주광산점"}, "1035500": {"logi": "265575", "name": "육식사관학교_광주상무점", "brand": "육식사관학교", "short": "광주상무점"}, "1035165": {"logi": "265677", "name": "육식사관학교_수원영통점", "brand": "육식사관학교", "short": "수원영통점"}, "1035606": {"logi": "265687", "name": "육식사관학교_부산덕천점", "brand": "육식사관학교", "short": "부산덕천점"}, "1035449": {"logi": "265550", "name": "육식사관학교_청량리점", "brand": "육식사관학교", "short": "청량리점"}, "1035560": {"logi": "265718", "name": "육식사관학교_시흥신천점", "brand": "육식사관학교", "short": "시흥신천점"}, "1035963": {"logi": "265824", "name": "육식사관학교_순천조례점", "brand": "육식사관학교", "short": "순천조례점"}, "1035389": {"logi": "265549", "name": "육식사관학교_일산대화점", "brand": "육식사관학교", "short": "일산대화점"}, "1036031": {"logi": "265635", "name": "육식사관학교_전주인후점", "brand": "육식사관학교", "short": "전주인후점"}, "1036169": {"logi": "265826", "name": "육식사관학교_강동천호점", "brand": "육식사관학교", "short": "강동천호점"}, "1035977": {"logi": "265785", "name": "육식사관학교_대구수성점", "brand": "육식사관학교", "short": "대구수성점"}, "1036279": {"logi": "266047", "name": "육식사관학교_부산수영점", "brand": "육식사관학교", "short": "부산수영점"}, "1035983": {"logi": "265867", "name": "육식사관학교_김포장기점", "brand": "육식사관학교", "short": "김포장기점"}, "1036271": {"logi": "266014", "name": "육식사관학교_대전한남대점", "brand": "육식사관학교", "short": "대전한남대점"}, "1036173": {"logi": "265873", "name": "육식사관학교_전주효자점", "brand": "육식사관학교", "short": "전주효자점"}, "1036219": {"logi": "265974", "name": "육식사관학교_인천송도점", "brand": "육식사관학교", "short": "인천송도점"}, "1036023": {"logi": "265991", "name": "육식사관학교_김포구래점", "brand": "육식사관학교", "short": "김포구래점"}, "1036033": {"logi": "265950", "name": "육식사관학교_대구침산점", "brand": "육식사관학교", "short": "대구침산점"}, "1037161": {"logi": "266234", "name": "육식사관학교_광양중마점", "brand": "육식사관학교", "short": "광양중마점"}, "1036390": {"logi": "266120", "name": "육식사관학교_대구신암점", "brand": "육식사관학교", "short": "대구신암점"}, "1036849": {"logi": "266433", "name": "육식사관학교_수원매탄점", "brand": "육식사관학교", "short": "수원매탄점"}, "1036845": {"logi": "266430", "name": "육식사관학교_천안안서점", "brand": "육식사관학교", "short": "천안안서점"}, "1037648": {"logi": "266451", "name": "육식사관학교_하남풍산점", "brand": "육식사관학교", "short": "하남풍산점"}, "1036714": {"logi": "266423", "name": "육식사관학교_망우점", "brand": "육식사관학교", "short": "망우점"}, "1058231": {"logi": "223739", "name": "육식사관학교 두정점", "brand": "육식사관학교", "short": "두정점"}, "1037167": {"logi": "266419", "name": "육식사관학교_부천상동점", "brand": "육식사관학교", "short": "부천상동점"}, "1038045": {"logi": "266664", "name": "육식사관학교_인천부평점", "brand": "육식사관학교", "short": "인천부평점"}, "1038693": {"logi": "267116", "name": "육식사관학교_인천구월점", "brand": "육식사관학교", "short": "인천구월점"}, "1039625": {"logi": "267234", "name": "육식사관학교_병점점", "brand": "육식사관학교", "short": "병점점"}, "1038698": {"logi": "267119", "name": "육식사관학교_수원매교점", "brand": "육식사관학교", "short": "수원매교점"}, "1038973": {"logi": "267186", "name": "육식사관학교_인천용현점", "brand": "육식사관학교", "short": "인천용현점"}, "1040074": {"logi": "267461", "name": "육식사관학교_안양범계점", "brand": "육식사관학교", "short": "안양범계점"}, "1040092": {"logi": "267581", "name": "육식사관학교_창원중앙점", "brand": "육식사관학교", "short": "창원중앙점"}, "1040978": {"logi": "267856", "name": "육식사관학교_인천청라점", "brand": "육식사관학교", "short": "인천청라점"}, "1041031": {"logi": "267873", "name": "육식사관학교_세종나성점", "brand": "육식사관학교", "short": "세종나성점"}, "1041332": {"logi": "268080", "name": "육식사관학교_영종운서점", "brand": "육식사관학교", "short": "영종운서점"}, "1041900": {"logi": "268137", "name": "육식사관학교_평택비전점", "brand": "육식사관학교", "short": "평택비전점"}, "1041931": {"logi": "268243", "name": "육식사관학교_구리수택점", "brand": "육식사관학교", "short": "구리수택점"}, "1042082": {"logi": "268287", "name": "육식사관학교_순천매곡점", "brand": "육식사관학교", "short": "순천매곡점"}, "1041935": {"logi": "268301", "name": "육식사관학교_오산원동점", "brand": "육식사관학교", "short": "오산원동점"}, "1042244": {"logi": "268380", "name": "육식사관학교_부산연산점", "brand": "육식사관학교", "short": "부산연산점"}, "1042317": {"logi": "268395", "name": "육식사관학교_대구칠곡점", "brand": "육식사관학교", "short": "대구칠곡점"}, "1042268": {"logi": "268379", "name": "육식사관학교_부산사하점", "brand": "육식사관학교", "short": "부산사하점"}, "1043851": {"logi": "268826", "name": "육식사관학교 목포하당점", "brand": "육식사관학교", "short": "목포하당점"}, "1043764": {"logi": "268893", "name": "육식사관학교_양주옥정점", "brand": "육식사관학교", "short": "양주옥정점"}, "1043842": {"logi": "268808", "name": "육식사관학교_울산달동점", "brand": "육식사관학교", "short": "울산달동점"}, "1043212": {"logi": "268847", "name": "육식사관학교_인천계양점", "brand": "육식사관학교", "short": "인천계양점"}, "1044468": {"logi": "268941", "name": "육식사관학교_용인신갈점", "brand": "육식사관학교", "short": "용인신갈점"}, "1044336": {"logi": "269057", "name": "육식사관학교_익산신동점", "brand": "육식사관학교", "short": "익산신동점"}, "1043531": {"logi": "268620", "name": "육식사관학교_은평대조점", "brand": "육식사관학교", "short": "은평대조점"}, "1043736": {"logi": "268821", "name": "육식사관학교_마산문화점", "brand": "육식사관학교", "short": "마산문화점"}, "1044234": {"logi": "268999", "name": "육식사관학교_용인수지점", "brand": "육식사관학교", "short": "용인수지점"}, "1042097": {"logi": "268289", "name": "육식사관학교_포항우현점", "brand": "육식사관학교", "short": "포항우현점"}, "1042234": {"logi": "268358", "name": "육식사관학교_성남태평점", "brand": "육식사관학교", "short": "성남태평점"}, "1042624": {"logi": "268494", "name": "육식사관학교_동탄점", "brand": "육식사관학교", "short": "동탄점"}, "1043748": {"logi": "268680", "name": "육식사관학교_당진읍내점", "brand": "육식사관학교", "short": "당진읍내점"}, "1044456": {"logi": "268943", "name": "육식사관학교_시흥정왕점", "brand": "육식사관학교", "short": "시흥정왕점"}, "1044230": {"logi": "269044", "name": "육식사관학교_마산산호점", "brand": "육식사관학교", "short": "마산산호점"}, "1044177": {"logi": "269110", "name": "육식사관학교_광명철산점", "brand": "육식사관학교", "short": "광명철산점"}, "1045247": {"logi": "269436", "name": "육식사관학교_부산온천점", "brand": "육식사관학교", "short": "부산온천점"}, "1057198": {"logi": "236192", "name": "육식사관학교_의정부점", "brand": "육식사관학교", "short": "의정부점"}, "1043989": {"logi": "269235", "name": "육식사관학교_은평증산점", "brand": "육식사관학교", "short": "은평증산점"}, "1043773": {"logi": "268784", "name": "육식사관학교_서산동문점", "brand": "육식사관학교", "short": "서산동문점"}, "1044556": {"logi": "269282", "name": "육식사관학교_부산개금점", "brand": "육식사관학교", "short": "부산개금점"}, "1044662": {"logi": "269503", "name": "육식사관학교_안양만안점", "brand": "육식사관학교", "short": "안양만안점"}, "1044795": {"logi": "269262", "name": "육식사관학교_고양화정점", "brand": "육식사관학교", "short": "고양화정점"}, "1044861": {"logi": "269342", "name": "육식사관학교_남양주평내점", "brand": "육식사관학교", "short": "남양주평내점"}, "1045715": {"logi": "269564", "name": "육식사관학교_진주상대점", "brand": "육식사관학교", "short": "진주상대점"}, "1044669": {"logi": "269445", "name": "육식사관학교_안산선부점", "brand": "육식사관학교", "short": "안산선부점"}, "1045576": {"logi": "269599", "name": "육식사관학교_인천마전점", "brand": "육식사관학교", "short": "인천마전점"}, "1045562": {"logi": "228480", "name": "육식사관학교_인천석남점(2)", "brand": "육식사관학교", "short": "인천석남점(2)"}, "1045698": {"logi": "269773", "name": "육식사관학교_천안불당점", "brand": "육식사관학교", "short": "천안불당점"}, "1045297": {"logi": "269568", "name": "육식사관학교_부산대연점", "brand": "육식사관학교", "short": "부산대연점"}, "1045778": {"logi": "269615", "name": "육식사관학교_부천소사점(2)", "brand": "육식사관학교", "short": "부천소사점(2)"}, "1051826": {"logi": "272234", "name": "육식사관학교_목포남악점(2)", "brand": "육식사관학교", "short": "목포남악점(2)"}, "1045774": {"logi": "269750", "name": "육식사관학교_안성공도점", "brand": "육식사관학교", "short": "안성공도점"}, "1045984": {"logi": "269774", "name": "육식사관학교_평택서정점", "brand": "육식사관학교", "short": "평택서정점"}, "1045855": {"logi": "269787", "name": "육식사관학교_대전유성점", "brand": "육식사관학교", "short": "대전유성점"}, "1046155": {"logi": "269904", "name": "육식사관학교_포항장성점", "brand": "육식사관학교", "short": "포항장성점"}, "1046339": {"logi": "269925", "name": "육식사관학교_광주경안점", "brand": "육식사관학교", "short": "광주경안점"}, "1046094": {"logi": "269926", "name": "육식사관학교_양산석산점", "brand": "육식사관학교", "short": "양산석산점"}, "1046154": {"logi": "270064", "name": "육식사관학교_서울금호점(2)", "brand": "육식사관학교", "short": "서울금호점(2)"}, "1046189": {"logi": "270072", "name": "육식사관학교_청주가경점(2)", "brand": "육식사관학교", "short": "청주가경점(2)"}, "1046344": {"logi": "270208", "name": "육식사관학교_검단신도시점", "brand": "육식사관학교", "short": "검단신도시점"}, "1046468": {"logi": "270263", "name": "육식사관학교_노원역점", "brand": "육식사관학교", "short": "노원역점"}, "1046469": {"logi": "270264", "name": "육식사관학교_군산수송점", "brand": "육식사관학교", "short": "군산수송점"}, "1046541": {"logi": "270293", "name": "육식사관학교_서울송파점(2)", "brand": "육식사관학교", "short": "서울송파점(2)"}, "1046621": {"logi": "271613", "name": "육식사관학교_수원금곡점", "brand": "육식사관학교", "short": "수원금곡점"}, "1046644": {"logi": "270432", "name": "육식사관학교_부산수정점", "brand": "육식사관학교", "short": "부산수정점"}, "1047074": {"logi": "270431", "name": "육식사관학교_울산일산점", "brand": "육식사관학교", "short": "울산일산점"}, "1047271": {"logi": "270422", "name": "육식사관학교_공릉점", "brand": "육식사관학교", "short": "공릉점"}, "1047726": {"logi": "270538", "name": "육식사관학교_오천문덕점", "brand": "육식사관학교", "short": "오천문덕점"}, "1047249": {"logi": "270565", "name": "육식사관학교_군포금정점", "brand": "육식사관학교", "short": "군포금정점"}, "1047582": {"logi": "270707", "name": "육식사관학교_울산울주점", "brand": "육식사관학교", "short": "울산울주점"}, "1046624": {"logi": "270341", "name": "육식사관학교_용산점", "brand": "육식사관학교", "short": "용산점"}, "1046619": {"logi": "270399", "name": "육식사관학교_인천청학점", "brand": "육식사관학교", "short": "인천청학점"}, "1048152": {"logi": "270907", "name": "육식사관학교_청주오창점", "brand": "육식사관학교", "short": "청주오창점"}, "1047929": {"logi": "270871", "name": "육식사관학교_아산모종점", "brand": "육식사관학교", "short": "아산모종점"}, "1047253": {"logi": "270539", "name": "육식사관학교_해운대점", "brand": "육식사관학교", "short": "해운대점"}, "1048264": {"logi": "270524", "name": "육식사관학교_충주호암점", "brand": "육식사관학교", "short": "충주호암점"}, "1048180": {"logi": "270942", "name": "육식사관학교_포항남구점", "brand": "육식사관학교", "short": "포항남구점"}, "1048319": {"logi": "271161", "name": "육식사관학교_진해자은점", "brand": "육식사관학교", "short": "진해자은점"}, "1048279": {"logi": "271071", "name": "육식사관학교_원주단계점", "brand": "육식사관학교", "short": "원주단계점"}, "1048313": {"logi": "271163", "name": "육식사관학교_김포고촌점", "brand": "육식사관학교", "short": "김포고촌점"}, "1048321": {"logi": "271165", "name": "육식사관학교_의정부민락점", "brand": "육식사관학교", "short": "의정부민락점"}, "1048512": {"logi": "271061", "name": "육식사관학교_쌍문점", "brand": "육식사관학교", "short": "쌍문점"}, "1048401": {"logi": "271160", "name": "육식사관학교_부산금정점", "brand": "육식사관학교", "short": "부산금정점"}, "1049044": {"logi": "271407", "name": "육식사관학교_대구남산점(2)", "brand": "육식사관학교", "short": "대구남산점(2)"}, "1049080": {"logi": "271401", "name": "육식사관학교_방배점", "brand": "육식사관학교", "short": "방배점"}, "1049516": {"logi": "271414", "name": "육식사관학교_수원영화점(2)", "brand": "육식사관학교", "short": "수원영화점(2)"}, "1049520": {"logi": "271225", "name": "육식사관학교_김해율하점", "brand": "육식사관학교", "short": "김해율하점"}, "1049589": {"logi": "271600", "name": "육식사관학교_화도점", "brand": "육식사관학교", "short": "화도점"}, "1049879": {"logi": "271652", "name": "육식사관학교_김해북부점", "brand": "육식사관학교", "short": "김해북부점"}, "1049986": {"logi": "271808", "name": "육식사관학교_마산내서점", "brand": "육식사관학교", "short": "마산내서점"}, "1049993": {"logi": "271909", "name": "육식사관학교_인천검암점", "brand": "육식사관학교", "short": "인천검암점"}, "1050237": {"logi": "272097", "name": "육식사관학교_대구성서점", "brand": "육식사관학교", "short": "대구성서점"}, "1050422": {"logi": "272084", "name": "육식사관학교_고양삼송점", "brand": "육식사관학교", "short": "고양삼송점"}, "1051683": {"logi": "272404", "name": "육식사관학교_분당야탑점", "brand": "육식사관학교", "short": "분당야탑점"}, "1051809": {"logi": "272215", "name": "육식사관학교_김제신풍점", "brand": "육식사관학교", "short": "김제신풍점"}, "1051812": {"logi": "272381", "name": "육식사관학교_용인김량장점", "brand": "육식사관학교", "short": "용인김량장점"}, "1051725": {"logi": "272337", "name": "육식사관학교_미아점", "brand": "육식사관학교", "short": "미아점"}, "1051786": {"logi": "272467", "name": "육식사관학교_춘천석사점", "brand": "육식사관학교", "short": "춘천석사점"}, "1053017": {"logi": "272617", "name": "육식사관학교_청주용암점", "brand": "육식사관학교", "short": "청주용암점"}, "1052927": {"logi": "272709", "name": "육식사관학교_화성봉담점", "brand": "육식사관학교", "short": "화성봉담점"}, "1052928": {"logi": "272727", "name": "육식사관학교_평택안중점", "brand": "육식사관학교", "short": "평택안중점"}, "1052931": {"logi": "272750", "name": "육식사관학교_대전관저점", "brand": "육식사관학교", "short": "대전관저점"}, "1052930": {"logi": "272754", "name": "육식사관학교_화순점", "brand": "육식사관학교", "short": "화순점"}, "1053415": {"logi": "273016", "name": "육식사관학교_부산명지점", "brand": "육식사관학교", "short": "부산명지점"}, "1052044": {"logi": "273018", "name": "육식사관학교_화성향남점", "brand": "육식사관학교", "short": "화성향남점"}, "1053305": {"logi": "273089", "name": "육식사관학교_광양읍점", "brand": "육식사관학교", "short": "광양읍점"}, "1053208": {"logi": "273019", "name": "육식사관학교_만성혁신점", "brand": "육식사관학교", "short": "만성혁신점"}, "1053302": {"logi": "273093", "name": "육식사관학교_원주단구점", "brand": "육식사관학교", "short": "원주단구점"}, "1053534": {"logi": "273477", "name": "육식사관학교_강릉용강점", "brand": "육식사관학교", "short": "강릉용강점"}, "1054637": {"logi": "273504", "name": "육식사관학교_시지경산점", "brand": "육식사관학교", "short": "시지경산점"}, "1054806": {"logi": "273654", "name": "육식사관학교_성신여대점", "brand": "육식사관학교", "short": "성신여대점"}, "1055110": {"logi": "273773", "name": "육식사관학교_파주운정점", "brand": "육식사관학교", "short": "파주운정점"}, "1055250": {"logi": "273958", "name": "육식사관학교 울산매곡점", "brand": "육식사관학교", "short": "울산매곡점"}, "1055345": {"logi": "273890", "name": "육식사관학교_울산남목점", "brand": "육식사관학교", "short": "울산남목점"}, "1056808": {"logi": "235868", "name": "육식사관학교_전남장성점", "brand": "육식사관학교", "short": "전남장성점"}, "1056881": {"logi": "235940", "name": "육식사관학교_오산대점", "brand": "육식사관학교", "short": "오산대점"}, "1055874": {"logi": "274076", "name": "육식사관학교_광주태전점", "brand": "육식사관학교", "short": "광주태전점"}, "1055914": {"logi": "274078", "name": "육식사관학교_동두천점", "brand": "육식사관학교", "short": "동두천점"}, "1056293": {"logi": "274140", "name": "육식사관학교_인천서창점", "brand": "육식사관학교", "short": "인천서창점"}, "1055778": {"logi": "274143", "name": "육식사관학교_정읍점", "brand": "육식사관학교", "short": "정읍점"}, "1055983": {"logi": "274237", "name": "육식사관학교_나주혁신점", "brand": "육식사관학교", "short": "나주혁신점"}, "1056591": {"logi": "274240", "name": "육식사관학교_인천논현점", "brand": "육식사관학교", "short": "인천논현점"}, "1057165": {"logi": "236174", "name": "육식사관학교_창원의창점", "brand": "육식사관학교", "short": "창원의창점"}, "1057186": {"logi": "236175", "name": "육식사관학교_진접오남점", "brand": "육식사관학교", "short": "진접오남점"}, "1057398": {"logi": "236468", "name": "육식사관학교_남양읍점", "brand": "육식사관학교", "short": "남양읍점"}, "1057868": {"logi": "236693", "name": "육식사관학교_전북남원점", "brand": "육식사관학교", "short": "전북남원점"}, "1058229": {"logi": "236672", "name": "육식사관학교_용인상현점", "brand": "육식사관학교", "short": "용인상현점"}, "1057893": {"logi": "236617", "name": "육식사관학교_분당정자점", "brand": "육식사관학교", "short": "분당정자점"}, "1057941": {"logi": "236797", "name": "육식사관학교_안양인덕원점", "brand": "육식사관학교", "short": "안양인덕원점"}, "1058283": {"logi": "236652", "name": "육식사관학교_아산배방점", "brand": "육식사관학교", "short": "아산배방점"}, "1058554": {"logi": "228376", "name": "육식사관학교_동탄역점", "brand": "육식사관학교", "short": "동탄역점"}, "1058840": {"logi": "228416", "name": "육식사관학교_대구율하혁신점", "brand": "육식사관학교", "short": "대구율하혁신점"}, "1059558": {"logi": "228604", "name": "육식사관학교_연천점", "brand": "육식사관학교", "short": "연천점"}, "1059600": {"logi": "228550", "name": "육식사관학교_도봉점", "brand": "육식사관학교", "short": "도봉점"}, "1059603": {"logi": "228664", "name": "육식사관학교_안성점", "brand": "육식사관학교", "short": "안성점"}, "1059605": {"logi": "231290", "name": "육식사관학교_조치원오송점", "brand": "육식사관학교", "short": "조치원오송점"}};
+
+// ═══════ 파일 상태 ═══════
+const files = {1: null, 2: null};
 let curTab = 0;
 let chartInstances = {};
+let activeBrand = 'all';
 
 // ═══════ 드래그앤드롭 ═══════
-const dropZone = document.getElementById('dropZone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) loadFile(f);
-});
-
-function handleFile(input) {
-  if (input.files[0]) loadFile(input.files[0]);
+function dzDrag(e, id){ e.preventDefault(); document.getElementById(id).classList.add('drag'); }
+function dzLeave(id){ document.getElementById(id).classList.remove('drag'); }
+function dzDrop(e, id, n){ e.preventDefault(); dzLeave(id); const f=e.dataTransfer.files[0]; if(f) setFile(n, f); }
+function loadFile(n, input){ if(input.files[0]) setFile(n, input.files[0]); }
+function setFile(n, file){
+  files[n] = file;
+  const fc = document.getElementById('fc'+n);
+  fc.textContent = '✓ ' + file.name;
+  fc.className = 'file-chosen';
 }
 
-let parsedCSV = null;
-function loadFile(file) {
-  if (!file.name.endsWith('.csv')) { showErr('CSV 파일만 지원합니다.'); return; }
-  document.getElementById('fileChosen').textContent = '✓ ' + file.name;
-  document.getElementById('pasteArea').value = '';
-  const reader = new FileReader();
-  reader.onload = e => { parsedCSV = e.target.result; };
-  reader.readAsText(file, 'UTF-8');
+// ═══════ Excel / CSV 파싱 ═══════
+function readWorkbook(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>{ try{ const wb=XLSX.read(e.target.result,{type:'array'}); res(wb); }catch(err){rej(err);} }; r.onerror=()=>rej(new Error('파일 읽기 실패')); r.readAsArrayBuffer(file); }); }
+
+function sheetToRows(sheet){
+  const raw = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+  return raw.map(r => r.map(c => c===null||c===undefined ? '' : c));
 }
 
-// ═══════ 템플릿 다운로드 ═══════
-function downloadTemplate() {
-  const header = '매장명,신규(Y/N),전주_월,전주_화,전주_수,전주_목,전주_금,전주_토,전주_일,금주_월,금주_화,금주_수,금주_목,금주_금,금주_토,금주_일';
-  const example = [
-    '샘플매장A,N,1500000,1200000,1800000,1600000,2000000,2500000,1900000,1700000,1400000,2000000,1800000,2200000,2700000,2100000',
-    '샘플매장B,N,900000,800000,1100000,1000000,1300000,1500000,1200000,1000000,900000,1200000,1100000,1400000,1600000,1300000',
-    '신규매장C,Y,0,0,0,0,0,0,0,800000,700000,900000,850000,1100000,1300000,1000000',
-  ];
-  const csv = [header, ...example].join('\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = '매출_업로드_템플릿.csv';
-  a.click();
-}
-
-// ═══════ CSV/TSV 파싱 ═══════
-function parseText(text) {
-  const lines = text.trim().split(/\r?\n/);
-  const results = [];
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    // TSV(탭) 또는 CSV(쉼표) 자동 감지
-    const sep = line.includes('\t') ? '\t' : ',';
-    const cols = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
-    results.push(cols);
+function colIndex(H, wants, excludes=[]){
+  const cleaned = H.map(h=>String(h).replace(/\s/g,''));
+  for(const w of wants){
+    const i = cleaned.findIndex(h=>h.includes(w) && !excludes.some(x=>h.includes(x)));
+    if(i>=0) return i;
   }
-  return results;
+  return -1;
 }
 
-function isHeaderRow(cols) {
-  // 첫 열이 숫자가 아니고 두번째 열이 Y/N이 아닌 경우 헤더로 간주
-  const secondIsNumeric = !isNaN(Number(cols[1])) && cols[1] !== '';
-  const secondIsYN = /^[yYnN]$/i.test(cols[1]);
-  return !secondIsNumeric && !secondIsYN;
+function findHeader(rows, mustHave){
+  for(let i=0;i<Math.min(rows.length,20);i++){
+    const H=rows[i].map(c=>String(c).replace(/\s/g,''));
+    if(mustHave.every(m=>H.some(h=>h.includes(m)))) return i;
+  }
+  return -1;
 }
 
-// ═══════ 데이터 구조 생성 ═══════
-function buildData(rows) {
-  // 헤더 행 자동 제거
-  if (rows.length > 0 && isHeaderRow(rows[0])) rows = rows.slice(1);
+function toNum(v){ if(v===''||v==null) return 0; const n=parseFloat(String(v).replace(/[,\s]/g,'')); return isNaN(n)?0:n; }
+function toCode(v){ return String(v||'').replace(/\D/g,''); }
 
-  if (rows.length === 0) throw new Error('데이터가 없습니다.');
+function parsePos(rows, salesField){
+  const hr = findHeader(rows, ['매장코드','매장명']);
+  if(hr<0) throw new Error('헤더를 찾지 못했습니다. (매장코드/매장명 열 필요)');
+  const H = rows[hr].map(c=>String(c||'').replace(/\s/g,''));
+  const ci = {
+    code:  colIndex(H,['매장코드']),
+    name:  colIndex(H,['매장명']),
+    real:  colIndex(H,['실매출액']),
+    net:   colIndex(H,['순매출액']),
+    order: colIndex(H,['매출액'],['실','순'])
+  };
+  if(ci.code<0) throw new Error('매장코드 열을 찾지 못했습니다.');
 
-  const S = [];        // 매장명
-  const newStores = new Set(); // 신규 매장 인덱스
-  const W1 = Array.from({length:7}, () => []); // 전주 [day][store]
-  const W2 = Array.from({length:7}, () => []); // 금주 [day][store]
+  const out = {};
+  for(let r=hr+1;r<rows.length;r++){
+    const row=rows[r];
+    const code=toCode(row[ci.code]);
+    if(!code || String(row[ci.code]).includes('합계')) continue;
+    const salesVal = salesField==='real' ? toNum(row[ci.real])
+                   : salesField==='order'? toNum(row[ci.order])
+                   : toNum(row[ci.net]);
+    if(salesVal<=0) continue;
+    const name = ci.name>=0 ? String(row[ci.name]||'').trim() : '';
+    out[code] = { name, sales: salesVal };
+  }
+  return out;
+}
 
-  rows.forEach((cols, idx) => {
-    if (cols.length < 2) return;
-    const name = cols[0] || `매장${idx+1}`;
-    S.push(name);
-    const isNew = /^[yY]$/.test((cols[1]||'').trim());
-    if (isNew) newStores.add(S.length - 1);
-
-    for (let d = 0; d < 7; d++) {
-      const v1 = parseInt((cols[2 + d] || '0').replace(/,/g,'')) || 0;
-      const v2 = parseInt((cols[9 + d] || '0').replace(/,/g,'')) || 0;
-      W1[d].push(v1);
-      W2[d].push(v2);
+async function parseFile(file, salesField){
+  const wb = await readWorkbook(file);
+  let best = null, bestCount = 0;
+  for(const sname of wb.SheetNames){
+    const rows = sheetToRows(wb.Sheets[sname]);
+    const hr = findHeader(rows,['매장코드','매장명']);
+    if(hr>=0){
+      const count = rows.length - hr;
+      if(count > bestCount){ bestCount=count; best={rows,sheet:sname}; }
     }
-  });
-
-  if (S.length === 0) throw new Error('유효한 매장 데이터가 없습니다.');
-  return { S, newStores, W1, W2 };
+  }
+  if(!best) throw new Error(`"${file.name}": 매장코드/매장명 헤더를 가진 시트를 찾지 못했습니다.`);
+  return parsePos(best.rows, salesField);
 }
 
-// ═══════ 생성 버튼 ═══════
-function showErr(msg) {
-  const el = document.getElementById('errMsg');
-  el.textContent = msg;
-  el.style.display = 'block';
+// ═══════ 매장 이름 결정 ═══════
+function resolveStoreName(code, rawName){
+  const info = STORE_MATCH[code];
+  if(info) return { display: info.short || info.name, brand: info.brand, full: info.name };
+  // fallback: raw name에서 브랜드 접두사 제거
+  let short = rawName;
+  for(const brand of ['밥구정로데오_','밥구정로데오 ','육식사관학교_','육식사관학교 ']){
+    if(short.startsWith(brand)) short = short.slice(brand.length);
+  }
+  // 브랜드 추론
+  const brand = rawName.includes('육식') ? '육식사관학교' : rawName.includes('밥구') ? '밥구정로데오' : '기타';
+  return { display: short || rawName || code, brand, full: rawName };
 }
-function hideErr() { document.getElementById('errMsg').style.display = 'none'; }
 
-function generate() {
+// ═══════ 생성 ═══════
+function showErr(msg){ const el=document.getElementById('errMsg'); el.textContent=msg; el.style.display='block'; }
+function hideErr(){ document.getElementById('errMsg').style.display='none'; }
+
+async function generate(){
   hideErr();
-  let text = parsedCSV || document.getElementById('pasteArea').value.trim();
-  if (!text) { showErr('데이터를 업로드하거나 붙여넣기 해주세요.'); return; }
+  if(!files[1]){ showErr('전주 파일을 선택해주세요.'); return; }
+  if(!files[2]){ showErr('금주 파일을 선택해주세요.'); return; }
 
-  try {
-    const rows = parseText(text);
-    const { S, newStores, W1, W2 } = buildData(rows);
+  const btn = document.querySelector('.gen-btn');
+  btn.textContent='⏳ 파일 분석 중...';
+  btn.disabled=true;
 
+  try{
+    const salesField = document.getElementById('salesCol').value;
     const w1Label = document.getElementById('w1Label').value || '전주';
     const w2Label = document.getElementById('w2Label').value || '금주';
-    const dayLabelRaw = document.getElementById('dayLabels').value || '월,화,수,목,금,토,일';
-    const dayLabels = dayLabelRaw.split(',').map(s=>s.trim()).slice(0,7);
-    while (dayLabels.length < 7) dayLabels.push(`D${dayLabels.length+1}`);
 
-    renderDashboard(S, newStores, W1, W2, w1Label, w2Label, dayLabels);
-  } catch(e) {
-    showErr('데이터 파싱 오류: ' + e.message);
+    const [pos1, pos2] = await Promise.all([
+      parseFile(files[1], salesField),
+      parseFile(files[2], salesField)
+    ]);
+
+    // 통합 매장 코드 목록
+    const allCodes = new Set([...Object.keys(pos1), ...Object.keys(pos2)]);
+
+    const stores = [];
+    for(const code of allCodes){
+      const d1 = pos1[code];
+      const d2 = pos2[code];
+      const rawName = (d2||d1).name;
+      const info = resolveStoreName(code, rawName);
+      stores.push({
+        code,
+        display: info.display,
+        brand: info.brand,
+        full: info.full,
+        w1: d1 ? d1.sales : 0,
+        w2: d2 ? d2.sales : 0,
+      });
+    }
+
+    if(stores.length===0) throw new Error('분석 가능한 매장 데이터가 없습니다.');
+
+    renderDashboard(stores, w1Label, w2Label, salesField);
+  } catch(e){
+    showErr('오류: ' + e.message);
+  } finally{
+    btn.textContent='📊 비교 대시보드 생성';
+    btn.disabled=false;
   }
 }
 
 // ═══════ 대시보드 렌더링 ═══════
-function renderDashboard(S, NEW_STORES, W1, W2, w1Label, w2Label, dayLabels) {
-  const N = S.length;
-  const w1T = Array.from({length:N}, (_,i) => W1.reduce((s,d)=>s+d[i],0));
-  const w2T = Array.from({length:N}, (_,i) => W2.reduce((s,d)=>s+d[i],0));
-  const w1D = Array.from({length:N}, (_,i) => W1.filter(d=>d[i]>0).length);
-  const w2D = Array.from({length:N}, (_,i) => W2.filter(d=>d[i]>0).length);
-  const gr  = Array.from({length:N}, (_,i) => w1T[i]>0?(w2T[i]-w1T[i])/w1T[i]:(w2T[i]>0?Infinity:NaN));
-  const TW1 = w1T.reduce((s,v)=>s+v,0);
-  const TW2 = w2T.reduce((s,v)=>s+v,0);
-  const tgr = TW1>0?(TW2-TW1)/TW1:Infinity;
-  const actIdx = [...Array(N).keys()].filter(i=>w1T[i]>0||w2T[i]>0);
-  const upN  = actIdx.filter(i=>!isNaN(gr[i])&&gr[i]>0).length;
-  const dnN  = actIdx.filter(i=>!isNaN(gr[i])&&gr[i]<0).length;
-  const newN = actIdx.filter(i=>gr[i]===Infinity).length;
-  const top10 = [...actIdx].sort((a,b)=>w2T[b]-w2T[a]).slice(0,10);
-  const gainIdx = actIdx.filter(i=>w1T[i]>0&&gr[i]>=0.2).sort((a,b)=>gr[b]-gr[a]);
-  const lossIdx = actIdx.filter(i=>w1T[i]>0&&gr[i]<=-0.2).sort((a,b)=>gr[a]-gr[b]);
-  const sortedAll = [...actIdx].sort((a,b)=>{
-    const ga=gr[a]===Infinity?999:isNaN(gr[a])?-999:gr[a];
-    const gb=gr[b]===Infinity?999:isNaN(gr[b])?-999:gr[b];
-    return gb-ga;
+function renderDashboard(stores, w1Label, w2Label, salesField){
+  // 계산
+  stores.forEach(s=>{
+    s.gr = s.w1>0 ? (s.w2-s.w1)/s.w1 : (s.w2>0 ? Infinity : NaN);
+    s.isNew = s.gr===Infinity;
   });
-  const w1Day = W1.map(d=>d.reduce((s,v)=>s+v,0)/10000);
-  const w2Day = W2.map(d=>d.reduce((s,v)=>s+v,0)/10000);
 
-  const tc='#9aaccb', gc='rgba(0,0,0,0.05)';
-  const fm = v => v>0?Math.round(v).toLocaleString('ko-KR')+'원':'—';
-  const fd = v => v!==0?(v>=0?'+':'')+Math.round(v).toLocaleString('ko-KR')+'원':'—';
-  const fp = g => {
+  const brands = [...new Set(stores.map(s=>s.brand))].sort();
+  const allBrands = ['전체', ...brands];
+
+  function filteredStores(brand){
+    return brand==='전체'||brand==='all' ? stores : stores.filter(s=>s.brand===brand);
+  }
+
+  function calcStats(list){
+    const active = list.filter(s=>s.w1>0||s.w2>0);
+    const TW1 = active.reduce((a,s)=>a+s.w1,0);
+    const TW2 = active.reduce((a,s)=>a+s.w2,0);
+    const tgr = TW1>0?(TW2-TW1)/TW1:(TW2>0?Infinity:NaN);
+    const upN = active.filter(s=>!isNaN(s.gr)&&s.gr>0).length;
+    const dnN = active.filter(s=>!isNaN(s.gr)&&s.gr<0).length;
+    const newN = active.filter(s=>s.isNew).length;
+    const top10 = [...active].sort((a,b)=>b.w2-a.w2).slice(0,10);
+    const gainIdx = active.filter(s=>s.w1>0&&s.gr>=0.2).sort((a,b)=>b.gr-a.gr);
+    const lossIdx = active.filter(s=>s.w1>0&&s.gr<=-0.2).sort((a,b)=>a.gr-b.gr);
+    const sortedAll = [...active].sort((a,b)=>{
+      const ga=a.gr===Infinity?999:isNaN(a.gr)?-999:a.gr;
+      const gb=b.gr===Infinity?999:isNaN(b.gr)?-999:b.gr;
+      return gb-ga;
+    });
+    // 브랜드별 합계 (차트용)
+    const brandTotals = {};
+    active.forEach(s=>{
+      if(!brandTotals[s.brand]) brandTotals[s.brand]={w1:0,w2:0};
+      brandTotals[s.brand].w1+=s.w1;
+      brandTotals[s.brand].w2+=s.w2;
+    });
+    return {active,TW1,TW2,tgr,upN,dnN,newN,top10,gainIdx,lossIdx,sortedAll,brandTotals};
+  }
+
+  const fm=v=>v>0?Math.round(v).toLocaleString('ko-KR')+'원':'—';
+  const fd=v=>v!==0?(v>=0?'+':'')+Math.round(v).toLocaleString('ko-KR')+'원':'—';
+  const fp=g=>{
     if(g===Infinity) return '<span class="bnew">신규</span>';
     if(isNaN(g)) return '<span class="muted">—</span>';
     return g>=0?`<span class="bup">▲${(g*100).toFixed(1)}%</span>`:`<span class="bdn">▼${(Math.abs(g)*100).toFixed(1)}%</span>`;
   };
 
-  function top10html(){
-    return top10.map((i,r)=>`
+  function top10html(top10){
+    return top10.map((s,r)=>`
       <div class="tc">
         <div class="tc-rank">#${r+1}</div>
-        <div class="tc-nm">${S[i]}</div>
-        <div class="tc-v">${fm(w2T[i])}</div>
-        <div class="tc-s">금주 ${w2D[i]}일 영업</div>
+        <div class="tc-nm" title="${s.display}">${s.display}</div>
+        <div class="tc-s" style="color:#8896b0;font-size:9px;">${s.brand}</div>
+        <div class="tc-v">${fm(s.w2)}</div>
         <div class="tc-row">
-          <span style="color:#8896b0;">전주 ${fm(w1T[i])}${w1D[i]>0?' ('+w1D[i]+'일)':''}</span>
-          <span>${fp(gr[i])}</span>
+          <span style="color:#8896b0;">전주 ${fm(s.w1)}</span>
+          <span>${fp(s.gr)}</span>
         </div>
       </div>`).join('');
   }
 
-  function chgCards(list,cls){
-    return list.map(i=>`
+  function chgCards(list, cls){
+    return list.map(s=>`
       <div class="${cls}">
-        <div class="cn">${S[i]}</div>
-        <div class="cr"><span class="cl">금주</span><span class="cv">${fm(w2T[i])} (${w2D[i]}일)</span></div>
-        <div class="cr"><span class="cl">전주</span><span class="cv">${fm(w1T[i])} (${w1D[i]}일)</span></div>
-        <div class="cr"><span class="cl">등락</span><span style="font-weight:700;color:${gr[i]>=0?'#dc2626':'#2563eb'};">${gr[i]>=0?'▲':'▼'}${(Math.abs(gr[i])*100).toFixed(1)}%</span></div>
+        <div class="cn" title="${s.display}">${s.display}</div>
+        <div class="cr"><span class="cl">금주</span><span class="cv">${fm(s.w2)}</span></div>
+        <div class="cr"><span class="cl">전주</span><span class="cv">${fm(s.w1)}</span></div>
+        <div class="cr"><span class="cl">등락</span><span style="font-weight:700;color:${s.gr>=0?'#dc2626':'#2563eb'};">${s.gr>=0?'▲':'▼'}${(Math.abs(s.gr)*100).toFixed(1)}%</span></div>
       </div>`).join('');
   }
 
-  function mainTable(){
-    let h=`<thead><tr><th>매장명</th><th>전주 합계</th><th>영업일</th><th>금주 합계</th><th>영업일</th><th>증감액</th><th>전주대비</th></tr></thead><tbody>`;
-    sortedAll.forEach(i=>{
-      const diff=w2T[i]-w1T[i];
+  function mainTable(sortedAll){
+    let h=`<thead><tr><th>매장명</th><th>브랜드</th><th>전주 합계</th><th>금주 합계</th><th>증감액</th><th>전주대비</th></tr></thead><tbody>`;
+    sortedAll.forEach(s=>{
+      const diff=s.w2-s.w1;
       h+=`<tr>
-        <td>${S[i]}${NEW_STORES.has(i)?'<span class="bnew" style="margin-left:4px;">신규</span>':''}</td>
-        <td>${w1T[i]>0?fm(w1T[i]):'<span class="muted">—</span>'}</td>
-        <td style="color:#8896b0;">${w1D[i]>0?w1D[i]+'일':'—'}</td>
-        <td style="font-weight:600;">${fm(w2T[i])}</td>
-        <td style="color:#8896b0;">${w2D[i]}일</td>
-        <td style="font-weight:600;color:${diff>=0?'#dc2626':'#2563eb'};">${w1T[i]>0?fd(diff):'—'}</td>
-        <td>${fp(gr[i])}</td>
+        <td>${s.display}${s.isNew?'<span class="bnew" style="margin-left:4px;">신규</span>':''}</td>
+        <td style="color:#8896b0;font-size:10px;">${s.brand}</td>
+        <td>${s.w1>0?fm(s.w1):'<span class="muted">—</span>'}</td>
+        <td style="font-weight:600;">${fm(s.w2)}</td>
+        <td style="font-weight:600;color:${diff>=0?'#dc2626':'#2563eb'};">${s.w1>0?fd(diff):'—'}</td>
+        <td>${fp(s.gr)}</td>
       </tr>`;
     });
-    const T1op=actIdx.filter(i=>w1T[i]>0).length;
-    const T2op=actIdx.filter(i=>w2T[i]>0).length;
-    const tdiff=TW2-TW1;
-    h+=`<tr class="tr">
-      <td>전체 합계</td>
-      <td>${fm(TW1)}</td><td style="color:#8896b0;">${T1op}개</td>
-      <td>${fm(TW2)}</td><td style="color:#8896b0;">${T2op}개</td>
-      <td style="font-weight:700;color:${tdiff>=0?'#dc2626':'#2563eb'};">${fd(tdiff)}</td>
-      <td>${fp(tgr)}</td>
-    </tr></tbody>`;
-    return h;
+    return h+'</tbody>';
   }
 
-  function buildHtml(sfx){
-    const T1op=actIdx.filter(i=>w1T[i]>0).length;
-    const T2op=actIdx.filter(i=>w2T[i]>0).length;
+  function buildChartData(st, brand){
+    // TOP 10 매장 막대차트
+    const top = [...st.active].sort((a,b)=>b.w2-a.w2).slice(0,10);
+    return {
+      labels: top.map(s=>s.display),
+      w1: top.map(s=>Math.round(s.w1/10000)),
+      w2: top.map(s=>Math.round(s.w2/10000))
+    };
+  }
+
+  function buildHtml(sfx, brandFilter){
+    const list = filteredStores(brandFilter);
+    const st = calcStats(list);
+    const T1op=st.active.filter(s=>s.w1>0).length;
+    const T2op=st.active.filter(s=>s.w2>0).length;
+    const cd = buildChartData(st, brandFilter);
+    const brandLabel = brandFilter==='전체'?'전체 브랜드':brandFilter;
+
     return `
     <div class="kpis">
-      <div class="kpi card"><div class="kl">전주 합계 (${w1Label})</div><div class="kv">${fm(TW1)}</div><div class="ks">일평균 ${fm(TW1/7)} · 운영 ${T1op}개</div></div>
-      <div class="kpi card"><div class="kl">금주 합계 (${w2Label})</div><div class="kv">${fm(TW2)}</div><div class="ks">일평균 ${fm(TW2/7)} · 운영 ${T2op}개</div></div>
-      <div class="kpi card"><div class="kl">전주대비</div><div class="kv">${fp(tgr)}</div><div class="ks">${fd(TW2-TW1)}</div></div>
-      <div class="kpi card"><div class="kl">매장 현황</div><div class="kv" style="font-size:14px;">상승 ${upN} / 하락 ${dnN}</div><div class="ks">신규 ${newN}개 · 활성 ${actIdx.length}개</div></div>
+      <div class="kpi card"><div class="kl">전주 합계 (${w1Label})</div><div class="kv">${fm(st.TW1)}</div><div class="ks">운영 ${T1op}개 매장</div></div>
+      <div class="kpi card"><div class="kl">금주 합계 (${w2Label})</div><div class="kv">${fm(st.TW2)}</div><div class="ks">운영 ${T2op}개 매장</div></div>
+      <div class="kpi card"><div class="kl">전주대비</div><div class="kv">${fp(st.tgr)}</div><div class="ks">${fd(st.TW2-st.TW1)}</div></div>
+      <div class="kpi card"><div class="kl">매장 현황</div><div class="kv" style="font-size:14px;">상승 ${st.upN} / 하락 ${st.dnN}</div><div class="ks">신규 ${st.newN}개 · 활성 ${st.active.length}개</div></div>
     </div>
     <div class="cg2">
       <div class="cc card">
-        <div class="ct">① 요일별 합산 매출 비교 (만원)</div>
+        <div class="ct">① 금주 TOP 10 매장 매출 비교 (만원) — ${brandLabel}</div>
         <div class="leg"><span><span class="lsq" style="background:#c7d4f0;"></span>전주</span><span><span class="lsq" style="background:#4B7BE8;"></span>금주</span></div>
-        <div style="position:relative;height:150px;"><canvas id="ch${sfx}"></canvas></div>
+        <div style="position:relative;height:160px;"><canvas id="ch${sfx}"></canvas></div>
       </div>
       <div class="cc card" style="display:flex;flex-direction:column;justify-content:space-around;padding:16px 14px;">
         <div>
           <div style="font-size:10px;color:#8896b0;margin-bottom:3px;">전주 → 금주</div>
-          <div style="font-size:16px;font-weight:700;color:#1a2235;">${fm(TW1)} → ${fm(TW2)}</div>
-          <div style="font-size:13px;font-weight:700;color:${tgr>=0?'#dc2626':'#2563eb'};margin-top:3px;">${tgr>=0?'▲':'▼'} ${(Math.abs(tgr)*100).toFixed(1)}%</div>
+          <div style="font-size:16px;font-weight:700;color:#1a2235;">${fm(st.TW1)} → ${fm(st.TW2)}</div>
+          <div style="font-size:13px;font-weight:700;color:${st.tgr>=0?'#dc2626':'#2563eb'};margin-top:3px;">${st.tgr>=0?'▲':'▼'} ${(Math.abs(st.tgr)*100).toFixed(1)}%</div>
         </div>
         <div><div style="font-size:10px;color:#8896b0;margin-bottom:2px;">운영 매장</div><div style="font-size:12px;font-weight:600;">${T1op}개 → ${T2op}개</div></div>
         <div><div style="font-size:10px;color:#8896b0;margin-bottom:2px;">등락 20%+</div>
           <div style="font-size:12px;">
-            <span style="color:#dc2626;font-weight:700;">▲${gainIdx.length}개</span>
-            &nbsp;<span style="color:#2563eb;font-weight:700;">▼${lossIdx.length}개</span>
-            &nbsp;<span style="color:#16a34a;font-weight:700;">신규 ${newN}개</span>
+            <span style="color:#dc2626;font-weight:700;">▲${st.gainIdx.length}개</span>
+            &nbsp;<span style="color:#2563eb;font-weight:700;">▼${st.lossIdx.length}개</span>
+            &nbsp;<span style="color:#16a34a;font-weight:700;">신규 ${st.newN}개</span>
           </div>
         </div>
       </div>
     </div>
     <div class="card sec">
       <div class="sec-tit">🏆 금주 매출 TOP 10 매장</div>
-      <div class="top10g">${top10html()}</div>
+      <div class="top10g">${top10html(st.top10)}</div>
     </div>
     <div class="card sec" style="margin-top:10px;">
-      <div style="font-size:11px;font-weight:700;color:#dc2626;background:#fff1f1;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▲ 전주대비 20% 이상 상승 · ${gainIdx.length}개 매장</div>
-      <div class="cgrid">${chgCards(gainIdx,'uc')}</div>
+      <div style="font-size:11px;font-weight:700;color:#dc2626;background:#fff1f1;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▲ 전주대비 20% 이상 상승 · ${st.gainIdx.length}개 매장</div>
+      <div class="cgrid">${chgCards(st.gainIdx,'uc')}</div>
       <div style="height:14px;border-bottom:1px solid #f0f4f8;margin:10px -14px 10px;"></div>
-      <div style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▼ 전주대비 20% 이상 하락 · ${lossIdx.length}개 매장</div>
-      <div class="cgrid">${chgCards(lossIdx,'dc')}</div>
+      <div style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▼ 전주대비 20% 이상 하락 · ${st.lossIdx.length}개 매장</div>
+      <div class="cgrid">${chgCards(st.lossIdx,'dc')}</div>
     </div>
     <div class="card sec" style="margin-top:10px;">
       <div class="sec-tit">② 전체 매장 주간 비교 (전주대비 높은 순)</div>
-      <div class="tbl-wrap"><div class="tbl-h"><table>${mainTable()}</table></div></div>
+      <div class="tbl-wrap"><div class="tbl-h"><table>${mainTable(st.sortedAll)}</table></div></div>
     </div>`;
   }
 
-  function buildReport(){
-    const newStoreNames=[...NEW_STORES].filter(i=>w2T[i]>0).map(i=>`<strong>${S[i]}</strong>(${w2D[i]}일/${fm(w2T[i])})`);
+  function buildReport(brandFilter){
+    const list = filteredStores(brandFilter);
+    const st = calcStats(list);
+    const newStoreNames = st.active.filter(s=>s.isNew&&s.w2>0).map(s=>`<strong>${s.display}</strong>(${fm(s.w2)})`);
     return `
     <div class="report">
       <div class="rp-hd">
@@ -501,35 +566,33 @@ function renderDashboard(S, NEW_STORES, W1, W2, w1Label, w2Label, dayLabels) {
       </div>
       <div class="rp-body">
         <div class="sb">
-          <div class="sb-nm">전체 총평 <span class="tag ${tgr>=0?'tg':'tw'}">${tgr>=0?'▲':'▼'}${(Math.abs(tgr)*100).toFixed(1)}%</span></div>
+          <div class="sb-nm">전체 총평 <span class="tag ${st.tgr>=0?'tg':'tw'}">${st.tgr>=0?'▲':'▼'}${(Math.abs(st.tgr)*100).toFixed(1)}%</span></div>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px;">
-            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">전주</div><div style="font-size:13px;font-weight:700;">${fm(TW1)}</div></div>
-            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">금주</div><div style="font-size:13px;font-weight:700;">${fm(TW2)}</div></div>
-            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">상승</div><div style="font-size:13px;font-weight:700;color:#dc2626;">${upN}개</div></div>
-            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">하락</div><div style="font-size:13px;font-weight:700;color:#2563eb;">${dnN}개</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">전주</div><div style="font-size:13px;font-weight:700;">${fm(st.TW1)}</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">금주</div><div style="font-size:13px;font-weight:700;">${fm(st.TW2)}</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">상승</div><div style="font-size:13px;font-weight:700;color:#dc2626;">${st.upN}개</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">하락</div><div style="font-size:13px;font-weight:700;color:#2563eb;">${st.dnN}개</div></div>
           </div>
-          <div class="sb-txt">금주 <strong>${fm(TW2)}</strong>으로 전주 대비 <strong>${fd(TW2-TW1)}(${(Math.abs(tgr)*100).toFixed(1)}%) ${tgr>=0?'증가':'감소'}</strong>. 신규 ${newN}개${newStoreNames.length>0?' ('+newStoreNames.join(', ')+')',':''} 운영 시작.</div>
+          <div class="sb-txt">금주 <strong>${fm(st.TW2)}</strong>으로 전주 대비 <strong>${fd(st.TW2-st.TW1)}(${(Math.abs(st.tgr)*100).toFixed(1)}%) ${st.tgr>=0?'증가':'감소'}</strong>.${newStoreNames.length>0?' 신규 매장: '+newStoreNames.join(', ')+'.':''}</div>
         </div>
         <div class="sb">
           <div class="sb-nm">금주 TOP 3 <span class="tag tg">성과 유지</span></div>
           <div class="sb-txt">
-            ${top10.slice(0,3).map((i,r)=>`<strong>${r+1}위 ${S[i]}</strong>: ${fm(w2T[i])} (${w2D[i]}일) ${fp(gr[i])}`).join('<br>')}
+            ${st.top10.slice(0,3).map((s,r)=>`<strong>${r+1}위 ${s.display}</strong>: ${fm(s.w2)} ${fp(s.gr)}`).join('<br>')}
             <br><span class="act">▶ TOP 매장 세팅 모니터링</span>
           </div>
         </div>
         <div class="sb">
-          <div class="sb-nm">상승 20%+ (${gainIdx.length}개) <span class="tag tg">성장 분석</span></div>
+          <div class="sb-nm">상승 20%+ (${st.gainIdx.length}개) <span class="tag tg">성장 분석</span></div>
           <div class="sb-txt">
-            ${gainIdx.slice(0,7).map(i=>`<strong>${S[i]}</strong>(▲${(gr[i]*100).toFixed(1)}%)`).join(' · ')}
-            ${gainIdx.length===0?'해당 매장 없음':''}
+            ${st.gainIdx.length===0?'해당 매장 없음':st.gainIdx.slice(0,8).map(s=>`<strong>${s.display}</strong>(▲${(s.gr*100).toFixed(1)}%)`).join(' · ')}
             <br><span class="act">▶ 성장 요인 분석 및 노하우 전파</span>
           </div>
         </div>
         <div class="sb">
-          <div class="sb-nm">하락 20%+ (${lossIdx.length}개) <span class="tag tw">1:1 대응</span></div>
+          <div class="sb-nm">하락 20%+ (${st.lossIdx.length}개) <span class="tag tw">1:1 대응</span></div>
           <div class="sb-txt">
-            ${lossIdx.slice(0,7).map(i=>`<strong>${S[i]}</strong>(▼${(Math.abs(gr[i])*100).toFixed(1)}%)`).join(' · ')}
-            ${lossIdx.length===0?'해당 매장 없음':''}
+            ${st.lossIdx.length===0?'해당 매장 없음':st.lossIdx.slice(0,8).map(s=>`<strong>${s.display}</strong>(▼${(Math.abs(s.gr)*100).toFixed(1)}%)`).join(' · ')}
             <br><span class="act">▶ 하락 원인 파악 및 개선 방안 수립</span>
           </div>
         </div>
@@ -537,86 +600,106 @@ function renderDashboard(S, NEW_STORES, W1, W2, w1Label, w2Label, dayLabels) {
     </div>`;
   }
 
-  // 이전 차트 제거
-  Object.values(chartInstances).forEach(c => c.destroy());
+  // 차트 재생성
+  Object.values(chartInstances).forEach(c=>c.destroy());
   chartInstances = {};
+  activeBrand = '전체';
 
-  document.getElementById('b0').innerHTML = buildHtml('A');
-  document.getElementById('b1').innerHTML = buildHtml('B') + buildReport();
+  // 초기 렌더
+  function renderPages(brand){
+    const cd1 = buildChartData(calcStats(filteredStores(brand)), brand);
+    const cd2 = buildChartData(calcStats(filteredStores(brand)), brand);
+    document.getElementById('b0').innerHTML =
+      `<div class="brand-bar">${allBrands.map(b=>`<div class="brand-tag ${b===brand?'on':''}" onclick="switchBrand('${b}')">${b}</div>`).join('')}</div>` +
+      buildHtml('A', brand);
+    document.getElementById('b1').innerHTML =
+      `<div class="brand-bar">${allBrands.map(b=>`<div class="brand-tag ${b===brand?'on':''}" onclick="switchBrand('${b}')">${b}</div>`).join('')}</div>` +
+      buildHtml('B', brand) + buildReport(brand);
 
-  // 차트 생성
-  setTimeout(() => {
-    ['chA','chB'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      chartInstances[id] = new Chart(el, {
-        type: 'bar',
-        data: {
-          labels: dayLabels,
-          datasets: [
-            { label: '전주', data: w1Day.map(v=>+v.toFixed(0)), backgroundColor:'#c7d4f0', barPercentage:0.4, categoryPercentage:0.85 },
-            { label: '금주', data: w2Day.map(v=>+v.toFixed(0)), backgroundColor:'#4B7BE8', barPercentage:0.4, categoryPercentage:0.85 }
-          ]
-        },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins: {
-            legend:{labels:{color:'#4a5568',font:{size:10},boxWidth:9}},
-            tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Math.round(+c.raw).toLocaleString('ko-KR')}만`}}
+    setTimeout(()=>{
+      ['chA','chB'].forEach((id,idx)=>{
+        const el=document.getElementById(id);
+        if(!el) return;
+        const cd = idx===0?cd1:cd2;
+        if(chartInstances[id]) chartInstances[id].destroy();
+        chartInstances[id] = new Chart(el,{
+          type:'bar',
+          data:{
+            labels:cd.labels,
+            datasets:[
+              {label:'전주',data:cd.w1,backgroundColor:'#c7d4f0',barPercentage:0.4,categoryPercentage:0.85},
+              {label:'금주',data:cd.w2,backgroundColor:'#4B7BE8',barPercentage:0.4,categoryPercentage:0.85}
+            ]
           },
-          scales: {
-            x:{ticks:{color:tc,font:{size:9}},grid:{color:gc},border:{color:'#e2e8f0'}},
-            y:{ticks:{color:tc,font:{size:9},callback:v=>Math.round(v).toLocaleString('ko-KR')+'만'},grid:{color:gc},border:{color:'#e2e8f0'}}
+          options:{
+            responsive:true,maintainAspectRatio:false,
+            plugins:{
+              legend:{labels:{color:'#4a5568',font:{size:10},boxWidth:9}},
+              tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Math.round(+c.raw).toLocaleString('ko-KR')}만`}}
+            },
+            scales:{
+              x:{ticks:{color:'#9aaccb',font:{size:8},maxRotation:30},grid:{color:'rgba(0,0,0,0.05)'}},
+              y:{ticks:{color:'#9aaccb',font:{size:9},callback:v=>Math.round(v).toLocaleString('ko-KR')+'만'},grid:{color:'rgba(0,0,0,0.05)'}}
+            }
           }
-        }
+        });
       });
-    });
-  }, 200);
+    },200);
+  }
 
-  // 화면 전환
-  document.getElementById('uploadScreen').style.display = 'none';
-  document.getElementById('dashScreen').style.display = 'block';
+  // 전역 저장 (브랜드 전환용)
+  window._renderPages = renderPages;
+  window._stores = stores;
+  window._w1Label = w1Label;
+  window._w2Label = w2Label;
+
+  renderPages('전체');
+
+  document.getElementById('uploadScreen').style.display='none';
+  document.getElementById('dashScreen').style.display='block';
   showTab(0);
 }
 
-// ═══════ 탭 & 유틸 ═══════
-function showTab(n) {
-  curTab = n;
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', i===n));
-  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('on', i===n));
+function switchBrand(brand){
+  activeBrand = brand;
+  window._renderPages(brand);
 }
 
-function resetToUpload() {
-  document.getElementById('dashScreen').style.display = 'none';
-  document.getElementById('uploadScreen').style.display = 'flex';
-  parsedCSV = null;
-  document.getElementById('fileChosen').textContent = '';
-  document.getElementById('fileInput').value = '';
+// ═══════ 탭/유틸 ═══════
+function showTab(n){
+  curTab=n;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===n));
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('on',i===n));
 }
 
-function closeOv() { document.getElementById('ov').classList.remove('on'); }
+function resetToUpload(){
+  document.getElementById('dashScreen').style.display='none';
+  document.getElementById('uploadScreen').style.display='flex';
+  files[1]=null; files[2]=null;
+  ['fc1','fc2'].forEach(id=>{ const el=document.getElementById(id); el.textContent='파일 미선택'; el.className='file-chosen empty'; });
+  ['fi1','fi2'].forEach(id=>{ document.getElementById(id).value=''; });
+}
 
-async function saveImg() {
-  const ov = document.getElementById('ov');
-  const ovBody = document.getElementById('ovBody');
-  const dlBtn = document.getElementById('dlBtn');
-  ovBody.innerHTML = '<div class="ov-spin"><div class="spinner"></div><span style="color:#8896b0;font-size:13px;">이미지 생성 중...</span></div>';
+function closeOv(){ document.getElementById('ov').classList.remove('on'); }
+
+async function saveImg(){
+  const ov=document.getElementById('ov');
+  const ovBody=document.getElementById('ovBody');
+  const dlBtn=document.getElementById('dlBtn');
+  ovBody.innerHTML='<div class="ov-spin"><div class="spinner"></div><span style="color:#8896b0;font-size:13px;">이미지 생성 중...</span></div>';
   ov.classList.add('on');
-  try {
-    const target = document.getElementById('mainWrap');
-    const canvas = await html2canvas(target, {
-      backgroundColor:'#f0f4f8', scale:2, useCORS:true, logging:false,
-      scrollX:0, scrollY:0, windowWidth:target.scrollWidth, windowHeight:target.scrollHeight
-    });
-    const dataURL = canvas.toDataURL('image/png');
-    const img = document.createElement('img');
-    img.src = dataURL;
-    ovBody.innerHTML = '';
+  try{
+    const target=document.getElementById('mainWrap');
+    const canvas=await html2canvas(target,{backgroundColor:'#f0f4f8',scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:target.scrollWidth,windowHeight:target.scrollHeight});
+    const dataURL=canvas.toDataURL('image/png');
+    const img=document.createElement('img');
+    img.src=dataURL;
+    ovBody.innerHTML='';
     ovBody.appendChild(img);
-    dlBtn.href = dataURL;
-    dlBtn.download = `주간매출보고_${curTab===0?'매출분석':'분석보고용'}.png`;
-  } catch(e) {
-    ovBody.innerHTML = `<div class="ov-spin" style="flex-direction:column;gap:8px;"><span style="color:#dc2626;font-size:13px;font-weight:600;">⚠ 생성 실패</span><span style="color:#8896b0;font-size:11px;">${e.message}</span></div>`;
+    dlBtn.href=dataURL;
+    dlBtn.download=`주간매출보고_${curTab===0?'매출분석':'분석보고용'}_${activeBrand}.png`;
+  }catch(e){
+    ovBody.innerHTML=`<div class="ov-spin" style="flex-direction:column;gap:8px;"><span style="color:#dc2626;font-size:13px;font-weight:600;">⚠ 생성 실패</span><span style="color:#8896b0;font-size:11px;">${e.message}</span></div>`;
   }
 }
 </script>
