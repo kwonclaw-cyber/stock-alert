@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>브랜드별 분석 생성기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#f0f4f8;font-family:-apple-system,'Malgun Gothic',sans-serif;padding:12px;}
+.inp-panel{background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px;margin-bottom:12px;}
+.inp-title{font-size:13px;font-weight:700;color:#1a2235;margin-bottom:10px;}
+.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.inp-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.inp-group{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+label{font-size:10px;font-weight:600;color:#64748b;}
+input[type=text]{border:1px solid #e2e8f0;border-radius:6px;padding:6px 9px;font-size:11px;color:#1a2235;outline:none;width:100%;}
+input[type=text]:focus{border-color:#4B7BE8;}
+textarea{border:1px solid #e2e8f0;border-radius:6px;padding:8px;font-size:10px;color:#1a2235;outline:none;width:100%;resize:vertical;font-family:monospace;line-height:1.5;}
+textarea:focus{border-color:#4B7BE8;}
+.hint{font-size:9.5px;color:#94a3b8;margin-top:3px;line-height:1.5;}
+.hint code{background:#f1f5f9;padding:1px 4px;border-radius:3px;color:#475569;}
+.run-btn{width:100%;padding:10px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;}
+.run-btn:hover{background:#3566d0;}
+.err{background:#fff1f1;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:11px;color:#dc2626;margin-bottom:10px;display:none;}
+/* Dashboard */
+.dash{display:none;}
+.dash.on{display:block;}
+.tab-bar{display:flex;align-items:stretch;border-bottom:2px solid #e2e8f0;background:#fff;border-radius:10px 10px 0 0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.tab{flex:1;padding:11px 0;text-align:center;font-size:12px;font-weight:600;color:#8896b0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+.tab.on{color:#4B7BE8;border-bottom:2px solid #4B7BE8;background:#f8faff;}
+.edit-btn{display:flex;align-items:center;gap:5px;padding:0 14px;font-size:11px;font-weight:600;color:#475569;background:#f1f5f9;border:1px solid #e2e8f0;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.edit-btn:hover{background:#e2e8f0;}
+.page{display:none;background:#f0f4f8;padding:14px;border-radius:0 0 10px 10px;}
+.page.on{display:block;}
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);border:1px solid #e8edf5;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.kpi{padding:11px 13px;}
+.kl{font-size:11px;color:#8896b0;margin-bottom:3px;}
+.kv{font-size:18px;font-weight:700;color:#1a2235;line-height:1.1;}
+.ks{font-size:10px;color:#a0aec0;margin-top:3px;}
+.tit{font-size:13px;font-weight:700;color:#1a2235;margin-bottom:2px;}
+.sub{font-size:11px;color:#8896b0;margin-bottom:12px;}
+.cg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;}
+.cc{padding:12px 14px;}
+.ct{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:7px;}
+.leg{display:flex;gap:10px;font-size:10px;color:#8896b0;margin-bottom:7px;flex-wrap:wrap;}
+.lsq{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:3px;}
+.sec{margin-bottom:10px;padding:13px 14px;}
+.sec-tit{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:9px;}
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead th{color:#8896b0;font-weight:600;padding:6px 10px;border-bottom:1px solid #e8edf5;text-align:right;white-space:nowrap;background:#fff;}
+thead th:first-child{text-align:left;min-width:90px;}
+tbody td{padding:6px 10px;text-align:right;border-bottom:1px solid #f4f6fa;white-space:nowrap;color:#374151;}
+tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
+.total-row td{background:#f0f4f8!important;font-weight:700;color:#1a2235;border-top:1px solid #dde4ef;border-bottom:none;}
+.bup{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:#fff1f1;color:#dc2626;font-weight:700;}
+.bdn{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:#eff6ff;color:#2563eb;font-weight:700;}
+.hl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.hl{border-radius:10px;padding:13px 14px;background:#fff;border:1px solid #e8edf5;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.hl-hd{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.hl-dot{width:10px;height:10px;border-radius:50%;}
+.hl-nm{font-size:12px;font-weight:700;color:#1a2235;}
+.hl-kpis{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.hl-k{background:#f8fafc;border-radius:6px;padding:6px 8px;}
+.hl-kl{font-size:9px;color:#8896b0;margin-bottom:2px;}
+.hl-kv{font-size:13px;font-weight:700;color:#1a2235;}
+.hl-ks{font-size:9px;margin-top:1px;}
+.ad-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.adb{display:flex;flex-direction:column;gap:10px;}
+.adb-item{display:flex;flex-direction:column;gap:3px;}
+.adb-hd{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;}
+.adb-nm{font-weight:600;}
+.adb-vals{display:flex;gap:8px;font-size:10px;color:#8896b0;}
+.adb-bars{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+.adb-lbl{font-size:9px;color:#8896b0;margin-bottom:2px;}
+.adb-track{height:7px;background:#f0f4f8;border-radius:4px;overflow:hidden;}
+.adb-fill{height:100%;border-radius:4px;}
+.report{background:#fff;border-radius:10px;border:1px solid #e8edf5;overflow:hidden;margin-top:10px;}
+.rp-hd{background:#1a2235;padding:13px 18px;}
+.rp-hd-tit{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
+.rp-hd-sub{font-size:11px;color:#8896b0;}
+.rp-body{padding:16px 18px;}
+.sb{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid #f0f4f8;}
+.sb:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.sb-nm{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tag{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.tg{background:#dcfce7;color:#15803d;}.tw{background:#fee2e2;color:#b91c1c;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px;}
+.m{background:#f8fafc;border-radius:6px;padding:6px 9px;}
+.ml{font-size:9px;color:#8896b0;margin-bottom:2px;}
+.mv{font-size:13px;font-weight:700;color:#1a2235;}
+.ms{font-size:9px;color:#8896b0;margin-top:1px;}
+.sb-txt{font-size:11.5px;color:#374151;line-height:1.8;border-left:3px solid #e2e8f0;padding-left:12px;}
+.sb-txt strong{color:#1a2235;font-weight:700;}
+.act{display:inline-block;font-size:10px;padding:2px 8px;border-radius:3px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<div class="inp-panel" id="inputPanel">
+  <div class="inp-title">📊 브랜드별 분석 생성기</div>
+
+  <div class="inp-row3">
+    <div class="inp-group" style="margin-bottom:0;">
+      <label>매장/지점명</label>
+      <input type="text" id="iStore" placeholder="예: 산들그린_영등포점">
+    </div>
+    <div class="inp-group" style="margin-bottom:0;">
+      <label>전주 주차명</label>
+      <input type="text" id="iW1" placeholder="예: 4주차">
+    </div>
+    <div class="inp-group" style="margin-bottom:0;">
+      <label>금주 주차명</label>
+      <input type="text" id="iW2" placeholder="예: 5주차">
+    </div>
+  </div>
+  <div style="margin-bottom:10px;"></div>
+
+  <div class="inp-group">
+    <label>브랜드 데이터 (엑셀에서 복사 후 붙여넣기)</label>
+    <textarea id="tData" rows="7" placeholder="브랜드	전주합계	전주배민	전주배민광고비	전주배민광고율	전주쿠팡	전주쿠팡광고비	전주쿠팡광고율	금주합계	금주배민	금주배민광고비	금주배민광고율	금주쿠팡	금주쿠팡광고비	금주쿠팡광고율&#10;제로고기찜	478900	404400	159390	39.41	74500	10393	13.95	818000	449200	182070	40.53	368800	37278	10.11&#10;제주할멍국수	3651900	1967600	483750	24.59	1684300	238857	14.18	4839700	2326400	402750	17.31	2513300	350202	13.93&#10;에그폭죽	1127600	346000	171110	49.45	781600	93474	11.96	1664100	643900	210160	32.64	1020200	126725	12.42"></textarea>
+    <div class="hint">
+      첫 행은 헤더(자동 무시). 열 순서 (14열):<br>
+      <code>브랜드명</code> <code>전주합계</code> <code>전주배민</code> <code>전주배민광고비</code> <code>전주배민광고율%</code> <code>전주쿠팡</code> <code>전주쿠팡광고비</code> <code>전주쿠팡광고율%</code> → 금주 동일 7개<br>
+      <strong>광고비/광고율이 없으면</strong> 해당 열을 0으로 채워 붙여넣기 하거나, 아래 8열 형식도 지원됩니다:<br>
+      <code>브랜드명</code> <code>전주합계</code> <code>전주배민</code> <code>전주쿠팡</code> <code>금주합계</code> <code>금주배민</code> <code>금주쿠팡</code> (7열 간소화)
+    </div>
+  </div>
+
+  <div id="errMsg" class="err"></div>
+  <button class="run-btn" onclick="runAnalyze()">📊 보고서 생성</button>
+</div>
+
+<div class="dash" id="dash">
+  <div class="tab-bar">
+    <div class="tab on" onclick="showTab(0)">📊 매출분석</div>
+    <div class="tab" onclick="showTab(1)">📋 분석보고용</div>
+    <button class="edit-btn" onclick="editMode()">✏ 수정</button>
+  </div>
+  <div class="page on" id="p0"><div id="b0"></div></div>
+  <div class="page" id="p1"><div id="b1"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const BC=['#4B7BE8','#E86035','#16a34a','#a855f7','#f59e0b','#06b6d4'];
+let D={B:[],W1:{},W2:{}};
+let w1L='전주',w2L='금주';
+let chartInst=[];
+
+function showTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===n));
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('on',i===n));
+}
+
+function editMode(){
+  chartInst.forEach(c=>{try{c.destroy();}catch(e){}});
+  chartInst=[];
+  document.getElementById('inputPanel').style.display='';
+  document.getElementById('dash').classList.remove('on');
+}
+
+function showErr(msg){
+  const el=document.getElementById('errMsg');
+  el.textContent=msg;
+  el.style.display='block';
+}
+
+function toNum(v){return parseFloat(String(v).replace(/,/g,'').replace(/%/g,''))||0;}
+const fm=v=>v>0?Math.round(v/10000).toLocaleString('ko-KR')+'만':'—';
+const fp=v=>v>=0?`<span class="bup">▲${(v*100).toFixed(1)}%</span>`:`<span class="bdn">▼${(Math.abs(v)*100).toFixed(1)}%</span>`;
+
+function runAnalyze(){
+  document.getElementById('errMsg').style.display='none';
+  const txt=document.getElementById('tData').value.trim();
+  if(!txt){showErr('데이터를 붙여넣어 주세요.');return;}
+
+  const rows=txt.split('\n').map(r=>r.split('\t').map(c=>c.trim()));
+  const dataRows=rows.filter(r=>r.length>=7&&!/^(브랜드|brand)/i.test(r[0])&&r[0]);
+  if(dataRows.length===0){showErr('유효한 데이터 행이 없습니다.');return;}
+
+  const B=[];
+  const W1={total:[],bm:[],bmAd:[],bmRate:[],cp:[],cpAd:[],cpRate:[]};
+  const W2={total:[],bm:[],bmAd:[],bmRate:[],cp:[],cpAd:[],cpRate:[]};
+
+  const full=dataRows[0].length>=14;
+  for(const r of dataRows){
+    B.push(r[0]);
+    if(full){
+      W1.total.push(toNum(r[1])); W1.bm.push(toNum(r[2])); W1.bmAd.push(toNum(r[3])); W1.bmRate.push(toNum(r[4]));
+      W1.cp.push(toNum(r[5])); W1.cpAd.push(toNum(r[6])); W1.cpRate.push(toNum(r[7]));
+      W2.total.push(toNum(r[8])); W2.bm.push(toNum(r[9])); W2.bmAd.push(toNum(r[10])); W2.bmRate.push(toNum(r[11]));
+      W2.cp.push(toNum(r[12])); W2.cpAd.push(toNum(r[13])); W2.cpRate.push(toNum(r[14]||0));
+    } else {
+      // 7열 간소화: 브랜드 전주합계 전주배민 전주쿠팡 금주합계 금주배민 금주쿠팡
+      W1.total.push(toNum(r[1])); W1.bm.push(toNum(r[2])); W1.bmAd.push(0); W1.bmRate.push(0);
+      W1.cp.push(toNum(r[3])); W1.cpAd.push(0); W1.cpRate.push(0);
+      W2.total.push(toNum(r[4])); W2.bm.push(toNum(r[5])); W2.bmAd.push(0); W2.bmRate.push(0);
+      W2.cp.push(toNum(r[6])); W2.cpAd.push(0); W2.cpRate.push(0);
+    }
+  }
+
+  D={B,W1,W2,full};
+  w1L=document.getElementById('iW1').value.trim()||'전주';
+  w2L=document.getElementById('iW2').value.trim()||'금주';
+
+  chartInst.forEach(c=>{try{c.destroy();}catch(e){}});
+  chartInst=[];
+
+  renderDash();
+  document.getElementById('inputPanel').style.display='none';
+  document.getElementById('dash').classList.add('on');
+  showTab(0);
+}
+
+function renderDash(){
+  const {B,W1,W2,full}=D;
+  const n=B.length;
+  const T1=W1.total.reduce((s,v)=>s+v,0), T2=W2.total.reduce((s,v)=>s+v,0);
+  const bm1=W1.bm.reduce((s,v)=>s+v,0), bm2=W2.bm.reduce((s,v)=>s+v,0);
+  const cp1=W1.cp.reduce((s,v)=>s+v,0), cp2=W2.cp.reduce((s,v)=>s+v,0);
+  const bmAd1=W1.bmAd.reduce((s,v)=>s+v,0), bmAd2=W2.bmAd.reduce((s,v)=>s+v,0);
+  const cpAd1=W1.cpAd.reduce((s,v)=>s+v,0), cpAd2=W2.cpAd.reduce((s,v)=>s+v,0);
+  const tgr=(T2-T1)/T1;
+  const g=i=>(W2.total[i]-W1.total[i])/W1.total[i];
+  const store=document.getElementById('iStore').value.trim()||'매장';
+
+  function hlCards(){
+    return B.map((b,i)=>{
+      const gi=g(i);
+      const bmGr=W1.bm[i]>0?(W2.bm[i]-W1.bm[i])/W1.bm[i]:0;
+      const cpGr=W1.cp[i]>0?(W2.cp[i]-W1.cp[i])/W1.cp[i]:0;
+      const col=BC[i%BC.length];
+      let extra='';
+      if(full){
+        const bmRateDiff=W2.bmRate[i]-W1.bmRate[i];
+        const cpRateDiff=W2.cpRate[i]-W1.cpRate[i];
+        extra=`<div class="hl-k"><div class="hl-kl">배민광고율</div><div class="hl-kv" style="color:${bmRateDiff>0?'#dc2626':'#16a34a'};font-size:11px;">${W1.bmRate[i].toFixed(1)}→${W2.bmRate[i].toFixed(1)}%</div><div class="hl-ks" style="color:${bmRateDiff>0?'#dc2626':'#16a34a'};">${bmRateDiff>0?'▲':'▼'}${Math.abs(bmRateDiff).toFixed(2)}%p</div></div>
+        <div class="hl-k"><div class="hl-kl">쿠팡광고율</div><div class="hl-kv" style="color:${cpRateDiff>0?'#dc2626':'#16a34a'};font-size:11px;">${W1.cpRate[i].toFixed(1)}→${W2.cpRate[i].toFixed(1)}%</div><div class="hl-ks" style="color:${cpRateDiff>0?'#dc2626':'#16a34a'};">${cpRateDiff>0?'▲':'▼'}${Math.abs(cpRateDiff).toFixed(2)}%p</div></div>`;
+      } else {
+        extra=`<div class="hl-k"><div class="hl-kl">배민 성장</div><div class="hl-kv" style="color:${bmGr>=0?'#dc2626':'#2563eb'};font-size:11px;">${bmGr>=0?'▲':'▼'}${(Math.abs(bmGr)*100).toFixed(1)}%</div></div>
+        <div class="hl-k"><div class="hl-kl">쿠팡 성장</div><div class="hl-kv" style="color:${cpGr>=0?'#dc2626':'#2563eb'};font-size:11px;">${cpGr>=0?'▲':'▼'}${(Math.abs(cpGr)*100).toFixed(1)}%</div></div>`;
+      }
+      return`<div class="hl" style="border-top:3px solid ${col};">
+        <div class="hl-hd"><div class="hl-dot" style="background:${col};"></div><div class="hl-nm">${b}</div><span>${fp(gi)}</span></div>
+        <div class="hl-kpis">
+          <div class="hl-k"><div class="hl-kl">${w1L}</div><div class="hl-kv">${fm(W1.total[i])}</div></div>
+          <div class="hl-k"><div class="hl-kl">${w2L}</div><div class="hl-kv" style="color:#dc2626;">${fm(W2.total[i])}</div></div>
+          ${extra}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function adRateSection(){
+    if(!full)return'';
+    const max=60;
+    let h=`<div class="ad-grid">`;
+    ['배민 광고사용률','쿠팡 광고사용률'].forEach((title,ti)=>{
+      h+=`<div><div style="font-size:11px;font-weight:700;color:${ti===0?'#4B7BE8':'#E86035'};margin-bottom:10px;">${title}</div><div class="adb">`;
+      B.forEach((b,i)=>{
+        const r1=ti===0?W1.bmRate[i]:W1.cpRate[i], r2=ti===0?W2.bmRate[i]:W2.cpRate[i];
+        const diff=r2-r1;
+        const col=BC[i%BC.length];
+        h+=`<div class="adb-item">
+          <div class="adb-hd"><span class="adb-nm" style="color:${col};">${b}</span><span style="font-size:10px;font-weight:700;color:${diff>0?'#dc2626':'#16a34a'};">${diff>0?'▲':'▼'}${Math.abs(diff).toFixed(2)}%p</span></div>
+          <div class="adb-vals"><span>${w1L}: ${r1.toFixed(2)}%</span><span>${w2L}: <strong style="color:${diff>0?'#dc2626':'#16a34a'};">${r2.toFixed(2)}%</strong></span></div>
+          <div class="adb-bars">
+            <div><div class="adb-lbl">${w1L}</div><div class="adb-track"><div class="adb-fill" style="width:${Math.min(r1/max*100,100)}%;background:${col}66;"></div></div></div>
+            <div><div class="adb-lbl" style="color:${diff>0?'#dc2626':'#16a34a'};">${w2L}</div><div class="adb-track"><div class="adb-fill" style="width:${Math.min(r2/max*100,100)}%;background:${col};"></div></div></div>
+          </div>
+        </div>`;
+      });
+      h+=`</div></div>`;
+    });
+    return h+'</div>';
+  }
+
+  function detailTable(){
+    const rows=[
+      {lbl:'총매출',k:'total'},{lbl:'배민 매출',k:'bm'},
+      ...(full?[{lbl:'배민 광고비',k:'bmAd'},{lbl:'배민 광고율',k:'bmRate',isR:true}]:[]),
+      {lbl:'쿠팡 매출',k:'cp'},
+      ...(full?[{lbl:'쿠팡 광고비',k:'cpAd'},{lbl:'쿠팡 광고율',k:'cpRate',isR:true}]:[])
+    ];
+    let h=`<thead><tr><th>항목</th>`;
+    B.forEach((b,i)=>h+=`<th style="color:${BC[i%BC.length]};text-align:center;">${b}<br><small style="font-weight:400;color:#8896b0;">${w1L}→${w2L}</small></th><th></th>`);
+    h+=`</tr></thead><tbody>`;
+    rows.forEach(r=>{
+      h+=`<tr><td>${r.lbl}</td>`;
+      B.forEach((_,i)=>{
+        if(r.isR){
+          const v1=W1[r.k][i],v2=W2[r.k][i],d=v2-v1;
+          h+=`<td>${v1.toFixed(2)}% → <strong style="color:${d>0?'#dc2626':'#16a34a'};">${v2.toFixed(2)}%</strong></td>`;
+          h+=`<td><span style="font-size:10px;font-weight:700;color:${d>0?'#dc2626':'#16a34a'};">${d>0?'▲':'▼'}${Math.abs(d).toFixed(2)}%p</span></td>`;
+        } else {
+          const v1=W1[r.k][i],v2=W2[r.k][i],gv=v1>0?(v2-v1)/v1:0;
+          h+=`<td>${fm(v1)} → <strong>${fm(v2)}</strong></td>`;
+          h+=`<td>${fp(gv)}</td>`;
+        }
+      });
+      h+=`</tr>`;
+    });
+    h+=`<tr class="total-row"><td>합계</td>`;
+    B.forEach((_,i)=>h+=`<td colspan="2" style="color:${BC[i%BC.length]};">${fm(W1.total[i])} → <strong>${fm(W2.total[i])}</strong></td>`);
+    h+=`</tr></tbody>`;
+    return h;
+  }
+
+  function buildMain(sfx){
+    const bmAdRate1=bm1>0?(bmAd1/bm1*100).toFixed(1):'0.0';
+    const bmAdRate2=bm2>0?(bmAd2/bm2*100).toFixed(1):'0.0';
+    const bmAdRateDiff=parseFloat(bmAdRate2)-parseFloat(bmAdRate1);
+    const hlGrid=n>3?`<div style="display:grid;grid-template-columns:repeat(${Math.min(n,3)},1fr);gap:8px;margin-bottom:10px;">${hlCards()}</div>`:`<div class="hl-grid" style="grid-template-columns:repeat(${n},1fr);">${hlCards()}</div>`;
+    let kpi3=full?`<div class="kpi card"><div class="kl">합산 배민광고율</div><div class="kv" style="font-size:14px;">${bmAdRate1}% → <span style="color:#16a34a;">${bmAdRate2}%</span></div><div class="ks">${bmAdRateDiff<=0?'▼'+Math.abs(bmAdRateDiff).toFixed(1)+'%p 개선':'▲'+bmAdRateDiff.toFixed(1)+'%p 상승'}</div></div>`
+      :`<div class="kpi card"><div class="kl">배민 합산</div><div class="kv">${fm(bm2)}</div><div class="ks">${w1L} ${fm(bm1)}</div></div>`;
+    let kpi4=`<div class="kpi card"><div class="kl">쿠팡 매출 성장</div><div class="kv">${fm(cp2)}</div><div class="ks">${w1L} ${fm(cp1)} · <span style="color:#dc2626;font-weight:700;">${fp((cp2-cp1)/cp1)}</span></div></div>`;
+    let adSec=full?`<div class="card sec" style="margin-bottom:10px;"><div class="sec-tit">광고사용률 비교 (${w1L} → ${w2L} · 파란색=개선)</div>${adRateSection()}</div>`:'';
+    return`
+    <div class="tit">${store} 브랜드별 매출 분석</div>
+    <div class="sub">${w1L} vs ${w2L} · ${B.join(' · ')}</div>
+    <div class="kpis">
+      <div class="kpi card" style="border-left:3px solid #16a34a;"><div class="kl">${w2L} 합산 총매출</div><div class="kv">${fm(T2)}</div><div class="ks">${w1L} ${fm(T1)} · <span style="color:#dc2626;font-weight:700;">▲${(tgr*100).toFixed(1)}%</span></div></div>
+      ${full?`<div class="kpi card"><div class="kl">합산 배민광고비</div><div class="kv">${fm(bmAd2)}</div><div class="ks">${w1L} ${fm(bmAd1)}</div></div>`:`<div class="kpi card"><div class="kl">쿠팡 합산</div><div class="kv">${fm(cp2)}</div><div class="ks">${w1L} ${fm(cp1)}</div></div>`}
+      ${kpi3}${kpi4}
+    </div>
+    ${hlGrid}
+    <div class="cg">
+      <div class="cc card">
+        <div class="ct">브랜드별 총매출 비교 (만원)</div>
+        <div class="leg">${B.map((b,i)=>`<span><span class="lsq" style="background:${BC[i%BC.length]};"></span>${b}</span>`).join('')}</div>
+        <div style="position:relative;height:140px;"><canvas id="ch1${sfx}"></canvas></div>
+      </div>
+      <div class="cc card">
+        <div class="ct">배민 / 쿠팡이츠 매출 비교 (만원)</div>
+        <div class="leg">
+          <span><span class="lsq" style="background:#4B7BE844;border:1px solid #4B7BE8;"></span>${w1L}배민</span><span><span class="lsq" style="background:#4B7BE8;"></span>${w2L}배민</span>
+          <span><span class="lsq" style="background:#E8603544;border:1px solid #E86035;"></span>${w1L}쿠팡</span><span><span class="lsq" style="background:#E86035;"></span>${w2L}쿠팡</span>
+        </div>
+        <div style="position:relative;height:140px;"><canvas id="ch2${sfx}"></canvas></div>
+      </div>
+    </div>
+    ${adSec}
+    <div class="card sec">
+      <div class="sec-tit">전체 지표 상세 비교 (${w1L} → ${w2L})</div>
+      <div class="tbl-wrap"><table>${detailTable()}</table></div>
+    </div>`;
+  }
+
+  function buildReport(){
+    const allUp=D.B.every((_,i)=>g(i)>=0);
+    const upCount=D.B.filter((_,i)=>g(i)>=0).length;
+    const bmAdRate1=bm1>0?(bmAd1/bm1*100).toFixed(1):'—';
+    const bmAdRate2=bm2>0?(bmAd2/bm2*100).toFixed(1):'—';
+    const store=document.getElementById('iStore').value.trim()||'매장';
+    return`<div class="report">
+      <div class="rp-hd"><div class="rp-hd-tit">브랜드별 분석 보고서</div><div class="rp-hd-sub">${store} · ${w1L} vs ${w2L} · 대표 보고용</div></div>
+      <div class="rp-body">
+        <div class="sb">
+          <div class="sb-nm">전체 총평 <span class="tag ${tgr>=0?'tg':'tw'}">${tgr>=0?'▲':'▼'}${(Math.abs(tgr)*100).toFixed(1)}% · ${upCount}개 브랜드 성장</span></div>
+          <div class="metrics">
+            <div class="m"><div class="ml">${w1L} 합산</div><div class="mv">${fm(T1)}</div></div>
+            <div class="m"><div class="ml">${w2L} 합산</div><div class="mv" style="color:#dc2626;">${fm(T2)}</div></div>
+            ${D.full?`<div class="m"><div class="ml">배민광고율</div><div class="mv" style="color:#16a34a;">${bmAdRate1}→${bmAdRate2}%</div></div><div class="m"><div class="ml">쿠팡성장</div><div class="mv" style="color:#dc2626;">${((cp2-cp1)/cp1*100).toFixed(1)}%▲</div></div>`
+            :`<div class="m"><div class="ml">배민합산</div><div class="mv">${fm(bm2)}</div></div><div class="m"><div class="ml">쿠팡합산</div><div class="mv">${fm(cp2)}</div></div>`}
+          </div>
+          <div class="sb-txt"><strong>${upCount}개 브랜드 성장</strong>하며 합산 ${(Math.abs(tgr)*100).toFixed(1)}% ${tgr>=0?'증가':'감소'}했습니다. 쿠팡 매출이 ${fm(cp1)}→${fm(cp2)}으로 ${((cp2-cp1)/cp1*100).toFixed(1)}% 변화했습니다.</div>
+        </div>
+        ${D.B.map((b,i)=>{
+          const gi=g(i);
+          const col=BC[i%BC.length];
+          const bmGr=W1.bm[i]>0?(W2.bm[i]-W1.bm[i])/W1.bm[i]:0;
+          const cpGr=W1.cp[i]>0?(W2.cp[i]-W1.cp[i])/W1.cp[i]:0;
+          const bmRateDiff=D.full?W2.bmRate[i]-W1.bmRate[i]:null;
+          return`<div class="sb">
+            <div class="sb-nm"><span style="color:${col};">${b}</span> <span class="tag ${gi>=0?'tg':'tw'}">${gi>=0?'▲':'▼'}${(Math.abs(gi)*100).toFixed(1)}%</span></div>
+            <div class="metrics">
+              <div class="m"><div class="ml">${w1L}</div><div class="mv">${fm(W1.total[i])}</div></div>
+              <div class="m"><div class="ml">${w2L}</div><div class="mv" style="color:#dc2626;">${fm(W2.total[i])}</div></div>
+              <div class="m"><div class="ml">배민</div><div class="mv" style="font-size:11px;">${bmGr>=0?'▲':'▼'}${(Math.abs(bmGr)*100).toFixed(1)}%</div><div class="ms">${fm(W1.bm[i])}→${fm(W2.bm[i])}</div></div>
+              <div class="m"><div class="ml">쿠팡</div><div class="mv" style="font-size:11px;">${cpGr>=0?'▲':'▼'}${(Math.abs(cpGr)*100).toFixed(1)}%</div><div class="ms">${fm(W1.cp[i])}→${fm(W2.cp[i])}</div></div>
+            </div>
+            <div class="sb-txt">${w2L} <strong>${fm(W2.total[i])}</strong>으로 전주 대비 <strong>${gi>=0?'+':''}${Math.round((W2.total[i]-W1.total[i])/10000).toLocaleString('ko-KR')}만원 ${gi>=0?'증가':'감소'}</strong>했습니다.${D.full&&bmRateDiff!==null?` 배민 광고사용률이 ${W1.bmRate[i].toFixed(2)}%→${W2.bmRate[i].toFixed(2)}%로 ${bmRateDiff>0?'상승':'개선'}됐습니다.`:''}<br><span class="act">▶ 세팅 모니터링 및 매장 소통 지속</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('b0').innerHTML=buildMain('A');
+  document.getElementById('b1').innerHTML=buildMain('B')+buildReport();
+
+  function initChart(sfx){
+    setTimeout(()=>{
+      const {B,W1,W2}=D;
+      const e1=document.getElementById('ch1'+sfx);
+      if(!e1||e1._ok)return; e1._ok=true;
+      const c1=new Chart(e1,{type:'bar',data:{labels:B,datasets:[
+        {label:w1L,data:W1.total.map(v=>+(v/10000).toFixed(0)),backgroundColor:BC.slice(0,B.length).map(c=>c+'44'),borderColor:BC.slice(0,B.length),borderWidth:1.5,barPercentage:0.38,categoryPercentage:0.8},
+        {label:w2L,data:W2.total.map(v=>+(v/10000).toFixed(0)),backgroundColor:BC.slice(0,B.length),barPercentage:0.38,categoryPercentage:0.8}
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a5568',font:{size:10},boxWidth:9}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw.toLocaleString()}만`}}},scales:{x:{ticks:{color:'#9aaccb',font:{size:9}},grid:{color:'rgba(0,0,0,0.05)'}},y:{ticks:{color:'#9aaccb',font:{size:9},callback:v=>v+'만'},grid:{color:'rgba(0,0,0,0.05)'}}}}});
+      chartInst.push(c1);
+      const e2=document.getElementById('ch2'+sfx); e2._ok=true;
+      const c2=new Chart(e2,{type:'bar',data:{labels:B,datasets:[
+        {label:`${w1L} 배민`,data:W1.bm.map(v=>+(v/10000).toFixed(0)),backgroundColor:'#4B7BE844',borderColor:'#4B7BE8',borderWidth:1.5,barPercentage:0.25,categoryPercentage:0.9},
+        {label:`${w2L} 배민`,data:W2.bm.map(v=>+(v/10000).toFixed(0)),backgroundColor:'#4B7BE8',barPercentage:0.25,categoryPercentage:0.9},
+        {label:`${w1L} 쿠팡`,data:W1.cp.map(v=>+(v/10000).toFixed(0)),backgroundColor:'#E8603544',borderColor:'#E86035',borderWidth:1.5,barPercentage:0.25,categoryPercentage:0.9},
+        {label:`${w2L} 쿠팡`,data:W2.cp.map(v=>+(v/10000).toFixed(0)),backgroundColor:'#E86035',barPercentage:0.25,categoryPercentage:0.9}
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a5568',font:{size:9},boxWidth:8}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw.toLocaleString()}만`}}},scales:{x:{ticks:{color:'#9aaccb',font:{size:9}},grid:{color:'rgba(0,0,0,0.05)'}},y:{ticks:{color:'#9aaccb',font:{size:9},callback:v=>v+'만'},grid:{color:'rgba(0,0,0,0.05)'}}}}});
+      chartInst.push(c2);
+    },150);
+  }
+
+  initChart('A');
+  initChart('B');
+}
+</script>
+</body>
+</html>
