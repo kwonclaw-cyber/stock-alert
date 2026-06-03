@@ -264,9 +264,9 @@ function bindDrop(id){
 function applyStore(code){
   const st=STORES[code]; if(!st)return;
   DATA._storeName=st.name;
-  if(st.deli)DATA.rev_delivery=Math.round(st.deli);
-  if(st.take)DATA.rev_takeout=Math.round(st.take);
-  if(st.hall)DATA.rev_hall=Math.round(st.hall);
+  DATA.rev_delivery=Math.round(st.deli||0);   // 매장 전환 시 매출 항상 갱신(이전 값 잔존 방지)
+  DATA.rev_takeout=Math.round(st.take||0);
+  DATA.rev_hall=Math.round(st.hall||0);
   save(); reloadAll();
 }
 // 차트 HTML (리포트 포함)
