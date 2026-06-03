@@ -76,6 +76,20 @@
   .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:12px;}
   .kgrid .s{font-size:12px;display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed #eee;padding:4px 0;}
   .kgrid .s b{font-variant-numeric:tabular-nums;}
+  /* 특이사항·강조 카드 */
+  .noteform{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .noteform .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  textarea.box{width:100%;min-height:64px;resize:vertical;font-family:inherit;font-size:14px;}
+  .notecards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;}
+  .ncard{position:relative;border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:12px;padding:14px 34px 14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .ncard.em{border-left-color:#e8590c;background:#fff4e6;}
+  .ncard.warn{border-left-color:#f59f00;background:#fff9db;}
+  .ncard.info{border-left-color:#1c7ed6;background:#e7f5ff;}
+  .ncard.base{border-left-color:#868e96;background:#f8f9fa;}
+  .ncard .nt{font-weight:800;font-size:14px;margin-bottom:5px;}
+  .ncard .nx{font-size:13px;color:#2b2b2b;white-space:pre-wrap;line-height:1.55;}
+  .ncard .ndel{position:absolute;top:8px;right:11px;cursor:pointer;color:#b0b0b0;font-weight:800;font-size:15px;line-height:1;}
+  .ncard .ndel:hover{color:var(--up);}
   .sub{font-size:11px;color:#888;}
   .badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;
          background:var(--sa-bg);color:var(--sa);border:1px solid #faa2c1;margin-left:6px;vertical-align:middle;}
@@ -110,6 +124,24 @@
 <main>
 
   <section id="kpiSection"></section>
+
+  <section id="notesSection">
+    <h2>특이사항 · 강조</h2>
+    <div class="noteform">
+      <textarea class="box" id="noteText" placeholder="특이사항이나 강조할 내용을 입력하세요"></textarea>
+      <div class="row">
+        <select class="box" id="noteType">
+          <option value="em">📌 강조</option>
+          <option value="warn">⚠️ 주의</option>
+          <option value="info">ℹ️ 정보</option>
+          <option value="base">📝 기본</option>
+        </select>
+        <input class="box" id="noteTitle" placeholder="제목 (선택)" style="flex:1;min-width:160px">
+        <button id="addNote">카드 추가</button>
+      </div>
+    </div>
+    <div id="noteCards" class="notecards"></div>
+  </section>
 
   <section>
     <h2>1. 데이터 업로드</h2>
@@ -822,6 +854,30 @@ function renderKPI(){
   if(j) j.addEventListener("change",e=>{ JEJU_PS=toNum(e.target.value); localStorage.setItem(JEJU_KEY,String(JEJU_PS)); renderKPI(); });
 }
 
+// ===== 특이사항 · 강조 메모 카드 =====
+const NOTE_KEY="monthlyClose.notes.v1";
+const NOTE_ICON={em:"📌",warn:"⚠️",info:"ℹ️",base:"📝"};
+let NOTES=(()=>{ try{const v=JSON.parse(localStorage.getItem(NOTE_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
+function saveNotes(){ localStorage.setItem(NOTE_KEY, JSON.stringify(NOTES)); }
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function renderNotes(){
+  const box=document.getElementById("noteCards"); if(!box)return;
+  box.innerHTML=NOTES.map((n,i)=>`<div class="ncard ${n.type||'base'}">
+    <span class="ndel" data-i="${i}" title="삭제">✕</span>
+    <div class="nt">${NOTE_ICON[n.type]||"📝"} ${esc(n.title)||(n.type==='em'?'강조':n.type==='warn'?'주의':n.type==='info'?'정보':'메모')}</div>
+    <div class="nx">${esc(n.text)}</div></div>`).join("");
+  box.querySelectorAll(".ndel").forEach(el=>el.addEventListener("click",e=>{ NOTES.splice(+e.target.dataset.i,1); saveNotes(); renderNotes(); }));
+}
+document.getElementById("addNote").addEventListener("click",()=>{
+  const text=document.getElementById("noteText").value.trim();
+  if(!text){ document.getElementById("noteText").focus(); return; }
+  NOTES.unshift({ type:document.getElementById("noteType").value, title:document.getElementById("noteTitle").value.trim(), text });
+  saveNotes();
+  document.getElementById("noteText").value=""; document.getElementById("noteTitle").value="";
+  renderNotes();
+});
+renderNotes();
+
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
 function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI(); document.getElementById("exportBtn").disabled=false; }
@@ -990,6 +1046,13 @@ function exportXlsx(){
     ex.push(["합계",Math.round(ct),Math.round(pt), pt?+(((ct-pt)/pt)).toFixed(4):""]);
     const ws2=XLSX.utils.aoa_to_sheet(ex);
     XLSX.utils.book_append_sheet(wb,ws2,"추가매출");
+  }
+  // 특이사항 시트
+  if(NOTES.length){
+    const TY={em:"강조",warn:"주의",info:"정보",base:"기본"};
+    const nz=[["구분","제목","내용"]];
+    NOTES.forEach(n=>nz.push([TY[n.type]||"기본", n.title||"", n.text||""]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(nz), "특이사항");
   }
   XLSX.writeFile(wb,`월마감결과_${LAST.cur||""}.xlsx`);
 }
