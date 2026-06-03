@@ -44,7 +44,7 @@ textarea:focus{border-color:#4B7BE8;}
 .kl{font-size:9.5px;color:#8896b0;margin-bottom:2px;}
 .kv{font-size:15px;font-weight:700;color:#1a2235;line-height:1.1;}
 .ks{font-size:9px;color:#a0aec0;margin-top:2px;}
-.sec{margin-bottom:8px;padding:10px 12px;}
+.sec{margin-bottom:6px;padding:8px 10px;}
 .sec-tit{font-size:11px;font-weight:700;color:#1a2235;margin-bottom:7px;}
 .cmp-tbl{width:100%;border-collapse:collapse;font-size:10.5px;}
 .cmp-tbl thead th{color:#8896b0;font-weight:600;padding:4px 8px;border-bottom:1px solid #e8edf5;text-align:right;white-space:nowrap;}
@@ -52,22 +52,22 @@ textarea:focus{border-color:#4B7BE8;}
 .cmp-tbl tbody td{padding:4px 8px;text-align:right;border-bottom:1px solid #f4f6fa;color:#374151;}
 .cmp-tbl tbody td:first-child{text-align:left;font-weight:600;color:#1a2235;}
 .cmp-tbl .total-row td{background:#f8fafc;font-weight:700;border-top:1px solid #dde4ef;border-bottom:none;}
-.donut-summary{display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:10px;padding:10px;background:#f8fafc;border-radius:8px;}
-.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
-.donut-lbl{font-size:10px;font-weight:600;color:#64748b;}
-.donut-canvas-wrap{position:relative;width:80px;height:80px;}
+.donut-summary{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:8px;padding:7px 10px;background:#f8fafc;border-radius:7px;}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.donut-lbl{font-size:9px;font-weight:600;color:#64748b;}
+.donut-canvas-wrap{position:relative;}
 .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
-.donut-center-bm{font-size:10px;font-weight:700;color:#4B7BE8;}
-.donut-center-cp{font-size:10px;font-weight:700;color:#E86035;}
-.donut-arrow{font-size:18px;color:#94a3b8;align-self:center;margin-top:16px;}
-.donut-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.donut-card{background:#f8fafc;border-radius:8px;padding:8px 10px;border:1px solid #e8edf5;}
-.donut-card-nm{font-size:9.5px;font-weight:700;color:#1a2235;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.donut-card-charts{display:flex;gap:6px;align-items:flex-start;}
-.donut-card-unit{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;}
-.donut-card-wk{font-size:8px;font-weight:600;padding:1px 4px;border-radius:3px;white-space:nowrap;}
-.donut-card-vals{font-size:8px;color:#8896b0;text-align:center;line-height:1.4;}
-.donut-chg{font-size:8.5px;font-weight:700;text-align:right;margin-top:4px;}
+.donut-center-bm{font-size:9px;font-weight:700;color:#4B7BE8;line-height:1.2;}
+.donut-center-cp{font-size:9px;font-weight:700;color:#E86035;line-height:1.2;}
+.donut-arrow{font-size:14px;color:#94a3b8;align-self:center;margin-top:10px;}
+.donut-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+.donut-card{background:#fff;border-radius:7px;padding:6px 7px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.05);border-top:2px solid #4B7BE8;}
+.donut-card-nm{font-size:8.5px;font-weight:700;color:#1a2235;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.donut-card-charts{display:flex;gap:4px;align-items:flex-start;}
+.donut-card-unit{display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;}
+.donut-card-wk{font-size:7.5px;font-weight:600;padding:1px 3px;border-radius:3px;white-space:nowrap;}
+.donut-card-vals{font-size:7.5px;color:#8896b0;text-align:center;line-height:1.3;}
+.donut-chg{font-size:8px;font-weight:700;text-align:right;margin-top:3px;}
 .ad-tbl{width:100%;border-collapse:collapse;font-size:10px;}
 .ad-tbl th{color:#8896b0;font-weight:600;padding:4px 7px;border-bottom:1px solid #e8edf5;text-align:center;white-space:nowrap;}
 .ad-tbl th:first-child{text-align:left;}
@@ -254,24 +254,24 @@ function renderDash(){
     let h=`<div class="donut-summary">
       <div class="donut-wrap">
         <div class="donut-lbl">${w1L} 전체</div>
-        <div class="donut-canvas-wrap">
-          <canvas id="dt_total_1" width="80" height="80"></canvas>
+        <div class="donut-canvas-wrap" style="width:64px;height:64px;">
+          <canvas id="dt_total_1" width="64" height="64"></canvas>
           <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div>
         </div>
       </div>
       <div class="donut-arrow">→</div>
       <div class="donut-wrap">
         <div class="donut-lbl">${w2L} 전체</div>
-        <div class="donut-canvas-wrap">
-          <canvas id="dt_total_2" width="80" height="80"></canvas>
+        <div class="donut-canvas-wrap" style="width:64px;height:64px;">
+          <canvas id="dt_total_2" width="64" height="64"></canvas>
           <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div>
         </div>
       </div>
-      <div style="font-size:9.5px;color:#8896b0;line-height:1.8;margin-left:8px;">
+      <div style="font-size:9px;color:#8896b0;line-height:1.6;margin-left:6px;">
         <div><span style="color:#4B7BE8;font-weight:600;">■</span> 배민</div>
         <div><span style="color:#E86035;font-weight:600;">■</span> 쿠팡이츠</div>
-        <div style="margin-top:6px;font-size:9px;">쿠팡 비중 변화</div>
-        <div style="font-weight:700;color:${gc2>gc1?'#dc2626':'#2563eb'};">${gc2>gc1?'+':''}${gc2-gc1}%p</div>
+        <div style="margin-top:4px;font-size:8.5px;">쿠팡 비중 변화</div>
+        <div style="font-weight:700;font-size:10px;color:${gc2>gc1?'#dc2626':'#2563eb'};">${gc2>gc1?'+':''}${gc2-gc1}%p</div>
       </div>
     </div>`;
     // 매장별 도넛 그리드
@@ -286,17 +286,17 @@ function renderDash(){
         <div class="donut-card-charts">
           <div class="donut-card-unit">
             <span class="donut-card-wk tag-prev">${w1L}</span>
-            <div class="donut-canvas-wrap" style="width:56px;height:56px;">
-              <canvas id="dt_${i}_1" width="56" height="56"></canvas>
-              <div class="donut-center"><span style="font-size:9px;font-weight:700;color:#4B7BE8;">${bp1}%</span></div>
+            <div class="donut-canvas-wrap" style="width:48px;height:48px;">
+              <canvas id="dt_${i}_1" width="48" height="48"></canvas>
+              <div class="donut-center"><span style="font-size:8px;font-weight:700;color:#4B7BE8;">${bp1}%</span></div>
             </div>
             <div class="donut-card-vals"><span style="color:#4B7BE8;">${bp1}%</span>/<span style="color:#E86035;">${cp1}%</span></div>
           </div>
           <div class="donut-card-unit">
             <span class="donut-card-wk tag-curr">${w2L}</span>
-            <div class="donut-canvas-wrap" style="width:56px;height:56px;">
-              <canvas id="dt_${i}_2" width="56" height="56"></canvas>
-              <div class="donut-center"><span style="font-size:9px;font-weight:700;color:#4B7BE8;">${bp2}%</span></div>
+            <div class="donut-canvas-wrap" style="width:48px;height:48px;">
+              <canvas id="dt_${i}_2" width="48" height="48"></canvas>
+              <div class="donut-center"><span style="font-size:8px;font-weight:700;color:#4B7BE8;">${bp2}%</span></div>
             </div>
             <div class="donut-card-vals"><span style="color:#4B7BE8;">${bp2}%</span>/<span style="color:#E86035;">${cp2}%</span></div>
           </div>
