@@ -52,20 +52,22 @@ textarea:focus{border-color:#4B7BE8;}
 .cmp-tbl tbody td{padding:4px 8px;text-align:right;border-bottom:1px solid #f4f6fa;color:#374151;}
 .cmp-tbl tbody td:first-child{text-align:left;font-weight:600;color:#1a2235;}
 .cmp-tbl .total-row td{background:#f8fafc;font-weight:700;border-top:1px solid #dde4ef;border-bottom:none;}
-.share-wrap{display:flex;flex-direction:column;}
-.share-row{padding:6px 0;border-bottom:1px solid #f4f6fa;}
-.share-row:last-child{border-bottom:none;}
-.store-label{font-size:10.5px;font-weight:700;color:#1a2235;margin-bottom:4px;}
-.wk-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
-.wk-row:last-child{margin-bottom:0;}
-.wk-tag{font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;flex-shrink:0;width:44px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tag-prev{background:#e8edf5;color:#4a5568;}
-.tag-curr{background:#dbeafe;color:#1d4ed8;}
-.bar-track{flex:1;height:13px;border-radius:4px;overflow:hidden;display:flex;}
-.bar-bm{background:#4B7BE8;height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:3px;min-width:0;}
-.bar-cp{background:#E86035;height:100%;display:flex;align-items:center;padding-left:3px;min-width:0;}
-.bar-label{font-size:8px;color:#fff;font-weight:600;white-space:nowrap;}
-.wk-vals{font-size:9px;color:#8896b0;flex-shrink:0;width:80px;text-align:right;}
+.donut-summary{display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:10px;padding:10px;background:#f8fafc;border-radius:8px;}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.donut-lbl{font-size:10px;font-weight:600;color:#64748b;}
+.donut-canvas-wrap{position:relative;width:80px;height:80px;}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.donut-center-bm{font-size:10px;font-weight:700;color:#4B7BE8;}
+.donut-center-cp{font-size:10px;font-weight:700;color:#E86035;}
+.donut-arrow{font-size:18px;color:#94a3b8;align-self:center;margin-top:16px;}
+.donut-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.donut-card{background:#f8fafc;border-radius:8px;padding:8px 10px;border:1px solid #e8edf5;}
+.donut-card-nm{font-size:9.5px;font-weight:700;color:#1a2235;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.donut-card-charts{display:flex;gap:6px;align-items:flex-start;}
+.donut-card-unit{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;}
+.donut-card-wk{font-size:8px;font-weight:600;padding:1px 4px;border-radius:3px;white-space:nowrap;}
+.donut-card-vals{font-size:8px;color:#8896b0;text-align:center;line-height:1.4;}
+.donut-chg{font-size:8.5px;font-weight:700;text-align:right;margin-top:4px;}
 .ad-tbl{width:100%;border-collapse:collapse;font-size:10px;}
 .ad-tbl th{color:#8896b0;font-weight:600;padding:4px 7px;border-bottom:1px solid #e8edf5;text-align:center;white-space:nowrap;}
 .ad-tbl th:first-child{text-align:left;}
@@ -143,14 +145,17 @@ textarea:focus{border-color:#4B7BE8;}
   <div class="page" id="p1"><div id="b1"></div></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-let D=null;
+let D=null,chartInst=[];
 
 function showTab(n){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===n));
   document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('on',i===n));
 }
 function editMode(){
+  chartInst.forEach(c=>{try{c.destroy();}catch(e){}});
+  chartInst=[];
   document.getElementById('inputPanel').style.display='';
   document.getElementById('dash').classList.remove('on');
 }
@@ -244,28 +249,63 @@ function renderDash(){
   }
 
   function shareSection(){
-    let h='<div class="share-wrap">';
     const gb1=Math.round(TB1/TW1*100),gc1=100-gb1,gb2=Math.round(TB2/TW2*100),gc2=100-gb2;
-    const bar=(p,cls)=>`<div class="${cls}" style="width:${p}%">${p>15?`<span class="bar-label">${p}%</span>`:'&nbsp;'}</div>`;
-    h+=`<div class="share-row"><div style="margin-bottom:4px;"><span class="store-label" style="color:#8896b0;font-size:10px;">전체 합산</span></div>
-      <div class="wk-row"><span class="wk-tag tag-prev">${w1L}</span><div class="bar-track">${bar(gb1,'bar-bm')}${bar(gc1,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${gb1}%</span>/<span style="color:#E86035;">${gc1}%</span></div></div>
-      <div class="wk-row"><span class="wk-tag tag-curr">${w2L}</span><div class="bar-track">${bar(gb2,'bar-bm')}${bar(gc2,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${gb2}%</span>/<span style="color:#E86035;">${gc2}%</span></div></div>
+    // 전체 합산 도넛 2개
+    let h=`<div class="donut-summary">
+      <div class="donut-wrap">
+        <div class="donut-lbl">${w1L} 전체</div>
+        <div class="donut-canvas-wrap">
+          <canvas id="dt_total_1" width="80" height="80"></canvas>
+          <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div>
+        </div>
+      </div>
+      <div class="donut-arrow">→</div>
+      <div class="donut-wrap">
+        <div class="donut-lbl">${w2L} 전체</div>
+        <div class="donut-canvas-wrap">
+          <canvas id="dt_total_2" width="80" height="80"></canvas>
+          <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div>
+        </div>
+      </div>
+      <div style="font-size:9.5px;color:#8896b0;line-height:1.8;margin-left:8px;">
+        <div><span style="color:#4B7BE8;font-weight:600;">■</span> 배민</div>
+        <div><span style="color:#E86035;font-weight:600;">■</span> 쿠팡이츠</div>
+        <div style="margin-top:6px;font-size:9px;">쿠팡 비중 변화</div>
+        <div style="font-weight:700;color:${gc2>gc1?'#dc2626':'#2563eb'};">${gc2>gc1?'+':''}${gc2-gc1}%p</div>
+      </div>
     </div>`;
+    // 매장별 도넛 그리드
+    h+='<div class="donut-grid">';
     ord.forEach(i=>{
       const t1=W1[i][0],t2=W2[i][0];
       const bp1=t1>0?Math.round(W1[i][1]/t1*100):0,cp1=100-bp1;
       const bp2=t2>0?Math.round(W2[i][1]/t2*100):0,cp2=100-bp2;
       const dcp=cp2-cp1;
-      h+=`<div class="share-row">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <span class="store-label">${S[i]}</span>
-          <span style="font-size:9px;color:${dcp>0?'#dc2626':'#2563eb'};font-weight:600;">쿠팡 ${dcp>=0?'+':''}${dcp}%p</span>
+      h+=`<div class="donut-card">
+        <div class="donut-card-nm">${S[i]}</div>
+        <div class="donut-card-charts">
+          <div class="donut-card-unit">
+            <span class="donut-card-wk tag-prev">${w1L}</span>
+            <div class="donut-canvas-wrap" style="width:56px;height:56px;">
+              <canvas id="dt_${i}_1" width="56" height="56"></canvas>
+              <div class="donut-center"><span style="font-size:9px;font-weight:700;color:#4B7BE8;">${bp1}%</span></div>
+            </div>
+            <div class="donut-card-vals"><span style="color:#4B7BE8;">${bp1}%</span>/<span style="color:#E86035;">${cp1}%</span></div>
+          </div>
+          <div class="donut-card-unit">
+            <span class="donut-card-wk tag-curr">${w2L}</span>
+            <div class="donut-canvas-wrap" style="width:56px;height:56px;">
+              <canvas id="dt_${i}_2" width="56" height="56"></canvas>
+              <div class="donut-center"><span style="font-size:9px;font-weight:700;color:#4B7BE8;">${bp2}%</span></div>
+            </div>
+            <div class="donut-card-vals"><span style="color:#4B7BE8;">${bp2}%</span>/<span style="color:#E86035;">${cp2}%</span></div>
+          </div>
         </div>
-        <div class="wk-row"><span class="wk-tag tag-prev">${w1L}</span><div class="bar-track">${bar(bp1,'bar-bm')}${bar(cp1,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${bp1}%</span>/<span style="color:#E86035;">${cp1}%</span></div></div>
-        <div class="wk-row"><span class="wk-tag tag-curr">${w2L}</span><div class="bar-track">${bar(bp2,'bar-bm')}${bar(cp2,'bar-cp')}</div><div class="wk-vals"><span style="color:#4B7BE8;">${bp2}%</span>/<span style="color:#E86035;">${cp2}%</span></div></div>
+        <div class="donut-chg" style="color:${dcp>0?'#dc2626':'#2563eb'};">쿠팡 ${dcp>=0?'+':''}${dcp}%p</div>
       </div>`;
     });
-    return h+'</div>';
+    h+='</div>';
+    return h;
   }
 
   function adTable(){
@@ -293,10 +333,6 @@ function renderDash(){
     <div class="card sec"><div class="sec-tit">① ${w1L} vs ${w2L} 매출 비교</div>${cmpTable()}</div>
     <div class="card sec" style="margin-top:8px;">
       <div class="sec-tit">② 배민 / 쿠팡이츠 점유율 비교</div>
-      <div style="display:flex;gap:12px;margin-bottom:7px;font-size:9.5px;color:#8896b0;">
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4B7BE8;margin-right:3px;vertical-align:middle;"></span>배민</span>
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#E86035;margin-right:3px;vertical-align:middle;"></span>쿠팡이츠</span>
-      </div>
       ${shareSection()}
     </div>`;
     if(hasAd){
@@ -339,6 +375,37 @@ function renderDash(){
 
   document.getElementById('b0').innerHTML=buildMain();
   document.getElementById('b1').innerHTML=buildMain()+buildReport();
+  initDonuts();
+}
+
+function mkDonut(id,bm,cp){
+  const el=document.getElementById(id);
+  if(!el||el._ok)return; el._ok=true;
+  const c=new Chart(el,{
+    type:'doughnut',
+    data:{datasets:[{data:[bm,cp],backgroundColor:['#4B7BE8','#E86035'],borderWidth:0,hoverOffset:0}]},
+    options:{responsive:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:400}}
+  });
+  chartInst.push(c);
+}
+
+function initDonuts(){
+  const {S,W1,W2,w1L,w2L}=D;
+  const TW1=W1.reduce((s,d)=>s+d[0],0),TW2=W2.reduce((s,d)=>s+d[0],0);
+  const TB1=W1.reduce((s,d)=>s+d[1],0),TB2=W2.reduce((s,d)=>s+d[1],0);
+  const ord=[...S.keys()].sort((a,b)=>W2[b][0]-W2[a][0]);
+  setTimeout(()=>{
+    const gb1=Math.round(TB1/TW1*100),gc1=100-gb1,gb2=Math.round(TB2/TW2*100),gc2=100-gb2;
+    mkDonut('dt_total_1',gb1,gc1);
+    mkDonut('dt_total_2',gb2,gc2);
+    ord.forEach(i=>{
+      const t1=W1[i][0],t2=W2[i][0];
+      const bp1=t1>0?Math.round(W1[i][1]/t1*100):0,cp1=100-bp1;
+      const bp2=t2>0?Math.round(W2[i][1]/t2*100):0,cp2=100-bp2;
+      mkDonut(`dt_${i}_1`,bp1,cp1);
+      mkDonut(`dt_${i}_2`,bp2,cp2);
+    });
+  },100);
 }
 </script>
 </body>
