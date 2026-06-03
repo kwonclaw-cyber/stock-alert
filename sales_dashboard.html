@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 매출 분석 대시보드</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#f0f4f8;font-family:-apple-system,'Malgun Gothic',sans-serif;}
+
+/* ── 업로드 화면 ── */
+#uploadScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.up-card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.10);border:1px solid #e8edf5;width:100%;max-width:680px;overflow:hidden;}
+.up-hd{background:#1a2235;padding:18px 22px;}
+.up-hd-tit{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;}
+.up-hd-sub{font-size:11px;color:#8896b0;}
+.up-body{padding:22px;}
+.up-sect{margin-bottom:20px;}
+.up-sect-tit{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.up-sect-tit span{font-size:10px;font-weight:500;color:#8896b0;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+label.lbl{display:block;font-size:10px;color:#8896b0;margin-bottom:4px;}
+input[type=text],input[type=number]{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;font-size:12px;color:#1a2235;outline:none;}
+input[type=text]:focus,input[type=number]:focus{border-color:#4B7BE8;}
+.drop-zone{border:2px dashed #c7d4f0;border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#f8faff;}
+.drop-zone:hover,.drop-zone.drag{border-color:#4B7BE8;background:#eef3ff;}
+.drop-zone .dz-icon{font-size:32px;margin-bottom:8px;}
+.drop-zone .dz-tit{font-size:13px;font-weight:600;color:#1a2235;margin-bottom:4px;}
+.drop-zone .dz-sub{font-size:11px;color:#8896b0;}
+input[type=file]{display:none;}
+.file-chosen{margin-top:8px;font-size:11px;color:#4B7BE8;font-weight:600;}
+.or-div{display:flex;align-items:center;gap:10px;margin:14px 0;}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:#e8edf5;}
+.or-div span{font-size:10px;color:#a0aec0;}
+textarea.paste-area{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;color:#374151;resize:vertical;min-height:100px;font-family:monospace;outline:none;}
+textarea.paste-area:focus{border-color:#4B7BE8;}
+.tmpl-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #4B7BE8;border-radius:6px;font-size:11px;font-weight:600;color:#4B7BE8;background:#f8faff;cursor:pointer;text-decoration:none;}
+.tmpl-btn:hover{background:#eef3ff;}
+.gen-btn{width:100%;padding:13px;background:#4B7BE8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;}
+.gen-btn:hover{background:#3566d0;}
+.gen-btn:disabled{background:#a0aec0;cursor:not-allowed;}
+.err{font-size:11px;color:#dc2626;margin-top:6px;display:none;}
+.fmt-box{background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:10.5px;color:#374151;line-height:1.8;border:1px solid #e8edf5;}
+.fmt-box code{background:#e8edf5;border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace;}
+
+/* ── 대시보드 ── */
+#dashScreen{display:none;}
+.wrap{font-family:-apple-system,'Malgun Gothic',sans-serif;}
+.tab-bar{display:flex;align-items:stretch;border-bottom:2px solid #e2e8f0;background:#fff;border-radius:10px 10px 0 0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.tab{flex:1;padding:11px 0;text-align:center;font-size:12px;font-weight:600;color:#8896b0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+.tab.on{color:#4B7BE8;border-bottom:2px solid #4B7BE8;background:#f8faff;}
+.tab-btns{display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;}
+.save-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:600;color:#fff;background:#4B7BE8;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;transition:background .15s;}
+.save-btn:hover{background:#3566d0;}
+.save-btn svg{width:13px;height:13px;flex-shrink:0;}
+.reset-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:600;color:#8896b0;background:#f0f4f8;border:1px solid #e2e8f0;border-radius:5px;cursor:pointer;}
+.reset-btn:hover{background:#e8edf5;}
+.page{display:none;background:#f0f4f8;padding:14px;border-radius:0 0 10px 10px;}
+.page.on{display:block;}
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);border:1px solid #e8edf5;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.kpi{padding:11px 13px;}
+.kl{font-size:11px;color:#8896b0;margin-bottom:3px;}
+.kv{font-size:13px;font-weight:700;color:#1a2235;line-height:1.2;}
+.ks{font-size:10px;color:#a0aec0;margin-top:3px;}
+.sec{margin-bottom:10px;padding:13px 14px;}
+.sec-tit{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:9px;}
+.cg2{display:grid;grid-template-columns:1.4fr 0.6fr;gap:8px;margin-bottom:10px;}
+.cc{padding:12px 14px;}
+.ct{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:7px;}
+.leg{display:flex;gap:12px;font-size:10.5px;color:#8896b0;margin-bottom:7px;}
+.lsq{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:3px;}
+.tbl-wrap{overflow-x:auto;}
+.tbl-h{overflow-y:auto;max-height:420px;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead th{color:#8896b0;font-weight:600;padding:5px 9px;border-bottom:1px solid #e8edf5;text-align:right;white-space:nowrap;background:#fff;position:sticky;top:0;z-index:1;}
+thead th:first-child{text-align:left;min-width:80px;}
+tbody td{padding:5px 9px;text-align:right;border-bottom:1px solid #f4f6fa;white-space:nowrap;color:#374151;}
+tbody td:first-child{text-align:left;color:#1a2235;font-weight:600;}
+.tr td{background:#f0f4f8!important;font-weight:700;color:#1a2235;border-top:1px solid #dde4ef;border-bottom:none;}
+.muted{color:#c5cdd8;}
+.bup{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:#fff1f1;color:#dc2626;font-weight:700;}
+.bdn{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:#eff6ff;color:#2563eb;font-weight:700;}
+.bnew{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:#f0fdf4;color:#16a34a;font-weight:700;}
+.top10g{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+.tc{border-radius:8px;padding:10px 11px;background:#fff;border:1px solid #e8edf5;border-top:3px solid #f59e0b;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.tc-rank{font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:2px;}
+.tc-nm{font-size:11px;font-weight:700;color:#1a2235;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tc-v{font-size:12px;font-weight:700;color:#1a2235;}
+.tc-s{font-size:9px;color:#8896b0;margin-bottom:5px;}
+.tc-row{display:flex;justify-content:space-between;font-size:9.5px;padding-top:5px;border-top:1px solid #f4f6fa;}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px;}
+.uc{border-radius:8px;padding:9px 11px;background:#fff;border:1px solid #fee2e2;border-left:3px solid #dc2626;}
+.dc{border-radius:8px;padding:9px 11px;background:#fff;border:1px solid #dbeafe;border-left:3px solid #2563eb;}
+.cn{font-size:11px;font-weight:700;color:#1a2235;margin-bottom:5px;}
+.cr{display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;}
+.cl{color:#8896b0;}.cv{color:#374151;font-weight:500;}
+.report{background:#fff;border-radius:10px;border:1px solid #e8edf5;overflow:hidden;margin-top:10px;}
+.rp-hd{background:#1a2235;padding:13px 18px;}
+.rp-hd-tit{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
+.rp-hd-sub{font-size:11px;color:#8896b0;}
+.rp-body{padding:16px 18px;}
+.sb{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f4f8;}
+.sb:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.sb-nm{font-size:12px;font-weight:700;color:#1a2235;margin-bottom:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tag{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.tg{background:#dcfce7;color:#15803d;}.tw{background:#fee2e2;color:#b91c1c;}
+.sb-txt{font-size:11.5px;color:#374151;line-height:1.8;border-left:3px solid #e2e8f0;padding-left:12px;}
+.sb-txt strong{color:#1a2235;font-weight:700;}
+.act{display:inline-block;font-size:10px;padding:2px 8px;border-radius:3px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:5px;}
+
+/* 저장 오버레이 */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;flex-direction:column;align-items:center;justify-content:center;}
+.ov.on{display:flex;}
+.ov-box{background:#fff;border-radius:14px;overflow:hidden;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.ov-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e8edf5;background:#1a2235;flex-shrink:0;}
+.ov-title{font-size:13px;font-weight:700;color:#fff;}
+.ov-hint{font-size:11px;color:#a0aec0;margin-top:2px;}
+.ov-btns{display:flex;gap:8px;align-items:center;}
+.ov-dl{display:flex;align-items:center;gap:5px;padding:7px 13px;background:#4B7BE8;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none;}
+.ov-dl:hover{background:#3566d0;}
+.ov-close{width:28px;height:28px;background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ov-close:hover{background:rgba(255,255,255,.25);}
+.ov-body{overflow:auto;padding:0;flex:1;}
+.ov-body img{display:block;width:100%;height:auto;}
+.ov-spin{display:flex;align-items:center;justify-content:center;gap:12px;padding:48px;}
+.spinner{width:32px;height:32px;border:3px solid #e2e8f0;border-top:3px solid #4B7BE8;border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 업로드 화면 ═══════════════ -->
+<div id="uploadScreen">
+  <div class="up-card">
+    <div class="up-hd">
+      <div class="up-hd-tit">📊 주간 매출 분석 대시보드</div>
+      <div class="up-hd-sub">매출 데이터를 업로드하면 자동으로 분석 보고서를 생성합니다</div>
+    </div>
+    <div class="up-body">
+
+      <!-- 기간 설정 -->
+      <div class="up-sect">
+        <div class="up-sect-tit">📅 비교 기간 설정</div>
+        <div class="row2">
+          <div>
+            <label class="lbl">전주 기간 (예: 5/18~5/24)</label>
+            <input type="text" id="w1Label" placeholder="예: 5/18~5/24" value="">
+          </div>
+          <div>
+            <label class="lbl">금주 기간 (예: 5/25~5/31)</label>
+            <input type="text" id="w2Label" placeholder="예: 5/25~5/31" value="">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="up-sect-tit" style="margin-bottom:6px;">요일별 열 이름 <span>(차트 X축 표시용, 쉼표로 구분)</span></div>
+          <input type="text" id="dayLabels" value="월,화,수,목,금,토,일" placeholder="월,화,수,목,금,토,일">
+        </div>
+      </div>
+
+      <!-- CSV 파일 업로드 -->
+      <div class="up-sect">
+        <div class="up-sect-tit">📂 CSV 파일 업로드
+          <button class="tmpl-btn" onclick="downloadTemplate()" style="margin-left:auto;">⬇ 템플릿 다운로드</button>
+        </div>
+        <div class="fmt-box" style="margin-bottom:10px;">
+          CSV 형식: <code>매장명</code>, <code>신규(Y/N)</code>, <code>전주_월~일(7열)</code>, <code>금주_월~일(7열)</code> — 총 16열<br>
+          숫자는 원 단위 정수 (예: <code>1500000</code>), 영업 안 한 날은 <code>0</code> 또는 빈칸
+        </div>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <div class="dz-icon">📁</div>
+          <div class="dz-tit">클릭하거나 파일을 여기에 드래그하세요</div>
+          <div class="dz-sub">CSV 파일만 지원합니다</div>
+          <div class="file-chosen" id="fileChosen"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv" onchange="handleFile(this)">
+      </div>
+
+      <!-- 붙여넣기 -->
+      <div class="up-sect">
+        <div class="or-div"><span>또는 엑셀에서 직접 복사·붙여넣기</span></div>
+        <div class="up-sect-tit" style="margin-bottom:6px;">📋 데이터 붙여넣기 <span>(엑셀 선택 후 Ctrl+C → 아래 클릭 후 Ctrl+V)</span></div>
+        <textarea class="paste-area" id="pasteArea" placeholder="여기에 엑셀 데이터를 붙여넣으세요&#10;첫 행: 헤더(생략 가능), 이후 행: 매장별 데이터&#10;열 순서: 매장명 | 신규(Y/N) | 전주월~일(7개) | 금주월~일(7개)"></textarea>
+        <div class="err" id="errMsg">오류 메시지</div>
+      </div>
+
+      <button class="gen-btn" onclick="generate()">📊 대시보드 생성</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 대시보드 화면 ═══════════════ -->
+<div id="dashScreen">
+  <div class="ov" id="ov">
+    <div class="ov-box">
+      <div class="ov-hd">
+        <div>
+          <div class="ov-title">📷 이미지 저장</div>
+          <div class="ov-hint">이미지를 꾹 누르거나 우클릭 → 저장 / 또는 아래 버튼으로 다운로드</div>
+        </div>
+        <div class="ov-btns">
+          <a class="ov-dl" id="dlBtn" download="주간보고.png">⬇ 다운로드</a>
+          <button class="ov-close" onclick="closeOv()">✕</button>
+        </div>
+      </div>
+      <div class="ov-body" id="ovBody">
+        <div class="ov-spin"><div class="spinner"></div><span style="color:#8896b0;font-size:13px;">이미지 생성 중...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap" id="mainWrap">
+    <div class="tab-bar">
+      <div class="tab on" onclick="showTab(0)">📊 매출분석</div>
+      <div class="tab" onclick="showTab(1)">📋 분석보고용</div>
+      <div class="tab-btns">
+        <button class="reset-btn" onclick="resetToUpload()">↩ 데이터 변경</button>
+        <button class="save-btn" onclick="saveImg()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          이미지 저장
+        </button>
+      </div>
+    </div>
+    <div class="page on" id="p0"><div id="b0"></div></div>
+    <div class="page" id="p1"><div id="b1"></div></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+// ═══════ 전역 상태 ═══════
+let curTab = 0;
+let chartInstances = {};
+
+// ═══════ 드래그앤드롭 ═══════
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+function handleFile(input) {
+  if (input.files[0]) loadFile(input.files[0]);
+}
+
+let parsedCSV = null;
+function loadFile(file) {
+  if (!file.name.endsWith('.csv')) { showErr('CSV 파일만 지원합니다.'); return; }
+  document.getElementById('fileChosen').textContent = '✓ ' + file.name;
+  document.getElementById('pasteArea').value = '';
+  const reader = new FileReader();
+  reader.onload = e => { parsedCSV = e.target.result; };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ═══════ 템플릿 다운로드 ═══════
+function downloadTemplate() {
+  const header = '매장명,신규(Y/N),전주_월,전주_화,전주_수,전주_목,전주_금,전주_토,전주_일,금주_월,금주_화,금주_수,금주_목,금주_금,금주_토,금주_일';
+  const example = [
+    '샘플매장A,N,1500000,1200000,1800000,1600000,2000000,2500000,1900000,1700000,1400000,2000000,1800000,2200000,2700000,2100000',
+    '샘플매장B,N,900000,800000,1100000,1000000,1300000,1500000,1200000,1000000,900000,1200000,1100000,1400000,1600000,1300000',
+    '신규매장C,Y,0,0,0,0,0,0,0,800000,700000,900000,850000,1100000,1300000,1000000',
+  ];
+  const csv = [header, ...example].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '매출_업로드_템플릿.csv';
+  a.click();
+}
+
+// ═══════ CSV/TSV 파싱 ═══════
+function parseText(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const results = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // TSV(탭) 또는 CSV(쉼표) 자동 감지
+    const sep = line.includes('\t') ? '\t' : ',';
+    const cols = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+    results.push(cols);
+  }
+  return results;
+}
+
+function isHeaderRow(cols) {
+  // 첫 열이 숫자가 아니고 두번째 열이 Y/N이 아닌 경우 헤더로 간주
+  const secondIsNumeric = !isNaN(Number(cols[1])) && cols[1] !== '';
+  const secondIsYN = /^[yYnN]$/i.test(cols[1]);
+  return !secondIsNumeric && !secondIsYN;
+}
+
+// ═══════ 데이터 구조 생성 ═══════
+function buildData(rows) {
+  // 헤더 행 자동 제거
+  if (rows.length > 0 && isHeaderRow(rows[0])) rows = rows.slice(1);
+
+  if (rows.length === 0) throw new Error('데이터가 없습니다.');
+
+  const S = [];        // 매장명
+  const newStores = new Set(); // 신규 매장 인덱스
+  const W1 = Array.from({length:7}, () => []); // 전주 [day][store]
+  const W2 = Array.from({length:7}, () => []); // 금주 [day][store]
+
+  rows.forEach((cols, idx) => {
+    if (cols.length < 2) return;
+    const name = cols[0] || `매장${idx+1}`;
+    S.push(name);
+    const isNew = /^[yY]$/.test((cols[1]||'').trim());
+    if (isNew) newStores.add(S.length - 1);
+
+    for (let d = 0; d < 7; d++) {
+      const v1 = parseInt((cols[2 + d] || '0').replace(/,/g,'')) || 0;
+      const v2 = parseInt((cols[9 + d] || '0').replace(/,/g,'')) || 0;
+      W1[d].push(v1);
+      W2[d].push(v2);
+    }
+  });
+
+  if (S.length === 0) throw new Error('유효한 매장 데이터가 없습니다.');
+  return { S, newStores, W1, W2 };
+}
+
+// ═══════ 생성 버튼 ═══════
+function showErr(msg) {
+  const el = document.getElementById('errMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideErr() { document.getElementById('errMsg').style.display = 'none'; }
+
+function generate() {
+  hideErr();
+  let text = parsedCSV || document.getElementById('pasteArea').value.trim();
+  if (!text) { showErr('데이터를 업로드하거나 붙여넣기 해주세요.'); return; }
+
+  try {
+    const rows = parseText(text);
+    const { S, newStores, W1, W2 } = buildData(rows);
+
+    const w1Label = document.getElementById('w1Label').value || '전주';
+    const w2Label = document.getElementById('w2Label').value || '금주';
+    const dayLabelRaw = document.getElementById('dayLabels').value || '월,화,수,목,금,토,일';
+    const dayLabels = dayLabelRaw.split(',').map(s=>s.trim()).slice(0,7);
+    while (dayLabels.length < 7) dayLabels.push(`D${dayLabels.length+1}`);
+
+    renderDashboard(S, newStores, W1, W2, w1Label, w2Label, dayLabels);
+  } catch(e) {
+    showErr('데이터 파싱 오류: ' + e.message);
+  }
+}
+
+// ═══════ 대시보드 렌더링 ═══════
+function renderDashboard(S, NEW_STORES, W1, W2, w1Label, w2Label, dayLabels) {
+  const N = S.length;
+  const w1T = Array.from({length:N}, (_,i) => W1.reduce((s,d)=>s+d[i],0));
+  const w2T = Array.from({length:N}, (_,i) => W2.reduce((s,d)=>s+d[i],0));
+  const w1D = Array.from({length:N}, (_,i) => W1.filter(d=>d[i]>0).length);
+  const w2D = Array.from({length:N}, (_,i) => W2.filter(d=>d[i]>0).length);
+  const gr  = Array.from({length:N}, (_,i) => w1T[i]>0?(w2T[i]-w1T[i])/w1T[i]:(w2T[i]>0?Infinity:NaN));
+  const TW1 = w1T.reduce((s,v)=>s+v,0);
+  const TW2 = w2T.reduce((s,v)=>s+v,0);
+  const tgr = TW1>0?(TW2-TW1)/TW1:Infinity;
+  const actIdx = [...Array(N).keys()].filter(i=>w1T[i]>0||w2T[i]>0);
+  const upN  = actIdx.filter(i=>!isNaN(gr[i])&&gr[i]>0).length;
+  const dnN  = actIdx.filter(i=>!isNaN(gr[i])&&gr[i]<0).length;
+  const newN = actIdx.filter(i=>gr[i]===Infinity).length;
+  const top10 = [...actIdx].sort((a,b)=>w2T[b]-w2T[a]).slice(0,10);
+  const gainIdx = actIdx.filter(i=>w1T[i]>0&&gr[i]>=0.2).sort((a,b)=>gr[b]-gr[a]);
+  const lossIdx = actIdx.filter(i=>w1T[i]>0&&gr[i]<=-0.2).sort((a,b)=>gr[a]-gr[b]);
+  const sortedAll = [...actIdx].sort((a,b)=>{
+    const ga=gr[a]===Infinity?999:isNaN(gr[a])?-999:gr[a];
+    const gb=gr[b]===Infinity?999:isNaN(gr[b])?-999:gr[b];
+    return gb-ga;
+  });
+  const w1Day = W1.map(d=>d.reduce((s,v)=>s+v,0)/10000);
+  const w2Day = W2.map(d=>d.reduce((s,v)=>s+v,0)/10000);
+
+  const tc='#9aaccb', gc='rgba(0,0,0,0.05)';
+  const fm = v => v>0?Math.round(v).toLocaleString('ko-KR')+'원':'—';
+  const fd = v => v!==0?(v>=0?'+':'')+Math.round(v).toLocaleString('ko-KR')+'원':'—';
+  const fp = g => {
+    if(g===Infinity) return '<span class="bnew">신규</span>';
+    if(isNaN(g)) return '<span class="muted">—</span>';
+    return g>=0?`<span class="bup">▲${(g*100).toFixed(1)}%</span>`:`<span class="bdn">▼${(Math.abs(g)*100).toFixed(1)}%</span>`;
+  };
+
+  function top10html(){
+    return top10.map((i,r)=>`
+      <div class="tc">
+        <div class="tc-rank">#${r+1}</div>
+        <div class="tc-nm">${S[i]}</div>
+        <div class="tc-v">${fm(w2T[i])}</div>
+        <div class="tc-s">금주 ${w2D[i]}일 영업</div>
+        <div class="tc-row">
+          <span style="color:#8896b0;">전주 ${fm(w1T[i])}${w1D[i]>0?' ('+w1D[i]+'일)':''}</span>
+          <span>${fp(gr[i])}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  function chgCards(list,cls){
+    return list.map(i=>`
+      <div class="${cls}">
+        <div class="cn">${S[i]}</div>
+        <div class="cr"><span class="cl">금주</span><span class="cv">${fm(w2T[i])} (${w2D[i]}일)</span></div>
+        <div class="cr"><span class="cl">전주</span><span class="cv">${fm(w1T[i])} (${w1D[i]}일)</span></div>
+        <div class="cr"><span class="cl">등락</span><span style="font-weight:700;color:${gr[i]>=0?'#dc2626':'#2563eb'};">${gr[i]>=0?'▲':'▼'}${(Math.abs(gr[i])*100).toFixed(1)}%</span></div>
+      </div>`).join('');
+  }
+
+  function mainTable(){
+    let h=`<thead><tr><th>매장명</th><th>전주 합계</th><th>영업일</th><th>금주 합계</th><th>영업일</th><th>증감액</th><th>전주대비</th></tr></thead><tbody>`;
+    sortedAll.forEach(i=>{
+      const diff=w2T[i]-w1T[i];
+      h+=`<tr>
+        <td>${S[i]}${NEW_STORES.has(i)?'<span class="bnew" style="margin-left:4px;">신규</span>':''}</td>
+        <td>${w1T[i]>0?fm(w1T[i]):'<span class="muted">—</span>'}</td>
+        <td style="color:#8896b0;">${w1D[i]>0?w1D[i]+'일':'—'}</td>
+        <td style="font-weight:600;">${fm(w2T[i])}</td>
+        <td style="color:#8896b0;">${w2D[i]}일</td>
+        <td style="font-weight:600;color:${diff>=0?'#dc2626':'#2563eb'};">${w1T[i]>0?fd(diff):'—'}</td>
+        <td>${fp(gr[i])}</td>
+      </tr>`;
+    });
+    const T1op=actIdx.filter(i=>w1T[i]>0).length;
+    const T2op=actIdx.filter(i=>w2T[i]>0).length;
+    const tdiff=TW2-TW1;
+    h+=`<tr class="tr">
+      <td>전체 합계</td>
+      <td>${fm(TW1)}</td><td style="color:#8896b0;">${T1op}개</td>
+      <td>${fm(TW2)}</td><td style="color:#8896b0;">${T2op}개</td>
+      <td style="font-weight:700;color:${tdiff>=0?'#dc2626':'#2563eb'};">${fd(tdiff)}</td>
+      <td>${fp(tgr)}</td>
+    </tr></tbody>`;
+    return h;
+  }
+
+  function buildHtml(sfx){
+    const T1op=actIdx.filter(i=>w1T[i]>0).length;
+    const T2op=actIdx.filter(i=>w2T[i]>0).length;
+    return `
+    <div class="kpis">
+      <div class="kpi card"><div class="kl">전주 합계 (${w1Label})</div><div class="kv">${fm(TW1)}</div><div class="ks">일평균 ${fm(TW1/7)} · 운영 ${T1op}개</div></div>
+      <div class="kpi card"><div class="kl">금주 합계 (${w2Label})</div><div class="kv">${fm(TW2)}</div><div class="ks">일평균 ${fm(TW2/7)} · 운영 ${T2op}개</div></div>
+      <div class="kpi card"><div class="kl">전주대비</div><div class="kv">${fp(tgr)}</div><div class="ks">${fd(TW2-TW1)}</div></div>
+      <div class="kpi card"><div class="kl">매장 현황</div><div class="kv" style="font-size:14px;">상승 ${upN} / 하락 ${dnN}</div><div class="ks">신규 ${newN}개 · 활성 ${actIdx.length}개</div></div>
+    </div>
+    <div class="cg2">
+      <div class="cc card">
+        <div class="ct">① 요일별 합산 매출 비교 (만원)</div>
+        <div class="leg"><span><span class="lsq" style="background:#c7d4f0;"></span>전주</span><span><span class="lsq" style="background:#4B7BE8;"></span>금주</span></div>
+        <div style="position:relative;height:150px;"><canvas id="ch${sfx}"></canvas></div>
+      </div>
+      <div class="cc card" style="display:flex;flex-direction:column;justify-content:space-around;padding:16px 14px;">
+        <div>
+          <div style="font-size:10px;color:#8896b0;margin-bottom:3px;">전주 → 금주</div>
+          <div style="font-size:16px;font-weight:700;color:#1a2235;">${fm(TW1)} → ${fm(TW2)}</div>
+          <div style="font-size:13px;font-weight:700;color:${tgr>=0?'#dc2626':'#2563eb'};margin-top:3px;">${tgr>=0?'▲':'▼'} ${(Math.abs(tgr)*100).toFixed(1)}%</div>
+        </div>
+        <div><div style="font-size:10px;color:#8896b0;margin-bottom:2px;">운영 매장</div><div style="font-size:12px;font-weight:600;">${T1op}개 → ${T2op}개</div></div>
+        <div><div style="font-size:10px;color:#8896b0;margin-bottom:2px;">등락 20%+</div>
+          <div style="font-size:12px;">
+            <span style="color:#dc2626;font-weight:700;">▲${gainIdx.length}개</span>
+            &nbsp;<span style="color:#2563eb;font-weight:700;">▼${lossIdx.length}개</span>
+            &nbsp;<span style="color:#16a34a;font-weight:700;">신규 ${newN}개</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card sec">
+      <div class="sec-tit">🏆 금주 매출 TOP 10 매장</div>
+      <div class="top10g">${top10html()}</div>
+    </div>
+    <div class="card sec" style="margin-top:10px;">
+      <div style="font-size:11px;font-weight:700;color:#dc2626;background:#fff1f1;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▲ 전주대비 20% 이상 상승 · ${gainIdx.length}개 매장</div>
+      <div class="cgrid">${chgCards(gainIdx,'uc')}</div>
+      <div style="height:14px;border-bottom:1px solid #f0f4f8;margin:10px -14px 10px;"></div>
+      <div style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:8px;">▼ 전주대비 20% 이상 하락 · ${lossIdx.length}개 매장</div>
+      <div class="cgrid">${chgCards(lossIdx,'dc')}</div>
+    </div>
+    <div class="card sec" style="margin-top:10px;">
+      <div class="sec-tit">② 전체 매장 주간 비교 (전주대비 높은 순)</div>
+      <div class="tbl-wrap"><div class="tbl-h"><table>${mainTable()}</table></div></div>
+    </div>`;
+  }
+
+  function buildReport(){
+    const newStoreNames=[...NEW_STORES].filter(i=>w2T[i]>0).map(i=>`<strong>${S[i]}</strong>(${w2D[i]}일/${fm(w2T[i])})`);
+    return `
+    <div class="report">
+      <div class="rp-hd">
+        <div class="rp-hd-tit">주간 분석 보고서</div>
+        <div class="rp-hd-sub">${w1Label} vs ${w2Label} · 대표 보고용</div>
+      </div>
+      <div class="rp-body">
+        <div class="sb">
+          <div class="sb-nm">전체 총평 <span class="tag ${tgr>=0?'tg':'tw'}">${tgr>=0?'▲':'▼'}${(Math.abs(tgr)*100).toFixed(1)}%</span></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px;">
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">전주</div><div style="font-size:13px;font-weight:700;">${fm(TW1)}</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">금주</div><div style="font-size:13px;font-weight:700;">${fm(TW2)}</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">상승</div><div style="font-size:13px;font-weight:700;color:#dc2626;">${upN}개</div></div>
+            <div style="background:#f8fafc;border-radius:6px;padding:7px 10px;"><div style="font-size:9px;color:#8896b0;">하락</div><div style="font-size:13px;font-weight:700;color:#2563eb;">${dnN}개</div></div>
+          </div>
+          <div class="sb-txt">금주 <strong>${fm(TW2)}</strong>으로 전주 대비 <strong>${fd(TW2-TW1)}(${(Math.abs(tgr)*100).toFixed(1)}%) ${tgr>=0?'증가':'감소'}</strong>. 신규 ${newN}개${newStoreNames.length>0?' ('+newStoreNames.join(', ')+')',':''} 운영 시작.</div>
+        </div>
+        <div class="sb">
+          <div class="sb-nm">금주 TOP 3 <span class="tag tg">성과 유지</span></div>
+          <div class="sb-txt">
+            ${top10.slice(0,3).map((i,r)=>`<strong>${r+1}위 ${S[i]}</strong>: ${fm(w2T[i])} (${w2D[i]}일) ${fp(gr[i])}`).join('<br>')}
+            <br><span class="act">▶ TOP 매장 세팅 모니터링</span>
+          </div>
+        </div>
+        <div class="sb">
+          <div class="sb-nm">상승 20%+ (${gainIdx.length}개) <span class="tag tg">성장 분석</span></div>
+          <div class="sb-txt">
+            ${gainIdx.slice(0,7).map(i=>`<strong>${S[i]}</strong>(▲${(gr[i]*100).toFixed(1)}%)`).join(' · ')}
+            ${gainIdx.length===0?'해당 매장 없음':''}
+            <br><span class="act">▶ 성장 요인 분석 및 노하우 전파</span>
+          </div>
+        </div>
+        <div class="sb">
+          <div class="sb-nm">하락 20%+ (${lossIdx.length}개) <span class="tag tw">1:1 대응</span></div>
+          <div class="sb-txt">
+            ${lossIdx.slice(0,7).map(i=>`<strong>${S[i]}</strong>(▼${(Math.abs(gr[i])*100).toFixed(1)}%)`).join(' · ')}
+            ${lossIdx.length===0?'해당 매장 없음':''}
+            <br><span class="act">▶ 하락 원인 파악 및 개선 방안 수립</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // 이전 차트 제거
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  document.getElementById('b0').innerHTML = buildHtml('A');
+  document.getElementById('b1').innerHTML = buildHtml('B') + buildReport();
+
+  // 차트 생성
+  setTimeout(() => {
+    ['chA','chB'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      chartInstances[id] = new Chart(el, {
+        type: 'bar',
+        data: {
+          labels: dayLabels,
+          datasets: [
+            { label: '전주', data: w1Day.map(v=>+v.toFixed(0)), backgroundColor:'#c7d4f0', barPercentage:0.4, categoryPercentage:0.85 },
+            { label: '금주', data: w2Day.map(v=>+v.toFixed(0)), backgroundColor:'#4B7BE8', barPercentage:0.4, categoryPercentage:0.85 }
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend:{labels:{color:'#4a5568',font:{size:10},boxWidth:9}},
+            tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Math.round(+c.raw).toLocaleString('ko-KR')}만`}}
+          },
+          scales: {
+            x:{ticks:{color:tc,font:{size:9}},grid:{color:gc},border:{color:'#e2e8f0'}},
+            y:{ticks:{color:tc,font:{size:9},callback:v=>Math.round(v).toLocaleString('ko-KR')+'만'},grid:{color:gc},border:{color:'#e2e8f0'}}
+          }
+        }
+      });
+    });
+  }, 200);
+
+  // 화면 전환
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('dashScreen').style.display = 'block';
+  showTab(0);
+}
+
+// ═══════ 탭 & 유틸 ═══════
+function showTab(n) {
+  curTab = n;
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', i===n));
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('on', i===n));
+}
+
+function resetToUpload() {
+  document.getElementById('dashScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display = 'flex';
+  parsedCSV = null;
+  document.getElementById('fileChosen').textContent = '';
+  document.getElementById('fileInput').value = '';
+}
+
+function closeOv() { document.getElementById('ov').classList.remove('on'); }
+
+async function saveImg() {
+  const ov = document.getElementById('ov');
+  const ovBody = document.getElementById('ovBody');
+  const dlBtn = document.getElementById('dlBtn');
+  ovBody.innerHTML = '<div class="ov-spin"><div class="spinner"></div><span style="color:#8896b0;font-size:13px;">이미지 생성 중...</span></div>';
+  ov.classList.add('on');
+  try {
+    const target = document.getElementById('mainWrap');
+    const canvas = await html2canvas(target, {
+      backgroundColor:'#f0f4f8', scale:2, useCORS:true, logging:false,
+      scrollX:0, scrollY:0, windowWidth:target.scrollWidth, windowHeight:target.scrollHeight
+    });
+    const dataURL = canvas.toDataURL('image/png');
+    const img = document.createElement('img');
+    img.src = dataURL;
+    ovBody.innerHTML = '';
+    ovBody.appendChild(img);
+    dlBtn.href = dataURL;
+    dlBtn.download = `주간매출보고_${curTab===0?'매출분석':'분석보고용'}.png`;
+  } catch(e) {
+    ovBody.innerHTML = `<div class="ov-spin" style="flex-direction:column;gap:8px;"><span style="color:#dc2626;font-size:13px;font-weight:600;">⚠ 생성 실패</span><span style="color:#8896b0;font-size:11px;">${e.message}</span></div>`;
+  }
+}
+</script>
+</body>
+</html>
