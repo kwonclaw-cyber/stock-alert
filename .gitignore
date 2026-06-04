@@ -1,0 +1,3 @@
+mate_helper/.env
+**/__pycache__/
+*.pyc
