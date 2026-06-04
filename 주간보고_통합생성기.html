@@ -388,27 +388,27 @@ textarea:focus{border-color:#4B7BE8;}
 
     <!-- 파일 업로드 -->
     <div class="up-sect">
-      <div class="up-sect-tit">📂 파일 올리기 — 2주치 파일을 한번에 드래그하면 자동으로 전주/금주 구분합니다</div>
-      <div>
-        <div class="file-zone" id="dz1" ondragover="dzDrag(event,'dz1')" ondragleave="dzLeave('dz1')" ondrop="dzDropAll(event)" onclick="document.getElementById('fi1').click()">
-          <div class="dz-icon">📁</div>
-          <div class="dz-tit">전체 파일 여기에 드래그 / 클릭해서 선택</div>
-          <div class="dz-sub">시간대별·경로별·매장별 파일을 2주치 한번에 올리면 날짜를 자동으로 구분합니다</div>
-          <div class="file-list" id="fl1"></div>
+      <div class="up-sect-tit">📂 파일 올리기 — 각 존에 여러 파일 동시 드래그 가능</div>
+      <div class="row2">
+        <div>
+          <div class="file-zone" id="dz1" ondragover="dzDrag(event,'dz1')" ondragleave="dzLeave('dz1')" ondrop="dzDrop(event,'dz1',1)" onclick="document.getElementById('fi1').click()">
+            <div class="dz-week">① 전주 파일</div>
+            <div class="dz-icon">📁</div>
+            <div class="dz-tit">클릭 또는 드래그</div>
+            <div class="dz-sub">시간대별·경로별·매장별 모두 OK</div>
+            <div class="file-list" id="fl1"></div>
+          </div>
+          <input type="file" id="fi1" accept=".xlsx,.xls,.csv" multiple onchange="addFiles(1,this.files)">
         </div>
-        <input type="file" id="fi1" accept=".xlsx,.xls,.csv" multiple onchange="addAllFiles(this.files)">
-      </div>
-      <!-- 자동 구분 결과 표시 -->
-      <div id="weekDetect" style="display:none;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div style="background:#f0f4f8;border-radius:8px;padding:10px 12px;border:1px solid #dde4ef;">
-          <div style="font-size:10px;font-weight:700;color:#4a5568;margin-bottom:5px;">📅 전주 (이전 기간)</div>
-          <div class="file-list" id="fl_prev"></div>
-        </div>
-        <div style="background:#eff6ff;border-radius:8px;padding:10px 12px;border:1px solid #bfdbfe;">
-          <div style="font-size:10px;font-weight:700;color:#1d4ed8;margin-bottom:5px;">📅 금주 (최근 기간)</div>
-          <div class="file-list" id="fl_curr"></div>
-        </div>
-      </div>
+        <div>
+          <div class="file-zone" id="dz2" ondragover="dzDrag(event,'dz2')" ondragleave="dzLeave('dz2')" ondrop="dzDrop(event,'dz2',2)" onclick="document.getElementById('fi2').click()">
+            <div class="dz-week">② 금주 파일</div>
+            <div class="dz-icon">📁</div>
+            <div class="dz-tit">클릭 또는 드래그</div>
+            <div class="dz-sub">시간대별·경로별·매장별 모두 OK</div>
+            <div class="file-list" id="fl2"></div>
+          </div>
+          <input type="file" id="fi2" accept=".xlsx,.xls,.csv" multiple onchange="addFiles(2,this.files)">
         </div>
       </div>
     </div>
@@ -579,83 +579,24 @@ let analyzing=false;
 // ─── 드래그앤드롭 ───
 function dzDrag(e,id){e.preventDefault();e.stopPropagation();document.getElementById(id).classList.add('drag');}
 function dzLeave(id){document.getElementById(id).classList.remove('drag');}
-function dzDropAll(e){e.preventDefault();e.stopPropagation();dzLeave('dz1');addAllFiles(e.dataTransfer.files);}
+function dzDrop(e,id,n){e.preventDefault();e.stopPropagation();dzLeave(id);addFiles(n,e.dataTransfer.files);}
 
-// 파일명에서 날짜/주차 키 추출 (숫자가 클수록 최신)
-function weekKeyFromName(name){
-  // YYYYMMDD 패턴
-  const d8=name.match(/(\d{8})/g);
-  if(d8) return Math.max(...d8.map(Number));
-  // YYYY_MM_DD 또는 YYYY-MM-DD
-  const dh=name.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
-  if(dh) return parseInt(dh[1]+dh[2]+dh[3]);
-  // N월M주 → 월*100+주
-  const mw=name.match(/(\d+)월(\d+)주/);
-  if(mw) return parseInt(mw[1])*100+parseInt(mw[2]);
-  // 숫자만 있는 패턴 (가장 큰 연속 숫자열)
-  const nums=name.match(/\d{4,}/g);
-  if(nums) return Math.max(...nums.map(Number));
-  return 0;
-}
-
-function fileTag(name){
-  const nm=name.toLowerCase();
-  if(nm.includes('시간대')) return{tag:'시간대별',cls:'ftag-time'};
-  if(nm.includes('경로')||nm.includes('주문')) return{tag:'경로별',cls:'ftag-ch'};
-  return{tag:'매장별',cls:'ftag-store'};
-}
-
-function addAllFiles(files){
-  if(!files||!files.length) return;
-  const all=Array.from(files);
-
-  // 파일명 드롭존 표시
-  document.getElementById('fl1').innerHTML=all.map(f=>{
-    const{tag,cls}=fileTag(f.name);
-    return`<div class="fitem"><span class="ftag ${cls}">${tag}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span></div>`;
-  }).join('');
-
-  // 날짜키 기준 정렬 → 중간값으로 전주/금주 분리
-  const sorted=[...all].sort((a,b)=>weekKeyFromName(a.name)-weekKeyFromName(b.name));
-  const keys=sorted.map(f=>weekKeyFromName(f.name));
-  const uniqueKeys=[...new Set(keys)].sort((a,b)=>a-b);
-
-  let prev,curr;
-  if(uniqueKeys.length>=2){
-    // 고유 날짜키가 2가지 이상 → 작은 것=전주, 큰 것=금주
-    const cutKey=uniqueKeys[Math.ceil(uniqueKeys.length/2)-1];
-    prev=sorted.filter(f=>weekKeyFromName(f.name)<=cutKey);
-    curr=sorted.filter(f=>weekKeyFromName(f.name)>cutKey);
-  } else {
-    // 날짜키 구분 불가 → 파일 수 기준으로 절반씩
-    const half=Math.ceil(sorted.length/2);
-    prev=sorted.slice(0,half);
-    curr=sorted.slice(half);
-  }
-
-  fileStore[1]=prev;
-  fileStore[2]=curr;
-
-  // 구분 결과 표시
-  const wd=document.getElementById('weekDetect');
-  wd.style.display='grid';
-  document.getElementById('fl_prev').innerHTML=prev.map(f=>{
-    const{tag,cls}=fileTag(f.name);
-    return`<div class="fitem"><span class="ftag ${cls}">${tag}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span></div>`;
-  }).join('')||(prev.length===0?'<div style="font-size:10px;color:#94a3b8;">없음</div>':'');
-  document.getElementById('fl_curr').innerHTML=curr.map(f=>{
-    const{tag,cls}=fileTag(f.name);
-    return`<div class="fitem"><span class="ftag ${cls}">${tag}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span></div>`;
-  }).join('')||(curr.length===0?'<div style="font-size:10px;color:#94a3b8;">없음</div>':'');
-
-  triggerAnalyze();
-}
-
-// 구형 addFiles도 유지 (하위 호환)
 function addFiles(n,files){
   if(!files||!files.length)return;
   for(const f of files)fileStore[n].push(f);
+  renderFL(n);
   triggerAnalyze();
+}
+
+function renderFL(n){
+  document.getElementById('fl'+n).innerHTML=fileStore[n].map(f=>{
+    const nm=f.name.toLowerCase();
+    let tag,cls;
+    if(nm.includes('시간대')){tag='시간대별';cls='ftag-time';}
+    else if(nm.includes('경로')||nm.includes('주문')){tag='경로별';cls='ftag-ch';}
+    else{tag='매장별';cls='ftag-store';}
+    return`<div class="fitem"><span class="ftag ${cls}">${tag}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span></div>`;
+  }).join('');
 }
 
 // ─── 파싱 유틸 ───
@@ -816,7 +757,7 @@ async function processWeek(files,sf){
 let analyzeTimer=null;
 function triggerAnalyze(){
   if(fileStore[1].length===0&&fileStore[2].length===0)return;
-  // 전주/금주 파일이 모두 있으면 분석 실행
+  // 양쪽 모두 파일이 있을 때 또는 일정 시간 후 분석
   clearTimeout(analyzeTimer);
   analyzeTimer=setTimeout(runAnalyze,300);
 }
@@ -1100,9 +1041,8 @@ function resetToUpload(){
   document.getElementById('dashScreen').style.display='none';
   document.getElementById('uploadScreen').style.display='flex';
   fileStore[1]=[];fileStore[2]=[];parsed={1:null,2:null};
-  ['fl1','fl_prev','fl_curr'].forEach(id=>document.getElementById(id).innerHTML='');
-  document.getElementById('fi1').value='';
-  document.getElementById('weekDetect').style.display='none';
+  ['fl1','fl2'].forEach(id=>document.getElementById(id).innerHTML='');
+  ['fi1','fi2'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('analyzeBar').style.display='none';
   const btn=document.getElementById('viewBtn');btn.className='view-btn disabled';btn.textContent='분석 완료 후 활성화됩니다';
 }
