@@ -226,11 +226,16 @@ const MATCH = window.STORE_MATCH||{};                  // 메이트코드 -> {lo
 const LOGI2MATE = {}; for(const m in MATCH){ LOGI2MATE[MATCH[m].logi]=m; }
 const TARGET_BRANDS = ["밥구정로데오","육식사관학교"];
 
-// 수기 수정 오버라이드 (대표 물류코드 -> {sales?, ex?, profit?}), localStorage 영구 저장
+// 수기 수정 오버라이드 (대표 물류코드 -> {sales?,ex?,profit?,p_sales?,p_ex?,p_profit?}), localStorage 영구 저장
 const OV_KEY = "monthlyClose.override.v1";
 let USER_OV = (()=>{ try{return JSON.parse(localStorage.getItem(OV_KEY)||"{}");}catch(e){return {};} })();
 function saveOV(){ localStorage.setItem(OV_KEY, JSON.stringify(USER_OV)); }
 let EDIT_MODE = false;
+// 매장별 특이사항 메모 (물류코드 -> text)
+const MEMO_KEY = "monthlyClose.memo.v1";
+let USER_MEMO = (()=>{ try{return JSON.parse(localStorage.getItem(MEMO_KEY)||"{}");}catch(e){return {};} })();
+function saveMemo(){ localStorage.setItem(MEMO_KEY, JSON.stringify(USER_MEMO)); }
+let CUR_STORES = {};   // 당월 통합 매장 {code:{name,brand,items,members}} — 발주 품목 비교용
 
 // 사용자 매장 매칭 (물류코드 -> 메이트코드), localStorage 영구 저장
 const MATCH_KEY = "monthlyClose.match.v1";
@@ -534,13 +539,20 @@ function compute(){
       if(pa) prevObj={sales:0, ex:pa.ex, profit:pa.profit};
       else { prevObj=null; isNew=true; }        // 물류원장 전월에도 없음 → 당월 오픈
     }
-    // 수기 수정 오버라이드 적용 (대표코드 기준)
+    // 수기 수정 오버라이드 적용 (대표코드 기준) — 당월/전월 모든 수치
     let ex=ca.ex, profit=ca.profit;
     const ov=USER_OV[code]||null;
     if(ov){
       if(ov.sales!=null){ sales=ov.sales; anyMatch=true; }
       if(ov.ex!=null) ex=ov.ex;
       if(ov.profit!=null) profit=ov.profit;
+      if(ov.p_sales!=null||ov.p_ex!=null||ov.p_profit!=null){
+        prevObj=prevObj||{sales:0,ex:0,profit:0};
+        if(ov.p_sales!=null)prevObj.sales=ov.p_sales;
+        if(ov.p_ex!=null)prevObj.ex=ov.p_ex;
+        if(ov.p_profit!=null)prevObj.profit=ov.p_profit;
+        isNew=false;
+      }
     }
     const st={
       logi:code, mate:mate||mateFor(code)||"", name:meta.name, brand:meta.brand,
@@ -560,6 +572,7 @@ function compute(){
   const list=Object.values(brands).filter(b=>b.stores.length).sort((a,b)=>b.cur.ex-a.cur.ex);
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
+  CUR_STORES=curAgg;   // 발주 품목 비교용 (당월 통합 매장 items)
   return {list, missingGlobal, unmatched, excludedZero, cur, prev};
 }
 
@@ -584,10 +597,11 @@ function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="su
 // 수정 가능 금액 셀 (매출/전용물류매출/전용이익)
 function amtCell(s, field){
   const cur=s.cur[field], prev=(s.prev&&s.prev[field])||0;
-  const edited=s.ov&&s.ov[field]!=null;
+  const edited=s.ov&&(s.ov[field]!=null||s.ov["p_"+field]!=null);
   if(EDIT_MODE){
-    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:118px;text-align:right">`
-      +`${edited?' <span class="badge warnb">수정</span>':''}<div class="sub">전월 ${won(prev)} ${deltaPct(cur,prev)}</div></td>`;
+    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">`
+      +`${edited?' <span class="badge warnb">수정</span>':''}`
+      +`<div class="sub" style="margin-top:3px">전월 <input class="box ov-in" data-logi="${s.logi}" data-field="p_${field}" type="number" value="${Math.round(prev)}" style="width:96px;text-align:right;padding:2px 5px"></div></td>`;
   }
   return `<td class="num">${won(cur)}${edited?' <span class="badge warnb" title="수기 수정됨">✎</span>':''}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
 }
@@ -762,7 +776,7 @@ function render(res){
       <label style="margin-left:auto"><input type="checkbox" id="editMode" ${EDIT_MODE?"checked":""}> 수기 수정 모드</label>
       ${ovN?`<button class="ghost" id="resetOV">수기수정 초기화 (${ovN})</button>`:""}
     </div>
-    ${EDIT_MODE?'<div class="note">매출·전용물류매출·전용이익 칸에 값을 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다.</div>':''}`;
+    ${EDIT_MODE?'<div class="note">매출·전용물류매출·전용이익의 <b>당월/전월 값</b>을 직접 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정·전월대비 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다. 매장별 <b>특이사항</b>은 표 오른쪽 칸에 입력합니다.</div>':''}`;
   root.appendChild(bar);
   bar.querySelector("#listSort").addEventListener("change",e=>{ LIST_SORT=e.target.value; render(LAST); });
   bar.querySelector("#listDir").addEventListener("change",e=>{ LIST_DIR=+e.target.value; render(LAST); });
@@ -781,22 +795,30 @@ function render(res){
       if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
       if(s.missing)badges+='<span class="badge warnb" title="일부 전용상품 매입가 미보유 → 이익 과대">매입가?</span>';
       const gubun = s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>'));
+      const memo=(USER_MEMO[s.logi]||"").replace(/"/g,'&quot;');
       rows+=`<tr class="${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}">
         <td class="l">${s.name}${badges}</td>
         ${amtCell(s,'sales')}${amtCell(s,'ex')}
         ${rcell(o,po)}${amtCell(s,'profit')}${rcell(p,pp)}
-        <td class="l">${gubun}</td></tr>`;
+        <td class="l">${gubun}</td>
+        <td class="l"><input class="box memo-in" data-logi="${s.logi}" value="${memo}" placeholder="메모" style="width:150px"></td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
     const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
     const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
-      ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td></tr>`;
+      ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
     sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
       <div class="tablewrap"><table><thead><tr><th class="l">매장명</th>
-        <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th></tr></thead>
+        <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th><th class="l">특이사항</th></tr></thead>
         <tbody>${tot}${rows}</tbody></table></div>`;
     root.appendChild(sec);
   });
+  // 매장별 특이사항 메모 입력 저장
+  root.querySelectorAll(".memo-in").forEach(el=>el.addEventListener("input",e=>{
+    const lg=e.target.dataset.logi, v=e.target.value;
+    if(v.trim()) USER_MEMO[lg]=v; else delete USER_MEMO[lg];
+    saveMemo();
+  }));
 
   root.querySelectorAll(".ref-sel").forEach(sel=>sel.addEventListener("change",e=>{
     const b=e.target.dataset.brand,k=e.target.value; if(k)REF[b]=k; else delete REF[b];
@@ -810,6 +832,57 @@ function render(res){
     if(!Object.keys(USER_OV[logi]).length) delete USER_OV[logi];
     saveOV(); rerun();
   }));
+
+  // 발주 품목 비교 (표준매장 대비)
+  renderCompare(res, root);
+}
+
+// ===== 발주 품목 비교 (표준매장 대비) =====
+function renderCompare(res, root){
+  const sec=document.createElement("section");
+  const opts=[];
+  res.list.forEach(b=>b.stores.forEach(s=>{ if(!s.isRef)opts.push({logi:s.logi,name:s.name}); }));
+  opts.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  sec.innerHTML=`<h2>발주 품목 비교 <span class="muted" style="font-weight:400">· 표준매장(기준매장) 대비</span></h2>
+    <div class="note">선택한 매장의 전용상품 발주를 같은 브랜드 <b>표준매장(기준매장)</b>의 발주 구성과 비교합니다. 표준매장은 발주하는데 이 매장은 안/적게 발주하는 품목 = <b>사입 의심·발주 누락</b>입니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
+    <div class="opts" style="margin-top:8px"><label>매장 선택: <select class="box" id="cmpStore"><option value="">매장 선택 (${opts.length}개)</option>${opts.map(o=>`<option value="${o.logi}">${o.name}</option>`).join("")}</select></label></div>
+    <div id="cmpResult" style="margin-top:10px"></div>`;
+  root.appendChild(sec);
+  document.getElementById("cmpStore").addEventListener("change",e=>renderCompareResult(res,e.target.value));
+}
+function renderCompareResult(res, logi){
+  const box=document.getElementById("cmpResult"); if(!box)return;
+  if(!logi){ box.innerHTML=""; return; }
+  let store=null, brand=null;
+  res.list.forEach(b=>b.stores.forEach(s=>{ if(s.logi===logi){store=s;brand=b;} }));
+  if(!store){ box.innerHTML=""; return; }
+  if(!brand.ref){ box.innerHTML='<div class="msg warn">이 브랜드의 기준매장이 지정되지 않았습니다.</div>'; return; }
+  const ref=brand.ref;
+  const refItems=(CUR_STORES[ref.logi]||{}).items||{}, stItems=(CUR_STORES[logi]||{}).items||{};
+  const refSales=ref.cur.sales||1, stSales=store.cur.sales||1;
+  const rows=[];
+  for(const pc in refItems){
+    const refAmt=refItems[pc].total, stAmt=stItems[pc]?stItems[pc].total:0;
+    const refR=refAmt/refSales; if(refR<0.002)continue;        // 표준에서도 미미한 품목 제외
+    const stR=stAmt/stSales, gap=refR-stR, expGap=gap*stSales;
+    const status= stAmt<=0?"미발주":(stR<refR*0.5?"과소발주":"정상");
+    rows.push({name:PNAME[pc]||pc, refAmt, stAmt, refR, stR, expGap, status});
+  }
+  const rank=s=>s==="미발주"?2:(s==="과소발주"?1:0);
+  rows.sort((a,b)=>(rank(b.status)-rank(a.status))||(b.expGap-a.expGap));
+  const flagged=rows.filter(r=>r.status!=="정상");
+  const totalGap=flagged.reduce((s,r)=>s+Math.max(r.expGap,0),0);
+  if(!rows.length){ box.innerHTML='<div class="msg warn">표준매장의 전용 발주 데이터가 없습니다.</div>'; return; }
+  if(!flagged.length){ box.innerHTML=`<div class="msg ok">표준매장(${ref.name}) 대비 누락·과소발주 품목이 없습니다. 발주 구성이 표준과 유사합니다.</div>`; return; }
+  const tr=flagged.slice(0,30).map(r=>`<tr class="${r.status==='미발주'?'saip-row':''}">
+    <td class="l">${esc(r.name)}</td>
+    <td class="num">${won(r.refAmt)}<br><span class="sub">${pct(r.refR)}</span></td>
+    <td class="num">${won(r.stAmt)}<br><span class="sub">${pct(r.stR)}</span></td>
+    <td class="num">${r.expGap>0?won(r.expGap):"-"}</td>
+    <td class="l"><span class="badge ${r.status==='미발주'?'':'warnb'}">${r.status}</span></td></tr>`).join("");
+  box.innerHTML=`<div class="msg warn">표준매장 <b>${ref.name}</b> 대비 누락·과소발주 <b>${flagged.length}개 품목</b> · 매출대비 기준 예상 추가발주 규모 <b>${won(totalGap)}원</b> (사입 의심)</div>
+    <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
+    <tbody>${tr}</tbody></table></div>${flagged.length>30?`<div class="note">상위 30개만 표시 (총 ${flagged.length}개)</div>`:""}`;
 }
 
 // ===== KPI 관리 =====
@@ -1025,13 +1098,13 @@ renderKPI();
 // ===== 내보내기 =====
 function exportXlsx(){
   if(!LAST)return;
-  const aoa=[["브랜드","물류코드","메이트코드","매장명","구분","매출","전용물류매출","전용이익","전용발주율","전용이익률","기준대비(%p)"]];
+  const aoa=[["브랜드","물류코드","메이트코드","매장명","구분","매출","전용물류매출","전용이익","전용발주율","전용이익률","기준대비(%p)","특이사항"]];
   LAST.list.forEach(b=>{
     b.stores.forEach(s=>aoa.push([b.brand,s.logi,s.mate,s.name,s.isNew?"당월오픈":(s.isRef?"기준매장":(s.saip?"사입":"")),
       Math.round(s.cur.sales),Math.round(s.cur.ex),Math.round(s.cur.profit),
-      +orderRate(s.cur).toFixed(6),+profitRate(s.cur).toFixed(6), s.gap==null?"":+(-s.gap*100).toFixed(2)]));
+      +orderRate(s.cur).toFixed(6),+profitRate(s.cur).toFixed(6), s.gap==null?"":+(-s.gap*100).toFixed(2), USER_MEMO[s.logi]||""]));
     aoa.push([b.brand+" 합계","","","","",Math.round(b.cur.sales),Math.round(b.cur.ex),Math.round(b.cur.profit),
-      +orderRate(b.cur).toFixed(6),+profitRate(b.cur).toFixed(6),""]);
+      +orderRate(b.cur).toFixed(6),+profitRate(b.cur).toFixed(6),"",""]);
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa), wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"월마감결과");
