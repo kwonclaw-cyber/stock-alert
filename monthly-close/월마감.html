@@ -212,6 +212,8 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
     <div class="btnrow">
       <button id="calcBtn" disabled>정산 계산</button>
       <button class="ghost" id="exportBtn" disabled>결과 엑셀 내보내기</button>
+      <button class="ghost" id="saveCloseBtn" disabled title="이번 달 마감을 저장 → 다음 달 전월자료로 자동 사용">이번 달 마감 저장</button>
+      <span class="muted" id="savedMsg"></span>
     </div>
     <div class="opts" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
       <label>메이트포스 자동수집: <input type="month" class="box" id="mateMonth"></label>
@@ -271,6 +273,10 @@ const MEMO_KEY = "monthlyClose.memo.v1";
 let USER_MEMO = (()=>{ try{return JSON.parse(localStorage.getItem(MEMO_KEY)||"{}");}catch(e){return {};} })();
 function saveMemo(){ localStorage.setItem(MEMO_KEY, JSON.stringify(USER_MEMO)); }
 let CUR_STORES = {};   // 당월 통합 매장 {code:{name,brand,items,members}} — 발주 품목 비교용
+// 월별 마감 저장 (전월 자동사용용): {ym: {logi:{name,sales,ex,profit}}}
+const SAVED_KEY = "monthlyClose.saved.v1";
+let SAVED_CLOSE = (()=>{ try{return JSON.parse(localStorage.getItem(SAVED_KEY)||"{}");}catch(e){return {};} })();
+function saveSavedClose(){ localStorage.setItem(SAVED_KEY, JSON.stringify(SAVED_CLOSE)); }
 
 // 사용자 매장 매칭 (물류코드 -> 메이트코드), localStorage 영구 저장
 const MATCH_KEY = "monthlyClose.match.v1";
@@ -545,9 +551,11 @@ function compute(){
   // 양도양수 통합: 자동(높은신뢰)+사용자결정으로 매핑 산출 후 대표코드 기준 합산
   buildGroupMap();
   const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
-  // 전월 결과파일(있으면)을 대표코드 기준으로 합산 — 양도양수 구코드도 대표코드로 묶임
+  // 전월 자료: 업로드한 전월 파일 우선, 없으면 저장된 지난달 마감(SAVED_CLOSE) 자동 사용
+  const prevSrc = PREVRES || (prev && SAVED_CLOSE[prev]) || null;
+  const usedSavedPrev = !PREVRES && !!(prev && SAVED_CLOSE[prev]);
   const prevByCanon={};
-  if(PREVRES) for(const k in PREVRES){ const c=canon(k); const p=PREVRES[k];
+  if(prevSrc) for(const k in prevSrc){ const c=canon(k); const p=prevSrc[k];
     if(!prevByCanon[c])prevByCanon[c]={sales:0,ex:0,profit:0};
     prevByCanon[c].sales+=p.sales||0; prevByCanon[c].ex+=p.ex||0; prevByCanon[c].profit+=p.profit||0; }
 
@@ -567,9 +575,9 @@ function compute(){
     const pa=pmeta?storeAgg(pmeta.items):null;
     const pf=prevByCanon[code]; // 전월 결과파일 기준
     let prevObj=null, isNew=false;
-    if(PREVRES){
+    if(prevSrc){
       if(pf) prevObj={sales:pf.sales, ex:pf.ex, profit:pf.profit};
-      else { prevObj=null; isNew=true; }       // 전월 파일에 없음 → 당월 오픈
+      else { prevObj=null; isNew=true; }       // 전월 자료에 없음 → 당월 오픈
     } else {
       if(pa) prevObj={sales:0, ex:pa.ex, profit:pa.profit};
       else { prevObj=null; isNew=true; }        // 물류원장 전월에도 없음 → 당월 오픈
@@ -608,7 +616,7 @@ function compute(){
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
   CUR_STORES=curAgg;   // 발주 품목 비교용 (당월 통합 매장 items)
-  return {list, missingGlobal, unmatched, excludedZero, cur, prev};
+  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev};
 }
 
 function pickRef(b){
@@ -988,7 +996,23 @@ renderNotes();
 
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
-function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI(); document.getElementById("exportBtn").disabled=false; }
+function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI();
+  document.getElementById("exportBtn").disabled=false; document.getElementById("saveCloseBtn").disabled=false; updateSavedMsg(); }
+// ===== 월별 마감 저장 (전월 자동사용) =====
+function savedMonths(){ return Object.keys(SAVED_CLOSE).sort(); }
+function updateSavedMsg(){
+  const el=document.getElementById("savedMsg"); if(!el)return;
+  const ms=savedMonths();
+  el.textContent = ms.length?`저장된 마감: ${ms.join(", ")}`:"";
+}
+function saveCurrentClose(){
+  if(!LAST){ return; }
+  const ym=LAST.cur; if(!ym){ return; }
+  const data={};
+  LAST.list.forEach(b=>b.stores.forEach(s=>{ data[s.logi]={name:s.name, sales:Math.round(s.cur.sales), ex:Math.round(s.cur.ex), profit:Math.round(s.cur.profit)}; }));
+  SAVED_CLOSE[ym]=data; saveSavedClose(); updateSavedMsg();
+  const el=document.getElementById("savedMsg"); if(el){ const t=`${ym} 마감 저장됨 (${Object.keys(data).length}개 매장) — 다음 달 전월자료로 자동 사용`; el.textContent=t; setTimeout(updateSavedMsg,5000); }
+}
 
 function showWarnings(res){
   let w="";
@@ -1014,8 +1038,9 @@ function showWarnings(res){
   if(noSales.length) w+=`<div class="msg warn">매출 미매칭 ${noSales.length}개 매장은 리스트·합계에서 <b>제외</b>했습니다(아래 "매장 매칭 관리"에서 연결): ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
   if(res.excludedZero) w+=`<div class="msg warn">매출 0원 매장 ${res.excludedZero}개도 리스트에서 제외했습니다.</div>`;
   const openN=res.list.reduce((a,b)=>a+b.stores.filter(s=>s.isNew).length,0);
-  if(!PREVRES) w+=`<div class="msg warn">전월 데이터(전월 결과파일/전월 월마감)가 없어 전월대비는 물류원장 전월 기준이며, 매출 전월대비는 0입니다. 전월 파일을 올리면 정확해집니다.</div>`;
-  else w+=`<div class="msg ok">전월 데이터 적용됨 · <b>당월오픈(전월 없음) ${openN}개</b> 매장 구분 표시.</div>`;
+  if(res.usedSavedPrev) w+=`<div class="msg ok">저장된 <b>${res.prev} 마감</b>을 전월자료로 자동 사용 중 · 당월오픈(전월 없음) ${openN}개.</div>`;
+  else if(!PREVRES) w+=`<div class="msg warn">전월 데이터가 없어 전월대비는 물류원장 전월 기준이며, 매출 전월대비는 0입니다. 전월 파일을 올리거나, 지난달에 "이번 달 마감 저장"을 해두면 자동 사용됩니다.</div>`;
+  else w+=`<div class="msg ok">전월 데이터(업로드) 적용됨 · <b>당월오픈(전월 없음) ${openN}개</b> 매장 구분 표시.</div>`;
   if(!w) w=`<div class="msg ok">정산 완료.</div>`;
   setMsg(w);
 
@@ -1193,6 +1218,8 @@ function exportXlsx(){
   XLSX.writeFile(wb,`월마감결과_${LAST.cur||""}.xlsx`);
 }
 document.getElementById("exportBtn").addEventListener("click",exportXlsx);
+document.getElementById("saveCloseBtn").addEventListener("click",saveCurrentClose);
+updateSavedMsg();
 </script>
 </body>
 </html>
