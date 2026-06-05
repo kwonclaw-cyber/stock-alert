@@ -150,6 +150,7 @@
   <div class="vtabs" id="topTabs">
     <button class="vtab active" data-v="main">월마감 정산</button>
     <button class="vtab" data-v="buy">매입가 관리</button>
+    <button class="vtab" data-v="match">매장 매칭표</button>
     <button class="vtab" data-v="log">공문 발송 기록</button>
   </div>
 
@@ -176,6 +177,23 @@
     <div class="tablewrap" style="max-height:64vh"><table id="buyTable">
       <thead><tr><th class="l">상품코드</th><th class="l">상품명</th><th>매입가(원)</th><th class="l">출처</th><th></th></tr></thead>
       <tbody id="buyBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="matchView" style="display:none">
+    <h2>매장 매칭표 (POS ↔ 물류) <span class="muted" id="matchCount" style="font-weight:400"></span></h2>
+    <div class="note">POS 매장코드(메이트코드)·매장명이 어떤 물류 매장(물류코드)에 연결되는지 보여줍니다. 내장 매칭표는 읽기전용이고, <b>사용자가 추가/연결한 항목은 여기서 삭제·관리</b>할 수 있습니다. 미매칭 POS는 월마감 정산 화면의 "반영되지 않은 매출" 칸에서 연결하세요. (영구 반영은 <code>data/storematch.js</code> 갱신)</div>
+    <div class="opts" style="margin:10px 0">
+      <label>검색: <input class="box" id="matchSearch" placeholder="POS코드·물류코드·매장명·브랜드" style="width:240px"></label>
+      <label>보기: <select class="box" id="matchFilter"><option value="all">전체</option><option value="user">사용자 추가/연결만</option><option value="builtin">내장만</option></select></label>
+      <span class="muted" style="margin-left:auto">직접연결 추가:</span>
+      <input class="box" id="matchAddMate" placeholder="POS코드" style="width:110px">
+      <input class="box" id="matchAddLogi" placeholder="물류코드" style="width:110px">
+      <button class="ghost" id="matchAddBtn">+ 연결</button>
+    </div>
+    <div class="tablewrap" style="max-height:64vh"><table id="matchTable">
+      <thead><tr><th class="l">브랜드</th><th class="l">POS코드</th><th class="l">매장명</th><th class="l">물류코드</th><th class="l">물류 매장명</th><th class="l">출처</th><th></th></tr></thead>
+      <tbody id="matchBody"></tbody>
     </table></div>
   </section>
 
@@ -321,11 +339,16 @@ const MATCH_KEY = "monthlyClose.match.v1";
 let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"{}");}catch(e){return {};} })();
 function saveUserMatch(){ localStorage.setItem(MATCH_KEY, JSON.stringify(USER_MATCH)); }
 function mateFor(logi){ return USER_MATCH[logi] || LOGI2MATE[logi] || null; }
+// 미매칭 POS코드를 매장(물류코드)에 직접 연결 (메이트코드 -> 물류코드), localStorage 영구 저장
+const POSMAP_KEY = "monthlyClose.posmap.v1";
+let USER_POSMAP = (()=>{ try{return JSON.parse(localStorage.getItem(POSMAP_KEY)||"{}");}catch(e){return {};} })();
+function saveUserPosmap(){ localStorage.setItem(POSMAP_KEY, JSON.stringify(USER_POSMAP)); }
 // 메이트코드 -> 물류코드 (사용자 매칭 우선). POS 매출을 통합 매장(대표코드)으로 귀속할 때 사용.
 function mateToLogi(){
   const r={};
   for(const mate in MATCH) r[mate]=MATCH[mate].logi;
   for(const logi in USER_MATCH){ const m=USER_MATCH[logi]; if(m) r[m]=logi; }   // 사용자 매칭이 우선
+  for(const mate in USER_POSMAP){ if(USER_POSMAP[mate]) r[mate]=USER_POSMAP[mate]; }  // 미매칭 POS 직접연결이 최우선
   return r;
 }
 
@@ -612,14 +635,15 @@ function compute(){
   const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
   // 당월 POS 매출을 대표코드(canon)별로 합산 — 한 매장의 여러 메이트코드(양도양수 구·신코드 등)를 모두 더함
   const m2l=mateToLogi();
-  const posByCanon={}, posMatched={}, posMatesByCanon={}; let posOrphan=0, posOrphanN=0;
+  const posByCanon={}, posMatched={}, posMatesByCanon={}; let posOrphan=0, posOrphanN=0; const posOrphanList=[];
   if(POS) for(const mate in POS){
     const v=POS[mate][salesField]||0; const logi=m2l[mate];
-    if(!logi){ if(v>0){ posOrphan+=v; posOrphanN++; } continue; }   // 매칭표에 없는 POS코드
+    if(!logi){ posOrphanN++; posOrphan+=v; posOrphanList.push({mate, name:POS[mate].name||mate, sales:v}); continue; }   // 매칭표에 없는 POS코드
     const c=canon(logi);
     posByCanon[c]=(posByCanon[c]||0)+v; posMatched[c]=true;
     (posMatesByCanon[c]=posMatesByCanon[c]||[]).push(mate);
   }
+  posOrphanList.sort((a,b)=>b.sales-a.sales);
   // 전월 자료: 업로드한 전월 파일 우선, 없으면 저장된 지난달 마감(SAVED_CLOSE) 자동 사용
   const prevSrc = PREVRES || (prev && SAVED_CLOSE[prev]) || null;
   const usedSavedPrev = !PREVRES && !!(prev && SAVED_CLOSE[prev]);
@@ -687,7 +711,7 @@ function compute(){
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
   CUR_STORES=curAgg;   // 발주 품목 비교용 (당월 통합 매장 items)
-  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev, posOrphan, posOrphanN};
+  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev, posOrphan, posOrphanN, posOrphanList};
 }
 
 function pickRef(b){
@@ -817,6 +841,45 @@ function renderMatchPanel(res, root){
   });
 }
 
+// 반영되지 않은 매출(미매칭 POS) 패널 — 코드별 매출 표시 + 매장 직접 연결(영구 저장)
+function renderOrphanPanel(res, root){
+  const list=res.posOrphanList||[];
+  if(!list.length) return;
+  const stores=[];
+  res.list.forEach(b=>b.stores.forEach(s=>stores.push({logi:s.logi, name:s.name, brand:b.brand})));
+  const tot=list.reduce((a,x)=>a+x.sales,0);
+  let rows="";
+  list.forEach(o=>{
+    const cands=stores.map(s=>({...s, sim:nameSim(o.name,s.name)})).sort((x,y)=>y.sim-x.sim);
+    const opts=['<option value="">(연결 안 함 · 매출 제외)</option>'].concat(
+      cands.map((s,i)=>`<option value="${s.logi}" ${i===0&&s.sim>=60?"selected":""}>${s.brand} · ${s.name} (${s.logi})${s.sim>=60?" — 추천":""}</option>`)
+    ).join("");
+    rows+=`<tr><td class="l" style="padding:5px 8px">${o.name} <span class="sub">(${o.mate})</span></td>
+      <td class="num" style="padding:5px 8px">${won(o.sales)}원</td>
+      <td style="padding:5px 8px"><select class="box orphan-sel" data-mate="${o.mate}" style="min-width:300px">${opts}</select></td></tr>`;
+  });
+  const sec=document.createElement("section");
+  sec.innerHTML=`<h2>⚠️ 반영되지 않은 매출 (미매칭 POS) <span class="muted" style="font-weight:400">· ${list.length}개 · 합계 ${won(tot)}원</span></h2>
+    <div class="msg warn">매칭표에 없는 POS 매장코드라 <b>어느 매장에도 합산되지 않은 매출</b>입니다. 같은 매장(예: 양도양수로 새 코드 발급)을 골라 <b>연결 저장</b>을 누르면 그 매장 매출에 합산되고, 한 번 지정하면 브라우저에 저장되어 <b>다음 달부터 자동 적용</b>됩니다. 신규 매장이라 연결할 매장이 없으면 그대로 두세요(매출 제외 유지).</div>
+    <div class="tablewrap" style="margin-top:8px"><table>
+      <thead><tr><th class="l">미매칭 POS 매장 (코드)</th><th>당월 매출</th><th class="l">연결할 매장</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="btnrow"><button id="saveOrphan">연결 저장</button>
+      <button class="ghost" id="resetOrphan">POS 연결 초기화</button>
+      <span class="muted">${Object.keys(USER_POSMAP).length?`POS 직접연결 ${Object.keys(USER_POSMAP).length}건 적용 중`:""}</span></div>`;
+  root.appendChild(sec);
+  document.getElementById("saveOrphan").addEventListener("click",()=>{
+    document.querySelectorAll(".orphan-sel").forEach(sel=>{
+      const mate=sel.dataset.mate, logi=sel.value;
+      if(logi) USER_POSMAP[mate]=logi; else delete USER_POSMAP[mate];
+    });
+    saveUserPosmap(); rerun();
+  });
+  document.getElementById("resetOrphan").addEventListener("click",()=>{
+    if(confirm("POS 직접연결을 모두 삭제할까요? (다음달부터 다시 미매칭으로 표시됩니다)")){ USER_POSMAP={}; saveUserPosmap(); rerun(); }
+  });
+}
+
 function render(res){
   const {list, missingGlobal, cur, prev}=res;
   const root=document.getElementById("results"); root.innerHTML="";
@@ -836,6 +899,8 @@ function render(res){
   renderGroupPanel(root);
   // 매장 매칭 관리 (매출 미매칭 물류매장 ↔ POS 매장 수동 연결)
   renderMatchPanel(res, root);
+  // 반영되지 않은 매출 (미매칭 POS) — 매장 직접 연결
+  renderOrphanPanel(res, root);
 
   // 요약
   const sum=document.createElement("section"); let cards="";
@@ -1176,7 +1241,7 @@ function initCollapsibles(){
   document.querySelectorAll("main section > h2").forEach(h2=>{
     if(h2.dataset.collap) return;                 // 이미 처리됨
     const sec=h2.parentElement;
-    if(sec.id==="logView"||sec.id==="buyView") return;   // 탭 전용 뷰는 제외
+    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView") return;   // 탭 전용 뷰는 제외
     const key=collapKey(h2); if(!key) return;
     h2.dataset.collap=key; h2.classList.add("collap");
     const ind=document.createElement("span"); ind.className="cind";
@@ -1231,7 +1296,7 @@ function showWarnings(res){
   }
   if(noSales.length) w+=`<div class="msg warn">매출 미매칭 ${noSales.length}개 매장은 리스트·합계에서 <b>제외</b>했습니다(아래 "매장 매칭 관리"에서 연결): ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
   if(res.excludedZero) w+=`<div class="msg warn">매출 0원 매장 ${res.excludedZero}개도 리스트에서 제외했습니다.</div>`;
-  if(res.posOrphanN) w+=`<div class="msg warn">매칭표에 없는 POS 코드 <b>${res.posOrphanN}개</b>(매출 합계 ${won(res.posOrphan)}원)는 어느 매장에도 합산되지 못했습니다. 양도양수로 새 메이트코드가 생긴 매장이면 <code>data/storematch.js</code>에 그 코드를 추가하면(또는 "매장 매칭 관리"에서 연결하면) 합산됩니다.</div>`;
+  if(res.posOrphanN) w+=`<div class="msg err">반영되지 않은 매출(미매칭 POS) <b>${res.posOrphanN}개 · 합계 ${won(res.posOrphan)}원</b>이 있습니다. 아래 <b>"⚠️ 반영되지 않은 매출"</b> 칸에서 해당 매장에 연결하세요.</div>`;
   const openN=res.list.reduce((a,b)=>a+b.stores.filter(s=>s.isNew).length,0);
   if(res.usedSavedPrev) w+=`<div class="msg ok">저장된 <b>${res.prev} 마감</b>을 전월자료로 자동 사용 중 · 당월오픈(전월 없음) ${openN}개.</div>`;
   else if(!PREVRES) w+=`<div class="msg warn">전월 데이터가 없어 전월대비는 물류원장 전월 기준이며, 매출 전월대비는 0입니다. 전월 파일을 올리거나, 지난달에 "이번 달 마감 저장"을 해두면 자동 사용됩니다.</div>`;
@@ -1544,11 +1609,68 @@ function showView(v){
   document.querySelectorAll("#topTabs .vtab").forEach(t=>t.classList.toggle("active",t.dataset.v===v));
   document.getElementById("mainView").style.display = v==="main"?"":"none";
   document.getElementById("buyView").style.display = v==="buy"?"":"none";
+  document.getElementById("matchView").style.display = v==="match"?"":"none";
   document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
+  if(v==="match") renderMatchTable();
   if(v==="log") renderGongmunLog();
 }
 document.querySelectorAll("#topTabs .vtab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.v)));
+
+// ===== 매장 매칭표 탭 =====
+function logiNameOf(logi){
+  if(STORE_DIR[logi]&&STORE_DIR[logi].name) return STORE_DIR[logi].name;
+  for(const m in MATCH){ if(MATCH[m].logi===logi) return MATCH[m].name; }
+  return "";
+}
+function buildMatchRows(){
+  // 메이트코드 기준 통합 (내장 MATCH + 사용자 USER_MATCH(logi→mate) + USER_POSMAP(mate→logi))
+  const rows={};  // mate -> {mate, logi, name, brand, src}
+  for(const mate in MATCH){ const o=MATCH[mate]; rows[mate]={mate, logi:o.logi, name:o.name, brand:o.brand, src:"내장"}; }
+  for(const logi in USER_MATCH){ const mate=USER_MATCH[logi]; if(!mate)continue;
+    const base=rows[mate]||{}; rows[mate]={mate, logi, name:base.name||(POS&&POS[mate]?POS[mate].name:"")||logiNameOf(logi), brand:base.brand||(MATCH[mate]?MATCH[mate].brand:""), src:"사용자(물류매칭)"}; }
+  for(const mate in USER_POSMAP){ const logi=USER_POSMAP[mate]; if(!logi)continue;
+    const base=rows[mate]||{}; rows[mate]={mate, logi, name:(POS&&POS[mate]?POS[mate].name:"")||base.name||logiNameOf(logi), brand:base.brand||logiBrandOf(logi), src:"사용자(POS연결)"}; }
+  return Object.values(rows);
+}
+function logiBrandOf(logi){ for(const m in MATCH){ if(MATCH[m].logi===logi) return MATCH[m].brand; } return ""; }
+function renderMatchTable(){
+  const body=document.getElementById("matchBody"); if(!body)return;
+  const q=(document.getElementById("matchSearch").value||"").trim().toLowerCase();
+  const filt=document.getElementById("matchFilter").value;
+  let arr=buildMatchRows();
+  if(filt==="user") arr=arr.filter(r=>r.src!=="내장");
+  else if(filt==="builtin") arr=arr.filter(r=>r.src==="내장");
+  if(q) arr=arr.filter(r=>[r.mate,r.logi,r.name,r.brand].some(v=>String(v||"").toLowerCase().includes(q)));
+  arr.sort((a,b)=>String(a.brand).localeCompare(String(b.brand),"ko")||String(a.name).localeCompare(String(b.name),"ko"));
+  document.getElementById("matchCount").textContent=`· 총 ${arr.length}개 (사용자 ${arr.filter(r=>r.src!=="내장").length}건)`;
+  body.innerHTML=arr.map(r=>{
+    const isUser=r.src!=="내장";
+    const srcBadge=r.src==="내장"?'<span class="muted">내장</span>':`<span class="badge openb">${r.src.replace(/^사용자/,"사용자 ")}</span>`;
+    return `<tr><td class="l">${r.brand||""}</td><td class="l" style="font-variant-numeric:tabular-nums">${r.mate}</td>
+      <td class="l">${(r.name||"").replace(/_/g," ")}</td>
+      <td class="l" style="font-variant-numeric:tabular-nums">${r.logi||""}</td>
+      <td class="l">${(logiNameOf(r.logi)||"").replace(/_/g," ")}</td>
+      <td class="l">${srcBadge}</td>
+      <td class="l">${isUser?`<button class="ghost match-del" data-mate="${r.mate}" data-src="${r.src}" style="padding:3px 9px">삭제</button>`:""}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">표시할 매칭이 없습니다.</td></tr>`;
+  body.querySelectorAll(".match-del").forEach(b=>b.addEventListener("click",e=>{
+    const mate=e.target.dataset.mate, src=e.target.dataset.src;
+    if(src==="사용자(POS연결)"){ delete USER_POSMAP[mate]; saveUserPosmap(); }
+    else { for(const logi in USER_MATCH){ if(USER_MATCH[logi]===mate) delete USER_MATCH[logi]; } saveUserMatch(); }
+    renderMatchTable(); if(LAST)rerun();
+  }));
+}
+document.getElementById("matchSearch").addEventListener("input",renderMatchTable);
+document.getElementById("matchFilter").addEventListener("change",renderMatchTable);
+document.getElementById("matchAddBtn").addEventListener("click",()=>{
+  const mate=(document.getElementById("matchAddMate").value||"").trim();
+  const logi=(document.getElementById("matchAddLogi").value||"").trim();
+  if(!/^\d+$/.test(mate)||!/^\d+$/.test(logi)){ alert("POS코드·물류코드를 숫자로 입력하세요."); return; }
+  USER_POSMAP[mate]=logi; saveUserPosmap();
+  document.getElementById("matchAddMate").value=""; document.getElementById("matchAddLogi").value="";
+  renderMatchTable(); if(LAST)rerun();
+});
 document.getElementById("logClear").addEventListener("click",()=>{ if(confirm("공문 발송 기록을 모두 삭제할까요?")){ GONGMUN_LOG={}; saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); } });
 document.getElementById("logExport").addEventListener("click",()=>{ const b=new Blob([JSON.stringify(GONGMUN_LOG,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="공문발송기록.json"; a.click(); });
 document.getElementById("logImport").addEventListener("change",e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ Object.assign(GONGMUN_LOG, JSON.parse(r.result)); saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); alert("가져오기 완료"); }catch(x){ alert("JSON 오류"); } }; r.readAsText(f); });
