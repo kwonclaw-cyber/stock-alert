@@ -76,8 +76,11 @@
   .bar2 .tr>i.prev{background:#adb5bd;}
   .bar2 .tr>i.rate{background:linear-gradient(90deg,#20c997,#0ca678);}
   .bar2 .leg{font-size:10px;color:#999;margin-top:2px;}
-  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:12px;}
-  .kgrid .s{font-size:12px;display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed #eee;padding:4px 0;}
+  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;margin-top:12px;}
+  .kgrid .s{font-size:12px;display:grid;grid-template-columns:1fr auto 64px;gap:8px;align-items:baseline;border-bottom:1px dashed #eee;padding:5px 0;}
+  .kgrid .sl{color:#555;}
+  .kgrid .sv{font-weight:800;color:#212529;font-variant-numeric:tabular-nums;text-align:right;}
+  .kgrid .sd{text-align:right;}
   .kgrid .s b{font-variant-numeric:tabular-nums;}
   /* 특이사항·강조 카드 */
   .noteform{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
@@ -793,7 +796,7 @@ function render(res){
     const rw=Math.min(orC*250,100), rwP=orP!=null?Math.min(orP*250,100):null;  // 0~40% 스케일
     cards+=`<div class="card bcard"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
       <div style="margin-top:6px"><span class="big">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
-      <div class="sub">점당 평균매출 ${won(avg)}원 ${pavg==null?"":pillPct(avg,pavg)}</div>
+      <div class="sub">점당 평균매출 <b style="color:#212529;font-size:13px">${won(avg)}원</b> ${pavg==null?"":pillPct(avg,pavg)}</div>
       <div class="bar2"><div class="lbl"><span>매출 · 당월 vs 전월</span><span>${pillPct(b.cur.sales,b.prev.sales)}</span></div>
         <div class="tr"><i class="${dir}" style="width:${cw.toFixed(1)}%"></i></div>
         <div class="tr"><i class="prev" style="width:${pw.toFixed(1)}%"></i></div>
@@ -802,14 +805,15 @@ function render(res){
         <div class="tr"><i class="rate" style="width:${rw.toFixed(1)}%"></i></div>
         ${rwP!=null?`<div class="tr"><i class="prev" style="width:${rwP.toFixed(1)}%"></i></div><div class="leg">위: 당월 ${pct(orC)} · 아래: 전월 ${pct(orP)}</div>`:`<div class="leg">당월 ${pct(orC)} (전월 데이터 없음)</div>`}</div>
       <div class="kgrid">
-        <div class="s"><span>전용물류매출</span><b>${won(b.cur.ex)} ${deltaPct(b.cur.ex,b.prev.ex)}</b></div>
-        <div class="s"><span>전용이익</span><b>${won(b.cur.profit)} ${deltaPct(b.cur.profit,b.prev.profit)}</b></div>
-        <div class="s"><span>전용이익률</span><b>${pct(profitRate(b.cur))} ${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</b></div>
-        <div class="s"><span>사입매장</span><b style="color:var(--sa)">${b.saipCount}개</b></div>
-        <div class="s"><span>당월오픈</span><b style="color:#2b8a3e">${b.openCount}개</b></div>
+        <div class="s"><span class="sl">전용물류매출</span><span class="sv">${won(b.cur.ex)}</span><span class="sd">${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
+        <div class="s"><span class="sl">전용이익</span><span class="sv">${won(b.cur.profit)}</span><span class="sd">${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
+        <div class="s"><span class="sl">전용이익률</span><span class="sv">${pct(profitRate(b.cur))}</span><span class="sd">${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</span></div>
+        <div class="s"><span class="sl">사입매장</span><span class="sv" style="color:var(--sa)">${b.saipCount}개</span><span class="sd"></span></div>
+        <div class="s"><span class="sl">당월오픈</span><span class="sv" style="color:#2b8a3e">${b.openCount}개</span><span class="sd"></span></div>
       </div></div>`;
   });
-  sum.innerHTML=`<h2>브랜드별 요약</h2><div class="cards">${cards}</div>
+  const salesLabel=({net:"순매출액",real:"실매출액",order:"매출액(완료주문)"})[document.getElementById("salesCol").value]||"";
+  sum.innerHTML=`<h2>브랜드별 요약 <span class="muted" style="font-weight:400">· 매출기준 ${salesLabel} (점당매출 포함 적용)</span></h2><div class="cards">${cards}</div>
     <div style="margin-top:14px" class="card"><div class="bn">전체 합계</div>
       <div class="row"><span>총매출</span><span class="v">${won(g.sales)}원 ${deltaPct(g.sales,gp.sales)}</span></div>
       <div class="row"><span>점당 평균매출</span><span class="v">${won(gN?g.sales/gN:0)}원 ${gPN?deltaPct(gN?g.sales/gN:0, gp.sales/gPN):""}</span></div>
