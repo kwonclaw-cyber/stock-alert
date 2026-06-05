@@ -310,6 +310,13 @@ const MATCH_KEY = "monthlyClose.match.v1";
 let USER_MATCH = (()=>{ try{return JSON.parse(localStorage.getItem(MATCH_KEY)||"{}");}catch(e){return {};} })();
 function saveUserMatch(){ localStorage.setItem(MATCH_KEY, JSON.stringify(USER_MATCH)); }
 function mateFor(logi){ return USER_MATCH[logi] || LOGI2MATE[logi] || null; }
+// 메이트코드 -> 물류코드 (사용자 매칭 우선). POS 매출을 통합 매장(대표코드)으로 귀속할 때 사용.
+function mateToLogi(){
+  const r={};
+  for(const mate in MATCH) r[mate]=MATCH[mate].logi;
+  for(const logi in USER_MATCH){ const m=USER_MATCH[logi]; if(m) r[m]=logi; }   // 사용자 매칭이 우선
+  return r;
+}
 
 // 양도양수 매장 통합: 그룹키별 사용자 결정(병합여부·대표)만 저장. 높은 신뢰 그룹은 저장 없이 자동 적용.
 const GDEC_KEY = "monthlyClose.gdec.v2";
@@ -571,14 +578,37 @@ function applyFilterSort(stores){
   return arr;
 }
 
+// POS에만 있는(물류 발주는 없지만 POS 매출은 있는) 매장 코드를 양도양수 통합 후보에 포함.
+// 양도양수로 POS 메이트코드만 새로 발급된 매장이, 물류·전월 매장과 같은 그룹으로 묶여 매출이 합산되도록.
+function augmentDirWithPos(cur){
+  if(!POS) return;
+  const m2l=mateToLogi();
+  for(const mate in POS){
+    const logi=m2l[mate]; if(!logi || STORE_DIR[logi]) continue;   // 이미 물류원장에 있으면 그대로
+    const info=MATCH[mate]; if(!info || TARGET_BRANDS.indexOf(info.brand)<0) continue;
+    STORE_DIR[logi]={name:info.name, brand:info.brand, months:new Set([cur])};
+  }
+}
+
 // ===== 계산 =====
 function compute(){
   const cur=document.getElementById("curMonth").value;
   const idx=MONTHS.indexOf(cur); const prev=idx>0?MONTHS[idx-1]:null;
   const salesField=document.getElementById("salesCol").value;
   // 양도양수 통합: 자동(높은신뢰)+사용자결정으로 매핑 산출 후 대표코드 기준 합산
+  augmentDirWithPos(cur);            // POS만 있는 양도양수 새 코드도 통합 후보에 포함
   buildGroupMap();
   const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
+  // 당월 POS 매출을 대표코드(canon)별로 합산 — 한 매장의 여러 메이트코드(양도양수 구·신코드 등)를 모두 더함
+  const m2l=mateToLogi();
+  const posByCanon={}, posMatched={}, posMatesByCanon={}; let posOrphan=0, posOrphanN=0;
+  if(POS) for(const mate in POS){
+    const v=POS[mate][salesField]||0; const logi=m2l[mate];
+    if(!logi){ if(v>0){ posOrphan+=v; posOrphanN++; } continue; }   // 매칭표에 없는 POS코드
+    const c=canon(logi);
+    posByCanon[c]=(posByCanon[c]||0)+v; posMatched[c]=true;
+    (posMatesByCanon[c]=posMatesByCanon[c]||[]).push(mate);
+  }
   // 전월 자료: 업로드한 전월 파일 우선, 없으면 저장된 지난달 마감(SAVED_CLOSE) 자동 사용
   const prevSrc = PREVRES || (prev && SAVED_CLOSE[prev]) || null;
   const usedSavedPrev = !PREVRES && !!(prev && SAVED_CLOSE[prev]);
@@ -595,9 +625,11 @@ function compute(){
     const b=getBrand(meta.brand);
     const ca=storeAgg(meta.items);
     for(const pc in ca.missing){ missingGlobal[pc]=(missingGlobal[pc]||0)+ca.missing[pc]; }
-    // 매출: 통합 멤버들의 POS 매출 합산(전환월엔 한 코드만 활동)
-    let sales=0, anyMatch=false, mate="";
-    meta.members.forEach(mc=>{ const m=mateFor(mc); if(m&&POS&&POS[m]){ sales+=POS[m][salesField]||0; anyMatch=true; if(!mate)mate=m; } });
+    // 매출: 이 대표코드(canon)로 귀속되는 모든 POS 메이트코드 합산
+    //  - 통합 멤버뿐 아니라 물류발주 없이 POS매출만 있는 양도양수 새 코드까지 포함
+    let sales=posByCanon[code]||0, anyMatch=!!posMatched[code];
+    const mates=posMatesByCanon[code]||[];
+    let mate=mates[0]||mateFor(code)||"";
     // 전월: 결과파일 우선(권위), 없으면 물류원장 전월로 대체
     const pmeta=prevAgg[code];
     const pa=pmeta?storeAgg(pmeta.items):null;
@@ -626,7 +658,7 @@ function compute(){
       }
     }
     const st={
-      logi:code, mate:mate||mateFor(code)||"", name:meta.name, brand:meta.brand,
+      logi:code, mate:mate||mateFor(code)||"", mates, name:meta.name, brand:meta.brand,
       members:meta.members,
       cur:{sales, ex, profit},
       prev: prevObj, isNew, ov,
@@ -644,7 +676,7 @@ function compute(){
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
   CUR_STORES=curAgg;   // 발주 품목 비교용 (당월 통합 매장 items)
-  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev};
+  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev, posOrphan, posOrphanN};
 }
 
 function pickRef(b){
@@ -730,7 +762,7 @@ function renderMatchPanel(res, root){
   const salesField=document.getElementById("salesCol").value;
   // 현재 사용 중인 메이트코드(이미 매칭된 것)
   const used=new Set();
-  res.list.forEach(b=>b.stores.forEach(s=>{ if(s.mate)used.add(s.mate); }));
+  res.list.forEach(b=>b.stores.forEach(s=>{ if(s.mate)used.add(s.mate); (s.mates||[]).forEach(m=>used.add(m)); }));
   // 매출 미매칭 물류매장 (리스트에서 제외된 매장들)
   const unmatched=res.unmatched||[];
   // 매칭 안 된(남은) POS 매장 후보
@@ -1147,6 +1179,7 @@ function showWarnings(res){
   }
   if(noSales.length) w+=`<div class="msg warn">매출 미매칭 ${noSales.length}개 매장은 리스트·합계에서 <b>제외</b>했습니다(아래 "매장 매칭 관리"에서 연결): ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
   if(res.excludedZero) w+=`<div class="msg warn">매출 0원 매장 ${res.excludedZero}개도 리스트에서 제외했습니다.</div>`;
+  if(res.posOrphanN) w+=`<div class="msg warn">매칭표에 없는 POS 코드 <b>${res.posOrphanN}개</b>(매출 합계 ${won(res.posOrphan)}원)는 어느 매장에도 합산되지 못했습니다. 양도양수로 새 메이트코드가 생긴 매장이면 <code>data/storematch.js</code>에 그 코드를 추가하면(또는 "매장 매칭 관리"에서 연결하면) 합산됩니다.</div>`;
   const openN=res.list.reduce((a,b)=>a+b.stores.filter(s=>s.isNew).length,0);
   if(res.usedSavedPrev) w+=`<div class="msg ok">저장된 <b>${res.prev} 마감</b>을 전월자료로 자동 사용 중 · 당월오픈(전월 없음) ${openN}개.</div>`;
   else if(!PREVRES) w+=`<div class="msg warn">전월 데이터가 없어 전월대비는 물류원장 전월 기준이며, 매출 전월대비는 0입니다. 전월 파일을 올리거나, 지난달에 "이번 달 마감 저장"을 해두면 자동 사용됩니다.</div>`;
