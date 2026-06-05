@@ -932,7 +932,7 @@ function renderCompare(res, root){
   res.list.forEach(b=>b.stores.forEach(s=>{ if(!s.isRef)opts.push({logi:s.logi,name:s.name}); }));
   opts.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
   sec.innerHTML=`<h2>발주 품목 비교 <span class="muted" style="font-weight:400">· 표준매장(기준매장) 대비</span></h2>
-    <div class="note">선택한 매장의 전용상품 발주를 같은 브랜드 <b>표준매장(기준매장)</b>의 발주 구성과 비교합니다. 표준매장은 발주하는데 이 매장은 안/적게 발주하는 품목 = <b>사입 의심·발주 누락</b>입니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
+    <div class="note">선택한 매장의 발주를 같은 브랜드 <b>표준매장(기준매장)</b>과 비교합니다. <b>전용상품 매입가 마스터에 등록된 정식 전용품목만</b> 대상으로, 표준매장은 발주하는데 이 매장은 안/적게 발주하는 품목 = <b>사입 의심·발주 누락</b>입니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
     <div class="opts" style="margin-top:8px"><label>매장 선택: <select class="box" id="cmpStore"><option value="">매장 선택 (${opts.length}개)</option>${opts.map(o=>`<option value="${o.logi}">${o.name}</option>`).join("")}</select></label></div>
     <div id="cmpResult" style="margin-top:10px"></div>`;
   root.appendChild(sec);
@@ -950,6 +950,7 @@ function renderCompareResult(res, logi){
   const refSales=ref.cur.sales||1, stSales=store.cur.sales||1;
   const rows=[];
   for(const pc in refItems){
+    if(BUY[pc]==null) continue;                                // 전용상품 매입가 마스터에 등록된 정식 전용품목만 비교
     const refAmt=refItems[pc].total, stAmt=stItems[pc]?stItems[pc].total:0;
     const refR=refAmt/refSales; if(refR<0.002)continue;        // 표준에서도 미미한 품목 제외
     const stR=stAmt/stSales, gap=refR-stR, expGap=gap*stSales;
