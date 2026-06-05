@@ -175,7 +175,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         # 정적 파일 서빙(같은 출처로 페이지를 열면 CORS 문제 없음)
-        rel = u.path.lstrip("/") or "index.html"
+        rel = urllib.parse.unquote(u.path).lstrip("/") or "index.html"   # 한글 파일명 디코드
         safe = os.path.normpath(rel).lstrip(os.sep)
         fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), safe)
         if os.path.isfile(fp) and (fp.endswith(".html") or fp.endswith(".js") or fp.endswith(".css")):
