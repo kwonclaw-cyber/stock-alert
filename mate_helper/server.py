@@ -91,10 +91,14 @@ def _query_and_download(page, start: date, end: date) -> bytes:
     )
     page.wait_for_timeout(500)
     page.get_by_role("button", name="검색", exact=True).click()
-    page.wait_for_load_state("networkidle")
+    try:
+        page.wait_for_load_state("networkidle", timeout=60000)
+    except Exception:
+        pass
     page.wait_for_timeout(2000)
-    with page.expect_download() as dl_info:
-        page.get_by_role("button", name="엑셀 다운로드", exact=True).click()
+    # 월간 전매장은 파일 생성이 오래 걸림 → 내비게이션 대기 끄고(no_wait_after) 다운로드 자체를 길게 대기
+    with page.expect_download(timeout=300000) as dl_info:
+        page.get_by_role("button", name="엑셀 다운로드", exact=True).click(no_wait_after=True, timeout=60000)
     download = dl_info.value
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
     download.save_as(tmp.name)
