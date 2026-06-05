@@ -1217,7 +1217,7 @@ function brandStat(name){
 }
 function kpiCard(title, goal, statusCls, statusTxt, bigHtml, subHtml, cardCls){
   return `<div class="kc ${cardCls||statusCls}"><span class="kstat ${statusCls}">${statusTxt}</span>
-    <div class="kt">${title}</div><div class="kgoal">목표 · ${goal}</div>
+    <div class="kt">${title}</div>${goal?`<div class="kgoal">목표 · ${goal}</div>`:`<div class="kgoal">&nbsp;</div>`}
     <div class="kv">${bigHtml}</div><div class="ksub">${subHtml||""}</div></div>`;
 }
 function renderKPI(){
@@ -1245,9 +1245,9 @@ function renderKPI(){
       `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`,"kc-sky"); }
   // 4) 샵인샵 매출: 물류 발주 총합계 ×150% (당월) — 전월/전년 대비
   { const [cm,pm]=curPrevMonths(); const sc=sisVal(cm), sp=sisVal(pm), sy=sisPyVal(cm);
-    if(!cm||sc<=0){ cards+=kpiCard("샵인샵 매출","물류 발주 총합계 ×150%","warn","대기","—","물류원장 업로드 후 표시","kc-purple"); }
-    else { const sub=`전월대비 ${sp?pillPct(sc,sp):"-"}${sy?` · 전년대비 ${pillPct(sc,sy)}`:""}`;
-      cards+=kpiCard("샵인샵 매출","물류 발주 총합계 ×150%","ok","집계",`${won(sc)}원`,sub,"kc-purple"); } }
+    if(!cm||sc<=0){ cards+=kpiCard("샵인샵 매출","","warn","대기","—","물류원장 업로드 후 표시","kc-purple"); }
+    else { const sub=`전월대비 ${sp?pillPct(sc,sp):"-"} · 전년대비 ${sy?pillPct(sc,sy):"-"}`;
+      cards+=kpiCard("샵인샵 매출","","ok","집계",`${won(sc)}원`,sub,"kc-purple"); } }
   el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>
     <div class="kpi-jeju" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;border-top:1px dashed var(--line);padding-top:12px">
       <span class="muted">제주할멍고기국수 점당매출 직접 입력:</span>
@@ -1461,9 +1461,15 @@ function saveExtra(){ localStorage.setItem(EXTRA_KEY, JSON.stringify(EXTRA)); }
 function sisVal(month){ return (SIS_BY_MONTH[month]||0)*SIS_MULT; }
 // 샵인샵 전년 매출 (월별, 직접 입력값을 브라우저에 저장·기억)
 const SIS_PY_KEY="monthlyClose.sisPrevYear.v1";
-let SIS_PY=(()=>{ try{return JSON.parse(localStorage.getItem(SIS_PY_KEY)||"{}");}catch(e){return {};} })();
+// 샵인샵 전년 매출 (실제 연-월 기준, 2025년 1~12월) — 전년대비는 '같은 달 작년'과 자동 비교
+const SIS_PY_DEFAULT={
+  "2025-01":2617180993,"2025-02":2644654653,"2025-03":3231385193,"2025-04":3767553447,
+  "2025-05":4661855907,"2025-06":4783461947,"2025-07":5712505980,"2025-08":4781538347,
+  "2025-09":3903962693,"2025-10":3514194060,"2025-11":3280686867,"2025-12":3538296547 };
+let SIS_PY=(()=>{ try{return Object.assign({}, SIS_PY_DEFAULT, JSON.parse(localStorage.getItem(SIS_PY_KEY)||"{}"));}catch(e){return Object.assign({},SIS_PY_DEFAULT);} })();
 function saveSisPy(){ localStorage.setItem(SIS_PY_KEY, JSON.stringify(SIS_PY)); }
-function sisPyVal(month){ return +SIS_PY[month]||0; }
+function prevYearMonth(ym){ if(!ym)return ""; const p=String(ym).split("-"); return (Number(p[0])-1)+"-"+p[1]; }
+function sisPyVal(month){ return +SIS_PY[prevYearMonth(month)]||0; }   // 당월의 '작년 같은 달' 값
 function curPrevMonths(){ const sel=document.getElementById("curMonth"); const cur=sel?sel.value:""; const i=MONTHS.indexOf(cur); return [cur, i>0?MONTHS[i-1]:""]; }
 function extraDeltaTotals(){
   const [cm,pm]=curPrevMonths();
@@ -1485,7 +1491,7 @@ function renderExtra(){
       <div class="sub">샵인샵 발주 총합계 ×150% · 당월 ${cm||"-"} / 전월 ${pm||"-"}</div></td>
     <td class="num">${won(sc)}</td><td class="num">${won(sp)}</td>
     <td class="num">${deltaPct(sc,sp)}</td>
-    <td class="num"><input class="box sis-py" type="number" value="${sy||0}" title="전년(${cm||"-"}) 샵인샵 매출 — 입력하면 저장됩니다" style="width:130px;text-align:right"></td>
+    <td class="num"><input class="box sis-py" type="number" value="${sy||0}" title="전년(${prevYearMonth(cm)||"-"}) 샵인샵 매출 — 입력하면 저장됩니다" style="width:130px;text-align:right"></td>
     <td class="num" id="sisPyDelta">${deltaPct(sc,sy)}</td><td></td></tr>`;
   EXTRA.forEach((x,i)=>{
     html+=`<tr><td class="l"><input class="box ex-name" data-i="${i}" value="${(x.name||"").replace(/"/g,'&quot;')}" style="width:200px"></td>
@@ -1499,7 +1505,7 @@ function renderExtra(){
   body.innerHTML=html;
   const sisPyEl=body.querySelector(".sis-py");
   if(sisPyEl) sisPyEl.addEventListener("input",e=>{
-    const v=toNum(e.target.value); if(v) SIS_PY[cm]=v; else delete SIS_PY[cm]; saveSisPy();
+    const v=toNum(e.target.value); const key=prevYearMonth(cm); if(v) SIS_PY[key]=v; else delete SIS_PY[key]; saveSisPy();
     const d=document.getElementById("sisPyDelta"); if(d)d.innerHTML=deltaPct(sc,v);
     extraDeltaTotals();
   });
