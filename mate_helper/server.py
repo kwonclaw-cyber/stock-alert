@@ -17,11 +17,28 @@ import os, base64, calendar, json, tempfile, urllib.parse
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-except Exception:
-    pass
+def _load_env():
+    """.env 직접 파싱 (python-dotenv 없어도 동작, 인코딩 자동)."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.isfile(p):
+        return
+    text = None
+    for enc in ("utf-8-sig", "utf-8", "cp949"):
+        try:
+            text = open(p, encoding=enc).read(); break
+        except Exception:
+            continue
+    if text is None:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip(); v = v.strip().strip('"').strip("'")
+        if k:
+            os.environ[k] = v
+_load_env()
 
 from playwright.sync_api import sync_playwright
 
