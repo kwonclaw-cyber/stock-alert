@@ -140,7 +140,17 @@
   <div class="vtabs" id="topTabs">
     <button class="vtab active" data-v="main">월마감 정산</button>
     <button class="vtab" data-v="buy">매입가 관리</button>
+    <button class="vtab" data-v="log">공문 발송 기록</button>
   </div>
+
+  <section id="logView" style="display:none">
+    <h2>사입 경고 공문 발송 기록 <span class="muted" id="logCount" style="font-weight:400"></span></h2>
+    <div class="note">공문을 생성(발송)한 매장과 차수·발송일이 기록됩니다. 1·2·3차 발송일은 2·3차 공문 작성 시 자동 참조됩니다. (브라우저에 저장)</div>
+    <div class="opts" style="margin:10px 0"><button class="ghost" id="logExport">기록 내보내기(JSON)</button>
+      <label class="ghost" style="border:1px solid var(--accent);color:var(--accent);padding:9px 16px;border-radius:8px;cursor:pointer">가져오기<input type="file" id="logImport" accept=".json" style="display:none"></label>
+      <button class="ghost" id="logClear">기록 전체 삭제</button></div>
+    <div class="tablewrap"><table id="logTable"><thead><tr><th class="l">브랜드</th><th class="l">매장</th><th>1차 발송</th><th>2차 발송</th><th>3차 발송</th><th class="l"></th></tr></thead><tbody id="logBody"></tbody></table></div>
+  </section>
 
   <section id="buyView" style="display:none">
     <h2>전용상품 매입가 관리 <span class="muted" id="buyCount" style="font-weight:400"></span></h2>
@@ -957,45 +967,74 @@ function renderCompareResult(res, logi){
     <tbody>${tr}</tbody></table></div>${flagged.length>30?`<div class="note">상위 30개만 표시 (총 ${flagged.length}개)</div>`:""}`;
 }
 
-// ===== 사입 경고 공문 생성 (원본 docx 템플릿 치환) =====
+// ===== 사입 경고 공문 생성 + 발송 기록 =====
+const GMLOG_KEY="monthlyClose.gongmunLog.v1";
+let GONGMUN_LOG=(()=>{ try{return JSON.parse(localStorage.getItem(GMLOG_KEY)||"{}");}catch(e){return {};} })();
+function saveGmLog(){ localStorage.setItem(GMLOG_KEY, JSON.stringify(GONGMUN_LOG)); }
 function fmtDate(v){ const d=v?new Date(v):new Date(); return `${d.getFullYear()}. ${String(d.getMonth()+1).padStart(2,"0")}. ${String(d.getDate()).padStart(2,"0")}`; }
 function escXml(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-async function makeGongmunDocx(brand, storeName, level, dateVal){
-  const b64=(window.GONGMUN_DOCX||{})[brand];
-  if(!b64){ alert(brand+" 공문 양식이 없습니다."); return; }
-  if(typeof JSZip==="undefined"){ alert("JSZip 로드 실패"); return; }
+async function makeGongmunDocx(brand, logi, storeName, level, dateVal){
+  const byb=(window.GONGMUN_DOCX||{})[brand]||{}; const b64=byb[String(level)];
+  if(!b64){ alert(brand+" "+level+"차 공문 양식이 없습니다."); return; }
+  if(typeof JSZip==="undefined"){ alert("JSZip 로드 실패(새로고침)"); return; }
   try{
+    const lg=GONGMUN_LOG[logi]||{};
+    const d1=lg["1"]?lg["1"].date:"", d2=lg["2"]?lg["2"].date:"";
     const zip=await JSZip.loadAsync(b64,{base64:true});
     let xml=await zip.file("word/document.xml").async("string");
-    const store=storeName.replace(/_/g," ");
-    xml=xml.split("{{STORE}}").join(escXml(store))
+    xml=xml.split("{{STORE}}").join(escXml(storeName.replace(/_/g," ")))
            .split("{{DATE}}").join(escXml(fmtDate(dateVal)))
-           .split("{{LV}}").join(String(level));
+           .split("{{DATE1}}").join(escXml(d1))
+           .split("{{DATE2}}").join(escXml(d2));
     zip.file("word/document.xml", xml);
     const blob=await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download=`사입경고공문_${storeName}_${level}차.docx`; a.click();
+    // 발송 기록
+    if(!GONGMUN_LOG[logi])GONGMUN_LOG[logi]={brand, name:storeName};
+    GONGMUN_LOG[logi].brand=brand; GONGMUN_LOG[logi].name=storeName;
+    GONGMUN_LOG[logi][String(level)]={date:fmtDate(dateVal)};
+    saveGmLog();
+    if(LAST)render(LAST);   // 버튼 비활성화 갱신
+    renderGongmunLog();
   }catch(err){ alert("공문 생성 오류: "+(err.message||err)); }
 }
 function renderGongmun(res, root){
-  const saip=[]; res.list.forEach(b=>b.stores.forEach(s=>{ if(s.saip)saip.push({brand:b.brand, name:s.name}); }));
+  const saip=[]; res.list.forEach(b=>b.stores.forEach(s=>{ if(s.saip)saip.push({brand:b.brand, name:s.name, logi:s.logi}); }));
   const sec=document.createElement("section");
   if(!saip.length){ sec.innerHTML=`<h2>사입 경고 공문</h2><div class="msg ok">사입으로 분류된 매장이 없습니다.</div>`; root.appendChild(sec); return; }
   saip.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
   const today=new Date().toISOString().slice(0,10);
-  const rows=saip.map((s,i)=>`<tr>
-    <td class="l">${esc(s.brand)}</td><td class="l">${esc(s.name)}</td>
-    <td class="l"><button class="ghost gm-btn" data-i="${i}" data-lv="1" style="padding:5px 12px">1차 공문</button>
-      <button class="ghost gm-btn" data-i="${i}" data-lv="2" style="padding:5px 12px;margin-left:4px">2차 공문</button></td></tr>`).join("");
+  function btn(i,lv,logi){
+    const sent=GONGMUN_LOG[logi]&&GONGMUN_LOG[logi][String(lv)];
+    if(sent) return `<button class="ghost gm-btn" data-i="${i}" data-lv="${lv}" disabled title="발송됨 ${sent.date}" style="padding:5px 10px;margin-left:4px;opacity:.5">${lv}차 발송됨</button>`;
+    return `<button class="ghost gm-btn" data-i="${i}" data-lv="${lv}" style="padding:5px 10px;margin-left:4px">${lv}차 공문</button>`;
+  }
+  const rows=saip.map((s,i)=>`<tr><td class="l">${esc(s.brand)}</td><td class="l">${esc(s.name)}</td>
+    <td class="l">${btn(i,1,s.logi)}${btn(i,2,s.logi)}${btn(i,3,s.logi)}</td></tr>`).join("");
   sec.innerHTML=`<h2>사입 경고 공문 <span class="muted" style="font-weight:400">· 사입매장 ${saip.length}개</span></h2>
-    <div class="note">사입 매장에 브랜드별 <b>원본 양식(계약조항·강조·직인 포함)</b>으로 경고 공문(Word .docx)을 생성합니다. 매장명·발송일·차수만 자동 반영됩니다. (2차는 1차 양식 기반 — 공식 2차 양식 받으면 교체)</div>
+    <div class="note">사입 매장에 브랜드별 <b>원본 양식(계약조항·강조·직인 포함)</b>으로 경고 공문(Word .docx)을 생성합니다. 발송하면 기록되어 <b>해당 차수 버튼이 비활성화</b>되고, 2·3차 작성 시 이전 발송일이 자동 반영됩니다. 기록은 "공문 발송 기록" 탭에서 관리합니다.</div>
     <div class="opts" style="margin:8px 0"><label>발송일: <input type="date" class="box" id="gmDate" value="${today}"></label></div>
     <div class="tablewrap"><table><thead><tr><th class="l">브랜드</th><th class="l">매장</th><th class="l">공문 생성(Word)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   root.appendChild(sec);
   sec.querySelectorAll(".gm-btn").forEach(btn=>btn.addEventListener("click",e=>{
-    const s=saip[+e.target.dataset.i], lv=+e.target.dataset.lv;
-    makeGongmunDocx(s.brand, s.name, lv, document.getElementById("gmDate").value);
+    const s=saip[+e.currentTarget.dataset.i], lv=+e.currentTarget.dataset.lv;
+    makeGongmunDocx(s.brand, s.logi, s.name, lv, document.getElementById("gmDate").value);
   }));
+}
+function renderGongmunLog(){
+  const body=document.getElementById("logBody"); if(!body)return;
+  const items=Object.entries(GONGMUN_LOG).map(([logi,v])=>({logi,...v}))
+    .sort((a,b)=>(a.brand||"").localeCompare(b.brand||"","ko")||(a.name||"").localeCompare(b.name||"","ko"));
+  document.getElementById("logCount").textContent=`· ${items.length}개 매장`;
+  body.innerHTML=items.length?items.map(it=>`<tr>
+    <td class="l">${esc(it.brand||"")}</td><td class="l">${esc(it.name||"")}</td>
+    <td class="num">${it["1"]?esc(it["1"].date):"-"}</td>
+    <td class="num">${it["2"]?esc(it["2"].date):"-"}</td>
+    <td class="num">${it["3"]?esc(it["3"].date):"-"}</td>
+    <td class="l"><button class="ghost gmlog-del" data-logi="${it.logi}" style="padding:3px 9px">삭제</button></td></tr>`).join("")
+    :`<tr><td colspan="6" class="muted">발송 기록이 없습니다.</td></tr>`;
+  body.querySelectorAll(".gmlog-del").forEach(b=>b.addEventListener("click",e=>{ delete GONGMUN_LOG[e.target.dataset.logi]; saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); }));
 }
 
 // ===== KPI 관리 =====
@@ -1398,9 +1437,15 @@ function showView(v){
   document.querySelectorAll("#topTabs .vtab").forEach(t=>t.classList.toggle("active",t.dataset.v===v));
   document.getElementById("mainView").style.display = v==="main"?"":"none";
   document.getElementById("buyView").style.display = v==="buy"?"":"none";
+  document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
+  if(v==="log") renderGongmunLog();
 }
 document.querySelectorAll("#topTabs .vtab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.v)));
+document.getElementById("logClear").addEventListener("click",()=>{ if(confirm("공문 발송 기록을 모두 삭제할까요?")){ GONGMUN_LOG={}; saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); } });
+document.getElementById("logExport").addEventListener("click",()=>{ const b=new Blob([JSON.stringify(GONGMUN_LOG,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="공문발송기록.json"; a.click(); });
+document.getElementById("logImport").addEventListener("change",e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ Object.assign(GONGMUN_LOG, JSON.parse(r.result)); saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); alert("가져오기 완료"); }catch(x){ alert("JSON 오류"); } }; r.readAsText(f); });
+renderGongmunLog();
 
 function renderBuyList(){
   const body=document.getElementById("buyBody"); if(!body)return;
