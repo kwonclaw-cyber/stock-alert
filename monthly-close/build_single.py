@@ -14,6 +14,7 @@ html = (ROOT / "index.html").read_text(encoding="utf-8")
 
 SRCS = [
     "vendor/xlsx.full.min.js",
+    "vendor/pptxgen.bundle.js",
     "data/buyprice.js",
     "data/storematch.js",
 ]

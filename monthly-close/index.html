@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>월마감 정산 페이지</title>
 <script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/pptxgen.bundle.js"></script>
 <script src="data/buyprice.js"></script>
 <script src="data/storematch.js"></script>
 <style>
@@ -212,6 +213,7 @@
     <div class="btnrow">
       <button id="calcBtn" disabled>정산 계산</button>
       <button class="ghost" id="exportBtn" disabled>결과 엑셀 내보내기</button>
+      <button class="ghost" id="pptBtn" disabled title="월마감 결과를 발표용 PPT로 생성">📊 PPT 발표자료</button>
       <button class="ghost" id="saveCloseBtn" disabled title="이번 달 마감을 저장 → 다음 달 전월자료로 자동 사용">이번 달 마감 저장</button>
       <span class="muted" id="savedMsg"></span>
     </div>
@@ -1005,7 +1007,8 @@ renderNotes();
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
 function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI();
-  document.getElementById("exportBtn").disabled=false; document.getElementById("saveCloseBtn").disabled=false; updateSavedMsg(); }
+  document.getElementById("exportBtn").disabled=false; document.getElementById("saveCloseBtn").disabled=false;
+  document.getElementById("pptBtn").disabled=false; updateSavedMsg(); }
 // ===== 월별 마감 저장 (전월 자동사용) =====
 function savedMonths(){ return Object.keys(SAVED_CLOSE).sort(); }
 function updateSavedMsg(){
@@ -1228,6 +1231,107 @@ function exportXlsx(){
 document.getElementById("exportBtn").addEventListener("click",exportXlsx);
 document.getElementById("saveCloseBtn").addEventListener("click",saveCurrentClose);
 updateSavedMsg();
+
+// ===== PPT 발표자료 생성 =====
+function pctTxt(cur,prev){ if(!prev)return "신규"; const d=(cur-prev)/prev*100; return (d>=0?"▲ ":"▼ ")+Math.abs(d).toFixed(1)+"%"; }
+function buildPPT(){
+  if(!LAST||typeof PptxGenJS==="undefined"){ alert("정산 계산 후 사용하세요."); return; }
+  const F="맑은 고딕";
+  const NAVY="1864AB", BLUE="1971C2", INK="212529", GRAY="868E96", RED="E03131", GREEN="2B8A3E";
+  const p=new PptxGenJS(); p.defineLayout({name:"W",width:13.333,height:7.5}); p.layout="W";
+  const cur=LAST.cur||"", ym=cur?`${cur.slice(0,4)}년 ${+cur.slice(4,6)}월`:"";
+  // 전체 합계
+  let g={sales:0,ex:0,profit:0},gp={sales:0,ex:0,profit:0},gS=0,gO=0,gN=0;
+  LAST.list.forEach(b=>{g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit;gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit;gS+=b.saipCount;gO+=(b.stores.filter(s=>s.isNew).length);gN+=b.stores.length;});
+
+  // ── 슬라이드 1: 표지
+  let s=p.addSlide(); s.background={color:"F4F6F8"};
+  s.addShape(p.ShapeType.rect,{x:0,y:0,w:13.333,h:7.5,fill:{color:"FFFFFF"}});
+  s.addShape(p.ShapeType.rect,{x:0,y:2.6,w:13.333,h:0.08,fill:{color:BLUE}});
+  s.addText("월 마감 보고서",{x:0.8,y:1.6,w:11.7,h:1,fontFace:F,fontSize:44,bold:true,color:INK});
+  s.addText(ym,{x:0.85,y:2.8,w:11.7,h:0.7,fontFace:F,fontSize:24,color:BLUE,bold:true});
+  s.addText("브랜드관리팀 · "+new Date().toLocaleDateString("ko-KR"),{x:0.85,y:6.4,w:11.7,h:0.4,fontFace:F,fontSize:13,color:GRAY});
+
+  // ── 슬라이드 2: 전체 요약
+  s=p.addSlide(); slideHead(s,"전체 요약",ym);
+  const cards=[["총매출",won(g.sales)+"원",pctTxt(g.sales,gp.sales),g.sales>=gp.sales],
+    ["전용물류매출",won(g.ex)+"원",pctTxt(g.ex,gp.ex),g.ex>=gp.ex],
+    ["전용이익",won(g.profit)+"원",pctTxt(g.profit,gp.profit),g.profit>=gp.profit]];
+  cards.forEach((c,i)=>{ const x=0.7+i*4.1;
+    s.addShape(p.ShapeType.roundRect,{x,y:1.4,w:3.8,h:1.7,fill:{color:"F8FAFC"},line:{color:"DEE2E6"},rectRadius:0.1});
+    s.addText(c[0],{x:x+0.2,y:1.55,w:3.4,h:0.4,fontFace:F,fontSize:14,color:GRAY});
+    s.addText(c[1],{x:x+0.2,y:1.95,w:3.4,h:0.6,fontFace:F,fontSize:24,bold:true,color:INK});
+    s.addText(c[3]?c[2]:c[2],{x:x+0.2,y:2.6,w:3.4,h:0.4,fontFace:F,fontSize:14,bold:true,color:c[3]?RED:BLUE});
+  });
+  // 브랜드 비교 표
+  const head=["브랜드","매장","총매출","전월대비","전용물류매출","전용이익","발주율","이익률","사입","오픈"];
+  const rows=[head.map(t=>({text:t,options:{bold:true,color:"FFFFFF",fill:{color:NAVY},fontFace:F,fontSize:11,align:"center"}}))];
+  LAST.list.forEach(b=>{ const op=b.stores.filter(x=>x.isNew).length;
+    rows.push([b.brand,String(b.stores.length),won(b.cur.sales),pctTxt(b.cur.sales,b.prev.sales),won(b.cur.ex),won(b.cur.profit),
+      pct(orderRate(b.cur)),pct(profitRate(b.cur)),String(b.saipCount),String(op)].map((t,i)=>({text:t,options:{fontFace:F,fontSize:11,align:i==0?"left":"right",color:INK}})));
+  });
+  rows.push(["전체",String(gN),won(g.sales),pctTxt(g.sales,gp.sales),won(g.ex),won(g.profit),pct(g.sales?g.ex/g.sales:0),pct(g.ex?g.profit/g.ex:0),String(gS),String(gO)]
+    .map((t,i)=>({text:t,options:{fontFace:F,fontSize:11,bold:true,align:i==0?"left":"right",fill:{color:"FFF9DB"}}})));
+  s.addTable(rows,{x:0.7,y:3.4,w:11.9,colW:[1.7,0.8,1.7,1.2,1.7,1.5,0.9,0.9,0.65,0.65],border:{type:"solid",color:"E9ECEF",pt:0.5},valign:"middle",rowH:0.45});
+
+  // ── 브랜드별 슬라이드
+  LAST.list.forEach(b=>{
+    const sb=p.addSlide(); slideHead(sb,b.brand+" 요약",ym);
+    const n=b.stores.length, pn=b.stores.filter(x=>!x.isNew).length;
+    const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:0;
+    const items=[["총매출",won(b.cur.sales)+"원",pctTxt(b.cur.sales,b.prev.sales)],
+      ["점당 평균매출",won(avg)+"원",pctTxt(avg,pavg)],
+      ["전용물류매출",won(b.cur.ex)+"원",pctTxt(b.cur.ex,b.prev.ex)],
+      ["전용이익",won(b.cur.profit)+"원",pctTxt(b.cur.profit,b.prev.profit)],
+      ["전용발주율",pct(orderRate(b.cur)),""],["전용이익률",pct(profitRate(b.cur)),""],
+      ["사입매장",b.saipCount+"개",""],["당월오픈",b.stores.filter(x=>x.isNew).length+"개",""]];
+    items.forEach((it,i)=>{ const col=i%2, row=Math.floor(i/2); const x=0.7+col*6.1, y=1.5+row*1.25;
+      sb.addShape(p.ShapeType.roundRect,{x,y,w:5.8,h:1.1,fill:{color:"F8FAFC"},line:{color:"DEE2E6"},rectRadius:0.08});
+      sb.addText(it[0],{x:x+0.25,y:y+0.12,w:5.3,h:0.35,fontFace:F,fontSize:13,color:GRAY});
+      sb.addText(it[1],{x:x+0.25,y:y+0.45,w:3.6,h:0.5,fontFace:F,fontSize:20,bold:true,color:INK});
+      if(it[2])sb.addText(it[2],{x:x+3.9,y:y+0.5,w:1.7,h:0.45,fontFace:F,fontSize:13,bold:true,color:it[2].startsWith("▲")?RED:(it[2].startsWith("▼")?BLUE:GRAY),align:"right"});
+    });
+  });
+
+  // ── KPI 슬라이드
+  const kpis=[["육식사관학교","점당매출 전월대비 +5%↑",brandStat("육식사관학교")],
+    ["밥구정로데오","점당매출 현상태 유지",brandStat("밥구정로데오")]];
+  const sk=p.addSlide(); slideHead(sk,"KPI 현황",ym);
+  kpis.forEach((k,i)=>{ const y=1.5+i*1.5; const st=k[2];
+    const val=st?won(st.avg)+"원":"-", mom=st&&st.mom!=null?pctTxt(st.avg,st.pavg):"-";
+    sk.addShape(p.ShapeType.roundRect,{x:0.7,y,w:11.9,h:1.3,fill:{color:"F8FAFC"},line:{color:"DEE2E6"},rectRadius:0.1});
+    sk.addText(k[0],{x:1,y:y+0.15,w:5,h:0.5,fontFace:F,fontSize:18,bold:true,color:INK});
+    sk.addText("목표 · "+k[1],{x:1,y:y+0.68,w:6,h:0.4,fontFace:F,fontSize:13,color:GRAY});
+    sk.addText("점당매출 "+val,{x:7,y:y+0.2,w:3.5,h:0.5,fontFace:F,fontSize:18,bold:true,color:INK,align:"right"});
+    sk.addText(mom,{x:10.6,y:y+0.25,w:1.9,h:0.5,fontFace:F,fontSize:16,bold:true,color:mom.startsWith("▲")?RED:(mom.startsWith("▼")?BLUE:GRAY),align:"right"});
+  });
+  // 제주할멍
+  { const y=1.5+2*1.5;
+    sk.addShape(p.ShapeType.roundRect,{x:0.7,y,w:11.9,h:1.3,fill:{color:"E7F5FF"},line:{color:"A5D8FF"},rectRadius:0.1});
+    sk.addText("제주할멍고기국수",{x:1,y:y+0.15,w:6,h:0.5,fontFace:F,fontSize:18,bold:true,color:INK});
+    sk.addText("목표 · 점당매출 1,200만원",{x:1,y:y+0.68,w:6,h:0.4,fontFace:F,fontSize:13,color:GRAY});
+    sk.addText("점당매출 "+(typeof JEJU_PS!=="undefined"&&JEJU_PS>0?won(JEJU_PS)+"원":"미입력"),{x:7,y:y+0.35,w:5.5,h:0.5,fontFace:F,fontSize:18,bold:true,color:INK,align:"right"});
+  }
+
+  // ── 특이사항 슬라이드
+  if(typeof NOTES!=="undefined" && NOTES.length){
+    const sn=p.addSlide(); slideHead(sn,"특이사항 · 강조",ym);
+    NOTES.slice(0,8).forEach((nt,i)=>{ const y=1.5+i*0.68;
+      const col=nt.type==="em"?"E8590C":nt.type==="warn"?"F08C00":nt.type==="info"?"1C7ED6":GRAY;
+      sn.addShape(p.ShapeType.rect,{x:0.7,y,w:0.12,h:0.55,fill:{color:col}});
+      sn.addText((nt.title?("["+nt.title+"] "):"")+(nt.text||""),{x:1,y:y,w:11.5,h:0.55,fontFace:F,fontSize:14,color:INK,valign:"middle"});
+    });
+  }
+
+  function slideHead(sl,title,sub){
+    sl.background={color:"FFFFFF"};
+    sl.addShape(p.ShapeType.rect,{x:0,y:0,w:13.333,h:1.05,fill:{color:NAVY}});
+    sl.addText(title,{x:0.6,y:0.18,w:9,h:0.7,fontFace:F,fontSize:24,bold:true,color:"FFFFFF",valign:"middle"});
+    sl.addText(sub,{x:9.6,y:0.18,w:3.1,h:0.7,fontFace:F,fontSize:14,color:"DCE7F5",align:"right",valign:"middle"});
+  }
+  p.writeFile({fileName:`월마감보고_${cur}.pptx`});
+}
+document.getElementById("pptBtn").addEventListener("click",buildPPT);
 
 // ===== 매입가 관리 탭 =====
 function showView(v){
