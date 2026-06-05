@@ -85,6 +85,8 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   tr.ref-row td{background:#e7f5ff;}
   tr.open-row td{background:#ebfbee;}
   .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
+  .storewrap{max-height:72vh;}  /* 긴 매장표: 내부 스크롤 + 열제목(thead) 고정 */
+  thead th{position:sticky;top:0;z-index:2;}
   .up{color:var(--up);} .down{color:var(--down);} .flat{color:var(--flat);}
   .delta{font-size:12px;}
   /* KPI */
@@ -143,7 +145,7 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   .msg.ok{background:#ebfbee;border:1px solid #b2f2bb;color:#2b8a3e;}
   .muted{color:#888;font-size:12px;}
   .note{font-size:12px;color:#666;margin:6px 0 0;}
-  .vtabs{display:flex;gap:6px;margin-bottom:16px;}
+  .vtabs{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:50;background:#f5f6f8;padding:10px 0;box-shadow:0 4px 8px -6px rgba(0,0,0,.25);}
   .vtab{font-family:inherit;font-size:14px;font-weight:800;border:1px solid var(--line);background:#fff;color:#555;padding:9px 18px;border-radius:9px;cursor:pointer;}
   .vtab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   #buyTable input.bp{width:120px;text-align:right;padding:5px 7px;border:1px solid var(--line);border-radius:6px;font-family:inherit;}
@@ -685,13 +687,11 @@ function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="su
 // 수정 가능 금액 셀 (매출/전용물류매출/전용이익)
 function amtCell(s, field){
   const cur=s.cur[field], prev=(s.prev&&s.prev[field])||0;
-  const edited=s.ov&&(s.ov[field]!=null||s.ov["p_"+field]!=null);
   if(EDIT_MODE){
     return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">`
-      +`${edited?' <span class="badge warnb">수정</span>':''}`
       +`<div class="sub" style="margin-top:3px">전월 <input class="box ov-in" data-logi="${s.logi}" data-field="p_${field}" type="number" value="${Math.round(prev)}" style="width:96px;text-align:right;padding:2px 5px"></div></td>`;
   }
-  return `<td class="num">${won(cur)}${edited?' <span class="badge warnb" title="수기 수정됨">✎</span>':''}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
+  return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
 }
 function rcell(cur,prev,extra){ return `<td class="num">${pct(cur)}<br><span class="sub">전월 ${prev==null?"-":pct(prev)}</span><br>${deltaPp(cur,prev)}${extra||""}</td>`; }
 
@@ -896,7 +896,7 @@ function render(res){
     const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
     sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
-      <div class="tablewrap"><table><thead><tr><th class="l">매장명</th>
+      <div class="tablewrap storewrap"><table><thead><tr><th class="l">매장명</th>
         <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th><th class="l">특이사항</th></tr></thead>
         <tbody>${tot}${rows}</tbody></table></div>`;
     root.appendChild(sec);
