@@ -34,3 +34,10 @@ for src in SRCS:
 out = ROOT / "월마감.html"
 out.write_text(html, encoding="utf-8")
 print(f"생성 완료: {out}  ({len(html):,} bytes)")
+
+# GitHub Pages 배포본: 저장소 루트의 docs/index.html 로도 동일 내용을 출력(깔끔한 URL용)
+docs = ROOT.parent / "docs"
+docs.mkdir(exist_ok=True)
+(docs / "index.html").write_text(html, encoding="utf-8")
+(docs / ".nojekyll").write_text("", encoding="utf-8")   # Jekyll 처리 방지
+print(f"생성 완료: {docs / 'index.html'}  (GitHub Pages 배포본)")
