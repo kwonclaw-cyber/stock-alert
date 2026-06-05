@@ -1512,12 +1512,12 @@ let EXTRA=(()=>{ try{const v=JSON.parse(localStorage.getItem(EXTRA_KEY)); if(Arr
 function saveExtra(){ localStorage.setItem(EXTRA_KEY, JSON.stringify(EXTRA)); }
 function sisVal(month){ return (SIS_BY_MONTH[month]||0)*SIS_MULT; }
 // 샵인샵 전년 매출 (월별, 직접 입력값을 브라우저에 저장·기억)
-const SIS_PY_KEY="monthlyClose.sisPrevYear.v1";
-// 샵인샵 전년 매출 (실제 연-월 기준, 2025년 1~12월) — 전년대비는 '같은 달 작년'과 자동 비교
+const SIS_PY_KEY="monthlyClose.sisPrevYear.v2";
+// 샵인샵 전년 매출 (실제 연-월 기준, 2025년 1~12월, 물류매출 ×150%) — 전년대비는 '같은 달 작년'과 자동 비교
 const SIS_PY_DEFAULT={
-  "2025-01":2617180993,"2025-02":2644654653,"2025-03":3231385193,"2025-04":3767553447,
-  "2025-05":4661855907,"2025-06":4783461947,"2025-07":5712505980,"2025-08":4781538347,
-  "2025-09":3903962693,"2025-10":3514194060,"2025-11":3280686867,"2025-12":3538296547 };
+  "2025-01":588865724,"2025-02":595047297,"2025-03":727061669,"2025-04":847699526,
+  "2025-05":1048917579,"2025-06":1076278938,"2025-07":1285313846,"2025-08":1075846128,
+  "2025-09":878391606,"2025-10":790693664,"2025-11":738154545,"2025-12":796116723 };
 let SIS_PY=(()=>{ try{return Object.assign({}, SIS_PY_DEFAULT, JSON.parse(localStorage.getItem(SIS_PY_KEY)||"{}"));}catch(e){return Object.assign({},SIS_PY_DEFAULT);} })();
 function saveSisPy(){ localStorage.setItem(SIS_PY_KEY, JSON.stringify(SIS_PY)); }
 function prevYearMonth(ym){ if(!ym)return ""; const p=String(ym).split("-"); return (Number(p[0])-1)+"-"+p[1]; }
