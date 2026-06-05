@@ -15,8 +15,10 @@ html = (ROOT / "index.html").read_text(encoding="utf-8")
 SRCS = [
     "vendor/xlsx.full.min.js",
     "vendor/pptxgen.bundle.js",
+    "vendor/jszip.min.js",
     "data/buyprice.js",
     "data/storematch.js",
+    "data/gongmun.js",
 ]
 
 for src in SRCS:
