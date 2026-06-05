@@ -574,7 +574,8 @@ const profitRate=m=>m.ex?m.profit/m.ex:0;
 // 리스트 정렬·필터 상태
 let LIST_SORT="sales", LIST_DIR=-1, LIST_FILTER="all";
 const SORT_VAL={ sales:s=>s.cur.sales, ex:s=>s.cur.ex, profit:s=>s.cur.profit,
-  orate:s=>orderRate(s.cur), prate:s=>profitRate(s.cur), name:s=>s.name };
+  orate:s=>orderRate(s.cur), prate:s=>profitRate(s.cur), name:s=>s.name,
+  salesMoM:s=>{ const p=s.prev?s.prev.sales:0; return p? (s.cur.sales-p)/p : (s.cur.sales>0?9:0); } };
 function applyFilterSort(stores){
   let arr=stores.filter(s=>{
     if(LIST_FILTER==="saip")return s.saip;
@@ -688,7 +689,12 @@ function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="su
 function amtCell(s, field){
   const cur=s.cur[field], prev=(s.prev&&s.prev[field])||0;
   if(EDIT_MODE){
-    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">`
+    let fit="";
+    if(field==="ex" && !s.isRef && s.gap!=null){   // 전용물류매출을 기준매장 발주율 수준으로 맞춤
+      const refRate=s.rate+s.gap; const target=Math.round((s.cur.sales||0)*refRate);
+      fit=` <button class="fitref" data-logi="${s.logi}" data-target="${target}" title="기준매장 발주율(${pct(refRate)}) 수준으로 맞춤" style="padding:2px 7px;font-size:11px">기준맞춤</button>`;
+    }
+    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">${fit}`
       +`<div class="sub" style="margin-top:3px">전월 <input class="box ov-in" data-logi="${s.logi}" data-field="p_${field}" type="number" value="${Math.round(prev)}" style="width:96px;text-align:right;padding:2px 5px"></div></td>`;
   }
   return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
@@ -851,7 +857,7 @@ function render(res){
 
   // 정렬·필터 툴바
   const bar=document.createElement("section");
-  const sortOpts=[["sales","매출"],["ex","전용물류매출"],["profit","전용이익"],["orate","전용발주율"],["prate","전용이익률"],["name","매장명"]]
+  const sortOpts=[["sales","매출"],["salesMoM","매출 증감률(전월대비)"],["ex","전용물류매출"],["profit","전용이익"],["orate","전용발주율"],["prate","전용이익률"],["name","매장명"]]
     .map(([v,t])=>`<option value="${v}" ${LIST_SORT===v?"selected":""}>${t}</option>`).join("");
   const filtOpts=[["all","전체"],["saip","사입"],["open","당월오픈"],["ref","기준매장"],["normal","일반"]]
     .map(([v,t])=>`<option value="${v}" ${LIST_FILTER===v?"selected":""}>${t}</option>`).join("");
@@ -862,15 +868,14 @@ function render(res){
       <label><select class="box" id="listDir"><option value="-1" ${LIST_DIR<0?"selected":""}>내림차순 ▼</option><option value="1" ${LIST_DIR>0?"selected":""}>오름차순 ▲</option></select></label>
       <label>구분: <select class="box" id="listFilter">${filtOpts}</select></label>
       <label style="margin-left:auto"><input type="checkbox" id="editMode" ${EDIT_MODE?"checked":""}> 수기 수정 모드</label>
-      ${ovN?`<button class="ghost" id="resetOV">수기수정 초기화 (${ovN})</button>`:""}
     </div>
-    ${EDIT_MODE?'<div class="note">매출·전용물류매출·전용이익의 <b>당월/전월 값</b>을 직접 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정·전월대비 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다. 매장별 <b>특이사항</b>은 표 오른쪽 칸에 입력합니다.</div>':''}`;
+    ${EDIT_MODE?`<div class="note">매출·전용물류매출·전용이익의 <b>당월/전월 값</b>을 직접 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정·전월대비 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다. 전용물류매출 칸의 <b>기준맞춤</b>은 기준매장 발주율 수준으로 채웁니다. 매장별 <b>특이사항</b>은 표 오른쪽 칸에 입력합니다.${ovN?` <a href="#" id="resetOV" style="color:#c4c4c4;font-size:11px;margin-left:6px">수기수정 초기화(${ovN})</a>`:""}</div>`:''}`;
   root.appendChild(bar);
   bar.querySelector("#listSort").addEventListener("change",e=>{ LIST_SORT=e.target.value; render(LAST); });
   bar.querySelector("#listDir").addEventListener("change",e=>{ LIST_DIR=+e.target.value; render(LAST); });
   bar.querySelector("#listFilter").addEventListener("change",e=>{ LIST_FILTER=e.target.value; render(LAST); });
   bar.querySelector("#editMode").addEventListener("change",e=>{ EDIT_MODE=e.target.checked; render(LAST); });
-  if(bar.querySelector("#resetOV")) bar.querySelector("#resetOV").addEventListener("click",()=>{ if(confirm("수기 수정값을 모두 삭제할까요?")){ USER_OV={}; saveOV(); rerun(); } });
+  if(bar.querySelector("#resetOV")) bar.querySelector("#resetOV").addEventListener("click",(e)=>{ e.preventDefault(); if(confirm("수기 수정값을 모두 삭제할까요?")){ USER_OV={}; saveOV(); rerun(); } });
 
   // 브랜드 상세
   list.forEach(b=>{
@@ -919,6 +924,11 @@ function render(res){
     if(raw==="") delete USER_OV[logi][field]; else USER_OV[logi][field]=toNum(raw);
     if(!Object.keys(USER_OV[logi]).length) delete USER_OV[logi];
     saveOV(); rerun();
+  }));
+  // 전용물류매출 '기준맞춤' (기준매장 발주율 수준으로)
+  root.querySelectorAll(".fitref").forEach(b=>b.addEventListener("click",e=>{
+    const logi=e.target.dataset.logi, target=toNum(e.target.dataset.target);
+    if(!USER_OV[logi])USER_OV[logi]={}; USER_OV[logi].ex=target; saveOV(); rerun();
   }));
 
   // 발주 품목 비교 (표준매장 대비)
