@@ -70,6 +70,7 @@
   .kc.ok{border-left-color:#2b8a3e;background:#f4fdf6;} .kc.bad{border-left-color:var(--up);background:#fff6f6;} .kc.warn{border-left-color:#f59f00;background:#fffaf0;}
   .kc.kc-green{border-left-color:#1b5e20;background:#e6f4ea;} .kc.kc-sky{border-left-color:#4dabf7;background:#e7f5ff;}
   .kc.kc-yellow{border-left-color:#f0c000;background:#fffbe6;}
+  .kc.kc-purple{border-left-color:#7048e8;background:#f3f0ff;}
   .kc .kt{font-weight:800;font-size:14px;} .kc .kgoal{font-size:12px;color:#666;margin-top:2px;}
   .kc .kv{font-size:23px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums;}
   .kc .ksub{font-size:12px;color:#555;margin-top:2px;}
@@ -262,13 +263,14 @@
   </section>
 
   <section>
-    <h2>추가 매출 비교 (직접 입력)</h2>
-    <div class="note">물류/POS와 무관하게 매출만 비교하는 항목입니다. 당월·전월 매출을 직접 입력하세요. 입력값은 브라우저에 저장됩니다.</div>
+    <h2>샵인샵 매출 비교</h2>
+    <div class="note">샵인샵 매출(물류 발주 총합계 ×150% 자동) 및 직접 입력 항목을 <b>전월대비·전년대비</b>로 비교합니다. 전년 매출은 직접 입력하면 브라우저에 저장되어 다음에도 기억됩니다. (전월데이터 파일에서 전년 수치를 가져오게 하려면 그 파일의 전년 컬럼 위치를 알려주세요.)</div>
     <div class="tablewrap" style="margin-top:8px"><table id="extraTable">
-      <thead><tr><th class="l">항목</th><th>당월 매출</th><th>전월 매출</th><th>전월대비</th><th></th></tr></thead>
+      <thead><tr><th class="l">항목</th><th>당월 매출</th><th>전월 매출</th><th>전월대비</th><th>전년 매출</th><th>전년대비</th><th></th></tr></thead>
       <tbody id="extraBody"></tbody>
       <tfoot><tr class="brandtot"><td class="l">합계</td>
-        <td class="num" id="extraCurT">0</td><td class="num" id="extraPrevT">0</td><td class="num" id="extraDeltaT"></td><td></td></tr></tfoot>
+        <td class="num" id="extraCurT">0</td><td class="num" id="extraPrevT">0</td><td class="num" id="extraDeltaT"></td>
+        <td class="num" id="extraPYT">0</td><td class="num" id="extraPYDeltaT"></td><td></td></tr></tfoot>
     </table></div>
     <div class="btnrow"><button class="ghost" id="addExtra">+ 항목 추가</button></div>
   </section>
@@ -1119,6 +1121,11 @@ function renderKPI(){
     cards+=kpiCard("제주할멍고기국수","점당매출 1,200만원",cls,st,
       cur>0?`${won(cur)}원`:"—",
       `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`,"kc-sky"); }
+  // 4) 샵인샵 매출: 물류 발주 총합계 ×150% (당월) — 전월/전년 대비
+  { const [cm,pm]=curPrevMonths(); const sc=sisVal(cm), sp=sisVal(pm), sy=sisPyVal(cm);
+    if(!cm||sc<=0){ cards+=kpiCard("샵인샵 매출","물류 발주 총합계 ×150%","warn","대기","—","물류원장 업로드 후 표시","kc-purple"); }
+    else { const sub=`전월대비 ${sp?pillPct(sc,sp):"-"}${sy?` · 전년대비 ${pillPct(sc,sy)}`:""}`;
+      cards+=kpiCard("샵인샵 매출","물류 발주 총합계 ×150%","ok","집계",`${won(sc)}원`,sub,"kc-purple"); } }
   el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>
     <div class="kpi-jeju" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;border-top:1px dashed var(--line);padding-top:12px">
       <span class="muted">제주할멍고기국수 점당매출 직접 입력:</span>
@@ -1327,47 +1334,67 @@ const EXTRA_KEY="monthlyClose.extra.v2";
 const SIS_MULT=1.5;                       // 샵인샵 추정매출 배수 (총합계 ×150%)
 let SIS_BY_MONTH={};                       // {월: 샵인샵+신규샵인샵 총합계 합}
 let EXTRA=(()=>{ try{const v=JSON.parse(localStorage.getItem(EXTRA_KEY)); if(Array.isArray(v))return v.filter(x=>x&&(x.name||"").indexOf("샵인샵")<0);}catch(e){}
-  return [{name:"제주할멍 매출",cur:0,prev:0}]; })();
+  return [{name:"제주할멍 매출",cur:0,prev:0,py:0}]; })();
 function saveExtra(){ localStorage.setItem(EXTRA_KEY, JSON.stringify(EXTRA)); }
 function sisVal(month){ return (SIS_BY_MONTH[month]||0)*SIS_MULT; }
+// 샵인샵 전년 매출 (월별, 직접 입력값을 브라우저에 저장·기억)
+const SIS_PY_KEY="monthlyClose.sisPrevYear.v1";
+let SIS_PY=(()=>{ try{return JSON.parse(localStorage.getItem(SIS_PY_KEY)||"{}");}catch(e){return {};} })();
+function saveSisPy(){ localStorage.setItem(SIS_PY_KEY, JSON.stringify(SIS_PY)); }
+function sisPyVal(month){ return +SIS_PY[month]||0; }
 function curPrevMonths(){ const sel=document.getElementById("curMonth"); const cur=sel?sel.value:""; const i=MONTHS.indexOf(cur); return [cur, i>0?MONTHS[i-1]:""]; }
 function extraDeltaTotals(){
   const [cm,pm]=curPrevMonths();
-  let ct=sisVal(cm), pt=sisVal(pm); EXTRA.forEach(x=>{ct+=(+x.cur||0);pt+=(+x.prev||0);});
+  let ct=sisVal(cm), pt=sisVal(pm), yt=sisPyVal(cm);
+  EXTRA.forEach(x=>{ct+=(+x.cur||0);pt+=(+x.prev||0);yt+=(+x.py||0);});
   document.getElementById("extraCurT").textContent=won(ct);
   document.getElementById("extraPrevT").textContent=won(pt);
   document.getElementById("extraDeltaT").innerHTML=deltaPct(ct,pt);
+  const pyt=document.getElementById("extraPYT"); if(pyt)pyt.textContent=won(yt);
+  const pyd=document.getElementById("extraPYDeltaT"); if(pyd)pyd.innerHTML=deltaPct(ct,yt);
 }
 function renderExtra(){
   const body=document.getElementById("extraBody"); if(!body)return;
   const [cm,pm]=curPrevMonths();
-  const sc=sisVal(cm), sp=sisVal(pm);
-  // 샵인샵 자동행 (물류원장 샵인샵+신규샵인샵 총합계 ×150%, 읽기전용)
+  const sc=sisVal(cm), sp=sisVal(pm), sy=sisPyVal(cm);
+  // 샵인샵 자동행 (물류원장 샵인샵+신규샵인샵 총합계 ×150%, 매출은 읽기전용 / 전년은 직접 입력·저장)
   let html=`<tr style="background:#f8f9fa">
     <td class="l">샵인샵 매출 <span class="badge openb" title="물류원장 샵인샵 품목 총합계 ×150% 자동계산">자동</span>
       <div class="sub">샵인샵 발주 총합계 ×150% · 당월 ${cm||"-"} / 전월 ${pm||"-"}</div></td>
     <td class="num">${won(sc)}</td><td class="num">${won(sp)}</td>
-    <td class="num">${deltaPct(sc,sp)}</td><td></td></tr>`;
+    <td class="num">${deltaPct(sc,sp)}</td>
+    <td class="num"><input class="box sis-py" type="number" value="${sy||0}" title="전년(${cm||"-"}) 샵인샵 매출 — 입력하면 저장됩니다" style="width:130px;text-align:right"></td>
+    <td class="num" id="sisPyDelta">${deltaPct(sc,sy)}</td><td></td></tr>`;
   EXTRA.forEach((x,i)=>{
     html+=`<tr><td class="l"><input class="box ex-name" data-i="${i}" value="${(x.name||"").replace(/"/g,'&quot;')}" style="width:200px"></td>
-      <td class="num"><input class="box ex-cur" data-i="${i}" type="number" value="${x.cur||0}" style="width:140px;text-align:right"></td>
-      <td class="num"><input class="box ex-prev" data-i="${i}" type="number" value="${x.prev||0}" style="width:140px;text-align:right"></td>
+      <td class="num"><input class="box ex-cur" data-i="${i}" type="number" value="${x.cur||0}" style="width:130px;text-align:right"></td>
+      <td class="num"><input class="box ex-prev" data-i="${i}" type="number" value="${x.prev||0}" style="width:130px;text-align:right"></td>
       <td class="num ex-delta" data-i="${i}">${deltaPct(+x.cur||0,+x.prev||0)}</td>
+      <td class="num"><input class="box ex-py" data-i="${i}" type="number" value="${x.py||0}" style="width:130px;text-align:right"></td>
+      <td class="num ex-pydelta" data-i="${i}">${deltaPct(+x.cur||0,+x.py||0)}</td>
       <td class="l"><button class="ghost ex-del" data-i="${i}" style="padding:4px 10px">삭제</button></td></tr>`;
   });
   body.innerHTML=html;
+  const sisPyEl=body.querySelector(".sis-py");
+  if(sisPyEl) sisPyEl.addEventListener("input",e=>{
+    const v=toNum(e.target.value); if(v) SIS_PY[cm]=v; else delete SIS_PY[cm]; saveSisPy();
+    const d=document.getElementById("sisPyDelta"); if(d)d.innerHTML=deltaPct(sc,v);
+    extraDeltaTotals();
+  });
   body.querySelectorAll(".ex-name").forEach(el=>el.addEventListener("input",e=>{ EXTRA[+e.target.dataset.i].name=e.target.value; saveExtra(); }));
-  ["ex-cur","ex-prev"].forEach(cls=>body.querySelectorAll("."+cls).forEach(el=>el.addEventListener("input",e=>{
+  ["ex-cur","ex-prev","ex-py"].forEach(cls=>body.querySelectorAll("."+cls).forEach(el=>el.addEventListener("input",e=>{
     const i=+e.target.dataset.i, x=EXTRA[i];
     x.cur=toNum(body.querySelector(`.ex-cur[data-i="${i}"]`).value);
     x.prev=toNum(body.querySelector(`.ex-prev[data-i="${i}"]`).value);
+    x.py=toNum(body.querySelector(`.ex-py[data-i="${i}"]`).value);
     body.querySelector(`.ex-delta[data-i="${i}"]`).innerHTML=deltaPct(x.cur,x.prev);
+    body.querySelector(`.ex-pydelta[data-i="${i}"]`).innerHTML=deltaPct(x.cur,x.py);
     saveExtra(); extraDeltaTotals();
   })));
   body.querySelectorAll(".ex-del").forEach(el=>el.addEventListener("click",e=>{ EXTRA.splice(+e.target.dataset.i,1); saveExtra(); renderExtra(); }));
   extraDeltaTotals();
 }
-document.getElementById("addExtra").addEventListener("click",()=>{ EXTRA.push({name:"",cur:0,prev:0}); saveExtra(); renderExtra(); });
+document.getElementById("addExtra").addEventListener("click",()=>{ EXTRA.push({name:"",cur:0,prev:0,py:0}); saveExtra(); renderExtra(); });
 renderExtra();
 renderKPI();
 initCollapsibles();
@@ -1387,15 +1414,16 @@ function exportXlsx(){
   XLSX.utils.book_append_sheet(wb,ws,"월마감결과");
   // 추가 매출 비교 시트 (샵인샵 자동행 포함)
   {
-    const ex=[["항목","당월 매출","전월 매출","전월대비"]];
-    const [cm,pm]=curPrevMonths(); const sc=sisVal(cm), sp=sisVal(pm);
-    let ct=sc,pt=sp;
-    ex.push(["샵인샵 매출(발주 총합계×150%)", Math.round(sc), Math.round(sp), sp?+(((sc-sp)/sp)).toFixed(4):""]);
-    EXTRA.forEach(x=>{ const c=+x.cur||0,p=+x.prev||0; ct+=c;pt+=p;
-      ex.push([x.name||"", Math.round(c), Math.round(p), p?+(((c-p)/p)).toFixed(4):""]); });
-    ex.push(["합계",Math.round(ct),Math.round(pt), pt?+(((ct-pt)/pt)).toFixed(4):""]);
+    const ex=[["항목","당월 매출","전월 매출","전월대비","전년 매출","전년대비"]];
+    const [cm,pm]=curPrevMonths(); const sc=sisVal(cm), sp=sisVal(pm), sy=sisPyVal(cm);
+    let ct=sc,pt=sp,yt=sy;
+    const yoy=(c,y)=>y?+(((c-y)/y)).toFixed(4):"";
+    ex.push(["샵인샵 매출(발주 총합계×150%)", Math.round(sc), Math.round(sp), sp?+(((sc-sp)/sp)).toFixed(4):"", Math.round(sy), yoy(sc,sy)]);
+    EXTRA.forEach(x=>{ const c=+x.cur||0,p=+x.prev||0,y=+x.py||0; ct+=c;pt+=p;yt+=y;
+      ex.push([x.name||"", Math.round(c), Math.round(p), p?+(((c-p)/p)).toFixed(4):"", Math.round(y), yoy(c,y)]); });
+    ex.push(["합계",Math.round(ct),Math.round(pt), pt?+(((ct-pt)/pt)).toFixed(4):"", Math.round(yt), yoy(ct,yt)]);
     const ws2=XLSX.utils.aoa_to_sheet(ex);
-    XLSX.utils.book_append_sheet(wb,ws2,"추가매출");
+    XLSX.utils.book_append_sheet(wb,ws2,"샵인샵매출비교");
   }
   // 특이사항 시트
   if(NOTES.length){
