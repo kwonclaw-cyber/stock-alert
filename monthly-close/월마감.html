@@ -888,6 +888,8 @@ function render(res){
     const por=b.prev.sales?orderRate(b.prev):null, ppr=b.prev.ex?profitRate(b.prev):null;
     const mx=Math.max(b.cur.sales,b.prev.sales,1), cw=b.cur.sales/mx*100, pw=b.prev.sales/mx*100;
     const dir=b.cur.sales>=b.prev.sales?"up":"down";
+    const exmx=Math.max(b.cur.ex,b.prev.ex,1), ecw=b.cur.ex/exmx*100, epw=b.prev.ex/exmx*100;
+    const edir=b.cur.ex>=b.prev.ex?"up":"down";
     const orC=orderRate(b.cur), orP=b.prev.sales?orderRate(b.prev):null;
     const rw=Math.min(orC*250,100), rwP=orP!=null?Math.min(orP*250,100):null;  // 0~40% 스케일
     cards+=`<div class="card bcard"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
@@ -897,11 +899,12 @@ function render(res){
         <div class="tr"><i class="${dir}" style="width:${cw.toFixed(1)}%"></i></div>
         <div class="tr"><i class="prev" style="width:${pw.toFixed(1)}%"></i></div>
         <div class="leg">위: 당월 ${won(b.cur.sales)} · 아래: 전월 ${won(b.prev.sales)}</div></div>
-      <div class="bar2"><div class="lbl"><span>전용발주율</span><span>${pct(orC)} ${deltaPp(orC,orP)}</span></div>
-        <div class="tr"><i class="rate" style="width:${rw.toFixed(1)}%"></i></div>
-        ${rwP!=null?`<div class="tr"><i class="prev" style="width:${rwP.toFixed(1)}%"></i></div><div class="leg">위: 당월 ${pct(orC)} · 아래: 전월 ${pct(orP)}</div>`:`<div class="leg">당월 ${pct(orC)} (전월 데이터 없음)</div>`}</div>
+      <div class="bar2"><div class="lbl"><span>전용물류매출 · 당월 vs 전월</span><span>${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
+        <div class="tr"><i class="${edir}" style="width:${ecw.toFixed(1)}%"></i></div>
+        <div class="tr"><i class="prev" style="width:${epw.toFixed(1)}%"></i></div>
+        <div class="leg">위: 당월 ${won(b.cur.ex)} · 아래: 전월 ${won(b.prev.ex)}</div></div>
       <div class="kgrid">
-        <div class="s"><span class="sl">전용물류매출</span><span class="sv">${won(b.cur.ex)}</span><span class="sd">${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
+        <div class="s"><span class="sl">전용발주율</span><span class="sv">${pct(orC)}</span><span class="sd">${deltaPp(orC,orP)}</span></div>
         <div class="s"><span class="sl">전용이익</span><span class="sv">${won(b.cur.profit)}</span><span class="sd">${deltaPct(b.cur.profit,b.prev.profit)}</span></div>
         <div class="s"><span class="sl">전용이익률</span><span class="sv">${pct(profitRate(b.cur))}</span><span class="sd">${deltaPp(profitRate(b.cur), b.prev.ex?profitRate(b.prev):null)}</span></div>
         <div class="s"><span class="sl">사입매장</span><span class="sv" style="color:var(--sa)">${b.saipCount}개</span><span class="sd"></span></div>
