@@ -97,7 +97,25 @@
   /* 특이사항·강조 카드 */
   .noteform{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
   .noteform .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  textarea.box{width:100%;min-height:64px;resize:vertical;font-family:inherit;font-size:14px;}
+  textarea.box{width:100%;min-height:64px;resize:vertical;font-family:inherit;font-size:14px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;}
+  /* 매장 지표표: 매출 / 전용발주율 / 전용이익률 옆 세로 실선 구분 */
+  table.stbl td:nth-child(2), table.stbl th:nth-child(2),
+  table.stbl td:nth-child(4), table.stbl th:nth-child(4),
+  table.stbl td:nth-child(6), table.stbl th:nth-child(6){ border-right:2px solid #adb5bd; }
+  /* 스케줄 달력 */
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .calgrid .dow{background:#f1f3f5;text-align:center;font-weight:700;font-size:12px;padding:7px 0;color:#555;}
+  .calgrid .day{background:#fff;min-height:96px;padding:5px 6px;cursor:pointer;display:flex;flex-direction:column;gap:3px;}
+  .calgrid .day:hover{background:#f8fbff;}
+  .calgrid .day.empty{background:#fafbfc;cursor:default;}
+  .calgrid .day.today{outline:2px solid var(--accent);outline-offset:-2px;}
+  .calgrid .dnum{font-size:12px;font-weight:700;color:#495057;}
+  .calgrid .day.sun .dnum{color:#e03131;} .calgrid .day.sat .dnum{color:#1971c2;}
+  .ev{font-size:11px;line-height:1.25;color:#fff;border-radius:5px;padding:2px 6px;cursor:pointer;display:flex;justify-content:space-between;gap:4px;}
+  .ev .evx{opacity:.7;font-weight:700;}
+  .pchip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#fff;padding:2px 8px;border-radius:11px;}
+  #calSide .scard{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#fff;}
+  #calSide .scard .nm{font-weight:700;font-size:13px;} #calSide .scard .tx{font-size:12px;color:#555;white-space:pre-wrap;margin-top:3px;}
   .notecards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;}
   .ncard{position:relative;border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:12px;padding:14px 34px 14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
   .ncard.em{border-left-color:#e8590c;background:#fff4e6;}
@@ -151,6 +169,7 @@
     <button class="vtab active" data-v="main">월마감 정산</button>
     <button class="vtab" data-v="buy">매입가 관리</button>
     <button class="vtab" data-v="match">매장 매칭표</button>
+    <button class="vtab" data-v="cal">스케줄 달력</button>
     <button class="vtab" data-v="log">공문 발송 기록</button>
   </div>
 
@@ -195,6 +214,28 @@
       <thead><tr><th class="l">브랜드</th><th class="l">POS코드</th><th class="l">매장명</th><th class="l">물류코드</th><th class="l">물류 매장명</th><th class="l">출처</th><th></th></tr></thead>
       <tbody id="matchBody"></tbody>
     </table></div>
+  </section>
+
+  <section id="calView" style="display:none">
+    <h2>스케줄 달력 <span class="muted" id="calTitle" style="font-weight:400"></span></h2>
+    <div class="opts" style="margin:8px 0 4px">
+      <button class="ghost" id="calPrev">◀ 이전달</button>
+      <button class="ghost" id="calToday">오늘</button>
+      <button class="ghost" id="calNext">다음달 ▶</button>
+      <span id="calLegend" style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center"></span>
+    </div>
+    <div class="note">날짜를 클릭하면 아래 입력칸 날짜가 채워집니다. 담당자·내용(·관련 매장)을 넣고 <b>추가</b>하면 달력에 색상으로 표시됩니다. 일정/담당자는 브라우저에 저장됩니다. 오른쪽에는 <b>특이사항이 입력된 매장</b> 목록이 나오며 "+일정"으로 바로 일정에 넣을 수 있습니다.</div>
+    <div class="opts" id="calForm" style="margin:8px 0;gap:8px">
+      <input class="box" id="calDate" type="date" style="width:160px">
+      <select class="box" id="calPerson" style="width:120px"></select>
+      <input class="box" id="calText" placeholder="일정 내용" style="width:260px">
+      <select class="box" id="calStore" style="width:200px"><option value="">관련 매장(선택)</option></select>
+      <button id="calAdd">추가</button>
+    </div>
+    <div id="calLayout" style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;margin-top:8px">
+      <div id="calGrid"></div>
+      <div id="calSide"></div>
+    </div>
   </section>
 
   <div id="mainView">
@@ -726,7 +767,10 @@ function classify(list){
     const ref=pickRef(b); b.ref=ref||null; b.refRate=ref?orderRate(ref.cur):0; b.saipCount=0;
     b.stores.forEach(s=>{ s.rate=orderRate(s.cur); s.isRef=!!ref&&s.logi===ref.logi;
       s.gap=ref?(b.refRate-s.rate):null;
-      s.saip=!!ref&&!s.isRef&&b.refRate>0&&s.gap>=THRESHOLD; if(s.saip)b.saipCount++; });
+      s.saip=!!ref&&!s.isRef&&b.refRate>0&&s.gap>=THRESHOLD;
+      // 수기 수정모드에서 구분을 사입으로 강제(또는 해제)한 경우 우선 적용
+      if(!s.isRef && s.ov && s.ov.saipOverride!=null) s.saip=!!s.ov.saipOverride;
+      if(s.saip)b.saipCount++; });
   });
 }
 
@@ -979,21 +1023,25 @@ function render(res){
       if(s.isRef)badges+='<span class="badge ref">기준매장</span>'; else if(s.saip)badges+='<span class="badge">사입</span>';
       if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
       if(s.missing)badges+='<span class="badge warnb" title="일부 전용상품 매입가 미보유 → 이익 과대">매입가?</span>';
-      const gubun = s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>'));
-      const memo=(USER_MEMO[s.logi]||"").replace(/"/g,'&quot;');
+      const gubun = EDIT_MODE
+        ? (s.isRef
+            ? '<span class="badge ref">기준</span>'
+            : `<label style="white-space:nowrap;font-size:12px;cursor:pointer"><input type="checkbox" class="saip-chk" data-logi="${s.logi}" ${s.saip?"checked":""}> 사입</label>`)
+        : (s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>')));
+      const memo=(USER_MEMO[s.logi]||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');
       rows+=`<tr class="${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}">
         <td class="l">${s.name}${badges}</td>
         ${amtCell(s,'sales')}${amtCell(s,'ex')}
         ${rcell(o,po)}${amtCell(s,'profit')}${rcell(p,pp)}
         <td class="l">${gubun}</td>
-        <td class="l"><input class="box memo-in" data-logi="${s.logi}" value="${memo}" placeholder="메모" style="width:150px"></td></tr>`;
+        <td class="l"><textarea class="box memo-in" data-logi="${s.logi}" rows="2" placeholder="" style="width:180px;font-size:11px;line-height:1.35;resize:vertical;min-height:0;height:40px;padding:3px 6px">${memo}</textarea></td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
     const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
     const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
     sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
-      <div class="tablewrap storewrap"><table><thead><tr><th class="l">매장명</th>
+      <div class="tablewrap storewrap"><table class="stbl"><thead><tr><th class="l">매장명</th>
         <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th><th class="l">특이사항</th></tr></thead>
         <tbody>${tot}${rows}</tbody></table></div>`;
     root.appendChild(sec);
@@ -1003,6 +1051,14 @@ function render(res){
     const lg=e.target.dataset.logi, v=e.target.value;
     if(v.trim()) USER_MEMO[lg]=v; else delete USER_MEMO[lg];
     saveMemo();
+  }));
+  // 수기 수정모드: 구분 사입 강제/해제 (체크 시 사입, 해제 시 일반으로 고정)
+  root.querySelectorAll(".saip-chk").forEach(el=>el.addEventListener("change",e=>{
+    const lg=e.target.dataset.logi;
+    if(!USER_OV[lg])USER_OV[lg]={};
+    USER_OV[lg].saipOverride=e.target.checked;
+    if(!Object.keys(USER_OV[lg]).length) delete USER_OV[lg];
+    saveOV(); rerun();
   }));
 
   root.querySelectorAll(".ref-sel").forEach(sel=>sel.addEventListener("change",e=>{
@@ -1241,7 +1297,7 @@ function initCollapsibles(){
   document.querySelectorAll("main section > h2").forEach(h2=>{
     if(h2.dataset.collap) return;                 // 이미 처리됨
     const sec=h2.parentElement;
-    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView") return;   // 탭 전용 뷰는 제외
+    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView") return;   // 탭 전용 뷰는 제외
     const key=collapKey(h2); if(!key) return;
     h2.dataset.collap=key; h2.classList.add("collap");
     const ind=document.createElement("span"); ind.className="cind";
@@ -1610,9 +1666,11 @@ function showView(v){
   document.getElementById("mainView").style.display = v==="main"?"":"none";
   document.getElementById("buyView").style.display = v==="buy"?"":"none";
   document.getElementById("matchView").style.display = v==="match"?"":"none";
+  document.getElementById("calView").style.display = v==="cal"?"":"none";
   document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
   if(v==="match") renderMatchTable();
+  if(v==="cal") renderCalendar();
   if(v==="log") renderGongmunLog();
 }
 document.querySelectorAll("#topTabs .vtab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.v)));
@@ -1670,6 +1728,99 @@ document.getElementById("matchAddBtn").addEventListener("click",()=>{
   USER_POSMAP[mate]=logi; saveUserPosmap();
   document.getElementById("matchAddMate").value=""; document.getElementById("matchAddLogi").value="";
   renderMatchTable(); if(LAST)rerun();
+});
+
+// ===== 스케줄 달력 탭 =====
+const PERSONS=["오헌기","권기백","권두진","오승휴","김수환","김창민","고성식","최형구"];
+const PERSON_COLOR={ "오헌기":"#e8590c","권기백":"#1971c2","권두진":"#2f9e44","오승휴":"#f08c00",
+  "김수환":"#ae3ec9","김창민":"#0c8599","고성식":"#d6336c","최형구":"#5f3dc4" };
+const SCHED_KEY="monthlyClose.schedule.v1";
+let SCHED=(()=>{ try{const v=JSON.parse(localStorage.getItem(SCHED_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
+function saveSched(){ localStorage.setItem(SCHED_KEY, JSON.stringify(SCHED)); }
+let CAL_Y, CAL_M;   // 표시 중인 연/월(0-based month)
+function calPad(n){ return (n<10?"0":"")+n; }
+function calMemoStores(){
+  // 특이사항(USER_MEMO)이 입력된 매장 목록 [{logi,name,brand,memo}]
+  const nameOf={}, brandOf={};
+  if(LAST) LAST.list.forEach(b=>b.stores.forEach(s=>{ nameOf[s.logi]=s.name; brandOf[s.logi]=b.brand; }));
+  return Object.keys(USER_MEMO).map(lg=>({logi:lg, name:nameOf[lg]||lg, brand:brandOf[lg]||"", memo:USER_MEMO[lg]}))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),"ko"));
+}
+function renderCalendar(){
+  const grid=document.getElementById("calGrid"); if(!grid)return;
+  const today=new Date();
+  if(CAL_Y==null){ CAL_Y=today.getFullYear(); CAL_M=today.getMonth(); }
+  // 담당자 select / 범례
+  const psel=document.getElementById("calPerson");
+  if(psel && !psel.dataset.filled){ psel.innerHTML=PERSONS.map(p=>`<option value="${p}">${p}</option>`).join(""); psel.dataset.filled="1"; }
+  document.getElementById("calLegend").innerHTML=PERSONS.map(p=>`<span class="pchip" style="background:${PERSON_COLOR[p]}">${p}</span>`).join("");
+  document.getElementById("calTitle").textContent=`· ${CAL_Y}년 ${CAL_M+1}월`;
+  // 관련 매장 select (특이사항 매장 + 전체 매장)
+  const ss=document.getElementById("calStore");
+  if(ss){ const memoS=calMemoStores();
+    const all=[]; if(LAST) LAST.list.forEach(b=>b.stores.forEach(s=>all.push({name:s.name})));
+    ss.innerHTML=`<option value="">관련 매장(선택)</option>`
+      + (memoS.length?`<optgroup label="특이사항 매장">${memoS.map(s=>`<option value="${s.name.replace(/"/g,'')}">${s.name}</option>`).join("")}</optgroup>`:"")
+      + (all.length?`<optgroup label="전체 매장">${all.map(s=>`<option value="${s.name.replace(/"/g,'')}">${s.name}</option>`).join("")}</optgroup>`:"");
+  }
+  // 달력 그리드
+  const first=new Date(CAL_Y,CAL_M,1), startDow=first.getDay();
+  const days=new Date(CAL_Y,CAL_M+1,0).getDate();
+  const dow=["일","월","화","수","목","금","토"];
+  let html=dow.map(d=>`<div class="dow">${d}</div>`).join("");
+  for(let i=0;i<startDow;i++) html+=`<div class="day empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const ymd=`${CAL_Y}-${calPad(CAL_M+1)}-${calPad(d)}`;
+    const wd=new Date(CAL_Y,CAL_M,d).getDay();
+    const isToday=(CAL_Y===today.getFullYear()&&CAL_M===today.getMonth()&&d===today.getDate());
+    const evs=SCHED.filter(e=>e.date===ymd);
+    const evHtml=evs.map(e=>{ const c=PERSON_COLOR[e.person]||"#868e96";
+      const label=`${e.person} · ${esc(e.text)}${e.store?` (${esc(e.store)})`:""}`;
+      return `<div class="ev" style="background:${c}" title="${label}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span class="evx cal-del" data-id="${e.id}">✕</span></div>`;
+    }).join("");
+    html+=`<div class="day${isToday?" today":""}${wd===0?" sun":""}${wd===6?" sat":""}" data-ymd="${ymd}">
+      <span class="dnum">${d}</span>${evHtml}</div>`;
+  }
+  grid.className="calgrid"; grid.innerHTML=html;
+  grid.querySelectorAll(".day[data-ymd]").forEach(el=>el.addEventListener("click",e=>{
+    if(e.target.classList.contains("cal-del"))return;
+    document.getElementById("calDate").value=el.dataset.ymd;
+  }));
+  grid.querySelectorAll(".cal-del").forEach(x=>x.addEventListener("click",e=>{
+    e.stopPropagation(); const id=e.target.dataset.id;
+    SCHED=SCHED.filter(s=>s.id!==id); saveSched(); renderCalendar();
+  }));
+  // 오른쪽: 특이사항 매장 목록
+  const side=document.getElementById("calSide");
+  const memoS=calMemoStores();
+  side.innerHTML=`<h3 style="margin-top:0">특이사항 매장 <span class="muted" style="font-weight:400">· ${memoS.length}곳</span></h3>`
+    + (memoS.length? memoS.map(s=>`<div class="scard"><div class="nm">${esc(s.name)} ${s.brand?`<span class="muted" style="font-weight:400;font-size:11px">${esc(s.brand)}</span>`:""}</div>
+        <div class="tx">${esc(s.memo)}</div>
+        <div style="margin-top:6px"><button class="ghost cal-fromstore" data-name="${esc(s.name).replace(/"/g,'')}" data-memo="${esc(s.memo).replace(/"/g,'')}" style="padding:3px 10px;font-size:12px">+ 일정</button></div></div>`).join("")
+       : `<div class="muted">특이사항이 입력된 매장이 없습니다. (월마감 정산의 매장별 "특이사항" 칸에 입력하면 여기 표시됩니다)</div>`);
+  side.querySelectorAll(".cal-fromstore").forEach(b=>b.addEventListener("click",e=>{
+    document.getElementById("calStore").value=e.target.dataset.name;
+    document.getElementById("calText").value=e.target.dataset.memo||"";
+    if(!document.getElementById("calDate").value){ const t=new Date(); document.getElementById("calDate").value=`${t.getFullYear()}-${calPad(t.getMonth()+1)}-${calPad(t.getDate())}`; }
+    document.getElementById("calText").focus();
+  }));
+}
+document.getElementById("calPrev").addEventListener("click",()=>{ CAL_M--; if(CAL_M<0){CAL_M=11;CAL_Y--;} renderCalendar(); });
+document.getElementById("calNext").addEventListener("click",()=>{ CAL_M++; if(CAL_M>11){CAL_M=0;CAL_Y++;} renderCalendar(); });
+document.getElementById("calToday").addEventListener("click",()=>{ const t=new Date(); CAL_Y=t.getFullYear(); CAL_M=t.getMonth(); renderCalendar(); });
+document.getElementById("calAdd").addEventListener("click",()=>{
+  const date=document.getElementById("calDate").value;
+  const person=document.getElementById("calPerson").value;
+  const text=document.getElementById("calText").value.trim();
+  const store=document.getElementById("calStore").value;
+  if(!date){ alert("날짜를 선택하세요(달력의 날짜를 클릭하면 채워집니다)."); return; }
+  if(!text){ alert("일정 내용을 입력하세요."); return; }
+  SCHED.push({id:String(Date.now())+Math.random().toString(36).slice(2,6), date, person, text, store});
+  saveSched();
+  document.getElementById("calText").value=""; document.getElementById("calStore").value="";
+  // 추가한 날짜의 달로 이동
+  const [y,m]=date.split("-").map(Number); CAL_Y=y; CAL_M=m-1;
+  renderCalendar();
 });
 document.getElementById("logClear").addEventListener("click",()=>{ if(confirm("공문 발송 기록을 모두 삭제할까요?")){ GONGMUN_LOG={}; saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); } });
 document.getElementById("logExport").addEventListener("click",()=>{ const b=new Blob([JSON.stringify(GONGMUN_LOG,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="공문발송기록.json"; a.click(); });
