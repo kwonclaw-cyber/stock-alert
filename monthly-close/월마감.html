@@ -1789,6 +1789,11 @@ const PERSON_COLOR={ "오헌기":"#e8590c","권기백":"#1971c2","권두진":"#2
 const SCHED_KEY="monthlyClose.schedule.v1";
 let SCHED=(()=>{ try{const v=JSON.parse(localStorage.getItem(SCHED_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
 function saveSched(){ localStorage.setItem(SCHED_KEY, JSON.stringify(SCHED)); }
+// 브랜드 제외 매장명 (예: "육식사관학교_본점" → "본점")
+function shortStoreName(name){ let s=String(name||""); TARGET_BRANDS.forEach(b=>{ s=s.split(b).join(""); }); s=s.replace(/^[_\s]+/,"").trim(); return s||String(name||""); }
+// 브랜드 색: 육식사관학교=진한녹색, 밥구정로데오=연노랑
+const BRAND_COLOR={ "육식사관학교":{bg:"#e6f4ea",bd:"#1b5e20",fg:"#1b5e20"}, "밥구정로데오":{bg:"#fffbe6",bd:"#f0c000",fg:"#8a6d00"} };
+function brandColor(b){ return BRAND_COLOR[b]||{bg:"#f1f3f5",bd:"#adb5bd",fg:"#495057"}; }
 let CAL_Y, CAL_M;   // 표시 중인 연/월(0-based month)
 function calPad(n){ return (n<10?"0":"")+n; }
 function calMemoStores(){
@@ -1810,10 +1815,12 @@ function renderCalendar(){
   // 관련 매장 select (특이사항 매장 + 전체 매장)
   const ss=document.getElementById("calStore");
   if(ss){ const memoS=calMemoStores();
-    const all=[]; if(LAST) LAST.list.forEach(b=>b.stores.forEach(s=>all.push({name:s.name})));
+    const opt=nm=>{ const sn=shortStoreName(nm).replace(/"/g,''); return `<option value="${sn}">${sn}</option>`; };
+    let allHtml="";
+    if(LAST) LAST.list.forEach(b=>{ allHtml+=`<optgroup label="${b.brand}">${b.stores.map(s=>opt(s.name)).join("")}</optgroup>`; });
     ss.innerHTML=`<option value="">관련 매장(선택)</option>`
-      + (memoS.length?`<optgroup label="특이사항 매장">${memoS.map(s=>`<option value="${s.name.replace(/"/g,'')}">${s.name}</option>`).join("")}</optgroup>`:"")
-      + (all.length?`<optgroup label="전체 매장">${all.map(s=>`<option value="${s.name.replace(/"/g,'')}">${s.name}</option>`).join("")}</optgroup>`:"");
+      + (memoS.length?`<optgroup label="특이사항 매장">${memoS.map(s=>opt(s.name)).join("")}</optgroup>`:"")
+      + allHtml;
   }
   // 달력 그리드
   const first=new Date(CAL_Y,CAL_M,1), startDow=first.getDay();
@@ -1846,9 +1853,10 @@ function renderCalendar(){
   const side=document.getElementById("calSide");
   const memoS=calMemoStores();
   side.innerHTML=`<h3 style="margin-top:0">특이사항 매장 <span class="muted" style="font-weight:400">· ${memoS.length}곳</span></h3>`
-    + (memoS.length? memoS.map(s=>`<div class="scard"><div class="nm">${esc(s.name)} ${s.brand?`<span class="muted" style="font-weight:400;font-size:11px">${esc(s.brand)}</span>`:""}</div>
+    + (memoS.length? memoS.map(s=>{ const sn=shortStoreName(s.name); const bc=brandColor(s.brand);
+        return `<div class="scard" style="border-left-color:${bc.bd};background:${bc.bg}"><div class="nm">${esc(sn)} ${s.brand?`<span class="pchip" style="background:${bc.bd};font-size:10px;padding:1px 7px">${esc(s.brand)}</span>`:""}</div>
         <div class="tx">${esc(s.memo)}</div>
-        <div style="margin-top:6px"><button class="ghost cal-fromstore" data-name="${esc(s.name).replace(/"/g,'')}" data-memo="${esc(s.memo).replace(/"/g,'')}" style="padding:3px 10px;font-size:12px">+ 일정</button></div></div>`).join("")
+        <div style="margin-top:6px"><button class="ghost cal-fromstore" data-name="${esc(sn).replace(/"/g,'')}" data-memo="${esc(s.memo).replace(/"/g,'')}" style="padding:3px 10px;font-size:12px">+ 일정</button></div></div>`; }).join("")
        : `<div class="muted">특이사항이 입력된 매장이 없습니다. (월마감 정산의 매장별 "특이사항" 칸에 입력하면 여기 표시됩니다)</div>`);
   side.querySelectorAll(".cal-fromstore").forEach(b=>b.addEventListener("click",e=>{
     document.getElementById("calStore").value=e.target.dataset.name;
