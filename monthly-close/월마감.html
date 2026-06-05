@@ -77,6 +77,14 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   main{max-width:1240px;margin:0 auto;padding:20px 24px 80px;}
   section{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:20px;}
   h2{font-size:16px;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  /* 섹션 접기/펼치기 */
+  h2.collap{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
+  h2.collap .cind{flex:0 0 auto;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid var(--line);border-radius:5px;color:#868e96;font-size:11px;font-weight:800;background:#f8f9fa;}
+  h2.collap:hover .cind{border-color:var(--accent);color:var(--accent);}
+  h2.collap .muted{margin-left:auto;}
+  section.collapsed{padding-bottom:12px;}
+  section.collapsed > h2{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+  section.collapsed > :not(h2){display:none !important;}
   h3{font-size:15px;margin:24px 0 8px;padding:8px 12px;background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 6px 6px 0;}
   .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
   .drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfc;}
@@ -113,6 +121,7 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
   .kc{position:relative;border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:12px;padding:14px 16px;background:#fbfdff;}
   .kc.ok{border-left-color:#2b8a3e;background:#f4fdf6;} .kc.bad{border-left-color:var(--up);background:#fff6f6;} .kc.warn{border-left-color:#f59f00;background:#fffaf0;}
   .kc.kc-green{border-left-color:#1b5e20;background:#e6f4ea;} .kc.kc-sky{border-left-color:#4dabf7;background:#e7f5ff;}
+  .kc.kc-yellow{border-left-color:#f0c000;background:#fffbe6;}
   .kc .kt{font-weight:800;font-size:14px;} .kc .kgoal{font-size:12px;color:#666;margin-top:2px;}
   .kc .kv{font-size:23px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums;}
   .kc .ksub{font-size:12px;color:#555;margin-top:2px;}
@@ -1002,6 +1011,7 @@ function render(res){
   // 발주 품목 비교 (표준매장 대비)
   renderCompare(res, root);
   renderGongmun(res, root);
+  initCollapsibles();
 }
 
 // ===== 발주 품목 비교 (표준매장 대비) =====
@@ -1148,22 +1158,28 @@ function renderKPI(){
     else { const mom=s.mom; const st=mom==null?"-":(mom>=0.05?"달성":(mom>=0?"근접":"하락"));
       const stc=mom==null?"warn":(mom>=0.05?"ok":(mom>=0?"warn":"bad"));
       cards+=kpiCard("육식사관학교","점당매출 전월대비 +5%↑",stc,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)} (목표 +5%)`,"kc-green"); } }
-  // 2) 밥구정로데오: 점당매출 현상태 유지
+  // 2) 밥구정로데오: 점당매출 현상태 유지 (연노랑 테마)
   { const s=brandStat("밥구정로데오");
-    if(!s){ cards+=kpiCard("밥구정로데오","점당매출 현상태 유지","warn","계산 필요","—","정산 계산 후 표시"); }
+    if(!s){ cards+=kpiCard("밥구정로데오","점당매출 현상태 유지","warn","계산 필요","—","정산 계산 후 표시","kc-yellow"); }
     else { const mom=s.mom; const cls=mom==null?"warn":(mom>=-0.005?"ok":(mom>=-0.03?"warn":"bad"));
       const st=mom==null?"-":(mom>=-0.005?"유지":(mom>=-0.03?"주의":"하락"));
-      cards+=kpiCard("밥구정로데오","점당매출 현상태 유지(0%↑)",cls,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)}`); } }
-  // 3) 제주할멍고기국수: 점당매출 1,200만원 (수기 입력)
+      cards+=kpiCard("밥구정로데오","점당매출 현상태 유지(0%↑)",cls,st,`${won(s.avg)}원`,`전월대비 ${mom==null?"-":pillPct(s.avg,s.pavg)}`,"kc-yellow"); } }
+  // 3) 제주할멍고기국수: 점당매출 1,200만원 (입력칸은 카드 아래로 분리, 카드는 다른 브랜드와 동일 형식)
   { const target=12000000, cur=JEJU_PS;
     const cls=cur<=0?"warn":(cur>=target?"ok":(cur>=target*0.9?"warn":"bad"));
-    const st=cur<=0?"입력":(cur>=target?"달성":(cur>=target*0.9?"근접":"미달"));
+    const st=cur<=0?"입력 필요":(cur>=target?"달성":(cur>=target*0.9?"근접":"미달"));
     cards+=kpiCard("제주할멍고기국수","점당매출 1,200만원",cls,st,
-      `<input class="box" id="jejuPS" type="number" value="${cur||""}" placeholder="점당매출 입력" style="width:150px;text-align:right;font-size:18px;font-weight:800"> 원`,
+      cur>0?`${won(cur)}원`:"—",
       `목표 12,000,000원 대비 ${cur>0?pillPct(cur,target):"입력 필요"}`,"kc-sky"); }
-  el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>`;
+  el.innerHTML=`<h2>KPI 관리${mlabel}</h2><div class="kpi">${cards}</div>
+    <div class="kpi-jeju" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;border-top:1px dashed var(--line);padding-top:12px">
+      <span class="muted">제주할멍고기국수 점당매출 직접 입력:</span>
+      <input class="box" id="jejuPS" type="number" value="${JEJU_PS||""}" placeholder="점당매출 입력" style="width:170px;text-align:right;font-weight:700"><span>원</span>
+      <span class="muted">입력하면 위 카드에 반영됩니다.</span>
+    </div>`;
   const j=document.getElementById("jejuPS");
   if(j) j.addEventListener("change",e=>{ JEJU_PS=toNum(e.target.value); localStorage.setItem(JEJU_KEY,String(JEJU_PS)); renderKPI(); });
+  initCollapsibles();
 }
 
 // ===== 특이사항 · 강조 메모 카드 =====
@@ -1189,6 +1205,32 @@ document.getElementById("addNote").addEventListener("click",()=>{
   renderNotes();
 });
 renderNotes();
+
+// ===== 섹션 접기/펼치기 =====
+const COLLAP_KEY="monthlyClose.collapsed.v1";
+let COLLAPSED=(()=>{try{return JSON.parse(localStorage.getItem(COLLAP_KEY)||"{}");}catch(e){return {};}})();
+function collapKey(h2){
+  let t="";
+  h2.childNodes.forEach(n=>{
+    if(n.nodeType===3) t+=n.textContent;
+    else if(n.nodeType===1 && !n.classList.contains("muted") && !n.classList.contains("cind")) t+=n.textContent;
+  });
+  return (t||h2.textContent||"").replace(/\s+/g," ").trim().replace(/^[0-9]+\.\s*/,"");
+}
+function initCollapsibles(){
+  document.querySelectorAll("main section > h2").forEach(h2=>{
+    if(h2.dataset.collap) return;                 // 이미 처리됨
+    const sec=h2.parentElement;
+    if(sec.id==="logView"||sec.id==="buyView") return;   // 탭 전용 뷰는 제외
+    const key=collapKey(h2); if(!key) return;
+    h2.dataset.collap=key; h2.classList.add("collap");
+    const ind=document.createElement("span"); ind.className="cind";
+    h2.insertBefore(ind, h2.firstChild);
+    const apply=()=>{ const c=!!COLLAPSED[key]; sec.classList.toggle("collapsed",c); ind.textContent=c?"▸":"▾"; ind.title=c?"펼치기":"접기"; };
+    apply();
+    h2.addEventListener("click",()=>{ COLLAPSED[key]=!COLLAPSED[key]; localStorage.setItem(COLLAP_KEY,JSON.stringify(COLLAPSED)); apply(); });
+  });
+}
 
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
@@ -1380,6 +1422,7 @@ function renderExtra(){
 document.getElementById("addExtra").addEventListener("click",()=>{ EXTRA.push({name:"",cur:0,prev:0}); saveExtra(); renderExtra(); });
 renderExtra();
 renderKPI();
+initCollapsibles();
 
 // ===== 내보내기 =====
 function exportXlsx(){
