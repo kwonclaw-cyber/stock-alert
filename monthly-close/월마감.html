@@ -937,6 +937,7 @@ function render(res){
 
   // 발주 품목 비교 (표준매장 대비)
   renderCompare(res, root);
+  renderGongmun(res, root);
 }
 
 // ===== 발주 품목 비교 (표준매장 대비) =====
@@ -987,6 +988,123 @@ function renderCompareResult(res, logi){
   box.innerHTML=`<div class="msg warn">표준매장 <b>${ref.name}</b> 대비 누락·과소발주 <b>${flagged.length}개 품목</b> · 매출대비 기준 예상 추가발주 규모 <b>${won(totalGap)}원</b> (사입 의심)</div>
     <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
     <tbody>${tr}</tbody></table></div>${flagged.length>30?`<div class="note">상위 30개만 표시 (총 ${flagged.length}개)</div>`:""}`;
+}
+
+// ===== 사입 경고 공문 생성 =====
+const GONGMUN_BRAND={
+  "육식사관학교":{co:"에스이", hq:"육식사관학교 사업본부", url:"http://yuksik.co.kr/", addr:"(우)06301 서울 강남구 논현로30길 25, 성장빌딩 2층", foot:"06301 서울 강남구 논현로 30길 25, 성장빌딩 2층"},
+  "밥구정로데오":{co:"㈜산들그린", hq:"밥구정로데오 사업본부", url:"https://bapgujung.co.kr/", addr:"(우)06301 서울 강남구 논현로30길 25, 성장빌딩 2층", foot:"06301 서울 강남구 논현로 30길 25, 성장빌딩 2층"},
+};
+function gongmunItems(brand, level){
+  const L=level;
+  if(brand==="육식사관학교"){
+    return [
+      "귀 점은 ‘갑’이 공식 지정한 필수품목을 본사의 사전 승인 없이 사입행위 중인 것이 확인되었습니다.",
+      `따라서 가맹계약 제 26조 5항을 위반한 것으로 확인하여, 가맹계약 제 26조 6항에 의거 ${L===1?'경고 조치':'2차 경고 및 벌금 부과 조치'} 사항을 전달드립니다.`,
+      `가맹계약 제 26조(물품 및 상품의 조달과 관리) 6항에 의거하여 ${L===1?'1회 경고조치, 2회 벌금 일금일백만원정(1,000,000원), 3회 위반 시 가맹계약 해지':'2회 벌금 일금일백만원정(1,000,000원)을 부과하며, 3회 위반 시 가맹계약 해지'} 적용대상이 될 수 있음을 ${L}차 고지합니다.`,
+      `가맹계약 특약사항 2항에 의거하여 배민원 클릭광고 사용금액의 50% 매월 지원 지급 중단 및 제44조 2항에 따라 위약벌을 청구 할 수 있음을 ${L}차 고지합니다.`,
+      "육식사관학교 점주님께서는 본사가 지정한 물품을 성실히 사용해 주시기를 당부드립니다. 끝.",
+    ];
+  }
+  // 밥구정로데오
+  return [
+    "귀 점은 ‘갑’이 공식 지정한 필수품목을 본사의 사전 승인 없이 사입행위 중인 것이 확인되었습니다.",
+    `따라서 가맹계약 제 26조 5항을 위반한 것으로 확인하여, 가맹계약 제 26조 6항에 의거 ${L===1?'1회 경고조치':'2차 경고 및 벌금 부과 조치'} 사항을 전달 드립니다.`,
+    `가맹계약 제 26조(물품 및 상품의 조달과 관리) 6항에 의거하여 ${L===1?'2회 벌금 일금일백만원정(1,000,000원), 3회 위반 시 가맹계약 해지':'2회 벌금 일금일백만원정(1,000,000원)을 부과하며, 3회 위반 시 가맹계약 해지'} 적용대상이 될 수 있음을 ${L}차 고지합니다.`,
+    "밥구정로데오 점주님께서는 본사가 지정한 물품을 성실히 사용해 주시기를 당부 드립니다. 끝.",
+  ];
+}
+function fmtDate(v){ const d=v?new Date(v):new Date(); return `${d.getFullYear()}. ${String(d.getMonth()+1).padStart(2,"0")}. ${String(d.getDate()).padStart(2,"0")}`; }
+function genGongmunHTML(brand, storeName, level, dateVal){
+  const b=GONGMUN_BRAND[brand]; if(!b) return "";
+  const recv=storeName.replace(/_/g," ")+" 점주님";
+  const items=gongmunItems(brand, level).map((t,i)=>`<div class="it"><span class="no">${i+1})</span><span>${esc(t)}</span></div>`).join("");
+  const dateStr=fmtDate(dateVal);
+  const letter=`<div id="letter">
+    <div class="co">${esc(b.co)}</div>
+    <div class="ttl">안 내 문</div>
+    <div class="addr">${esc(b.addr)} ${esc(b.url)}</div>
+    <hr class="top">
+    <table class="meta"><tr><td>수 신 :</td><td>${esc(recv)}</td></tr>
+      <tr><td>발 신 :</td><td>${esc(b.hq)}</td></tr>
+      <tr><td>참 조 :</td><td>매장 근무자</td></tr>
+      <tr><td>제 목 :</td><td>사입행위 적발에 따른 확인 요청(${level}차)</td></tr></table>
+    <div class="date">${dateStr}</div>
+    <div class="p">1. 귀점의 무궁한 발전을 기원합니다.</div>
+    <div class="p">2. 당사는 귀하가 당사와 체결한 가맹계약 내용을 준수할 의무를 다하지 않았으며, 체결한 가맹계약 내용을 위반하여 가맹사업거래의 공정화에 관한 법률(이하 ‘가맹사업법’이라 한다)에 따라 귀하에게 위반 내용을 알리고 시정할 것을 요구합니다.</div>
+    <div class="below">아&nbsp;&nbsp;&nbsp;래</div>
+    <div class="p b">1. 가맹계약서 상 귀점의 위반사항은 다음과 같습니다.</div>
+    <div class="p i">※ 가맹계약 제 26조(물품 및 상품의 조달과 관리)</div>
+    <div class="p b">2. 위반사항에 따른 시정 조치사항은 다음과 같습니다.</div>
+    ${items}
+    <div class="sign">${esc(b.co)}</div>
+    <hr class="bot">
+    <div class="foot">${esc(b.foot)} ${esc(b.url)}</div>
+  </div>`;
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>사입경고공문_${esc(storeName)}_${level}차</title>
+  <style>
+    body{font-family:"맑은 고딕","Malgun Gothic",sans-serif;margin:0;background:#e9ecef;color:#111;}
+    .bar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ccc;padding:10px 16px;display:flex;gap:8px;}
+    .bar button{font-size:14px;font-weight:700;border:1px solid #1971c2;background:#1971c2;color:#fff;padding:8px 16px;border-radius:7px;cursor:pointer;}
+    .bar button.g{background:#fff;color:#1971c2;}
+    .bar .note{align-self:center;color:#888;font-size:12px;margin-left:8px;}
+    #letter{background:#fff;width:21cm;min-height:29.7cm;margin:18px auto;padding:2.2cm 2.2cm;box-shadow:0 2px 12px rgba(0,0,0,.15);box-sizing:border-box;font-size:15px;line-height:1.9;}
+    #letter .co{text-align:center;font-weight:800;font-size:17px;}
+    #letter .ttl{text-align:center;font-size:30px;font-weight:800;letter-spacing:14px;margin:6px 0 4px;}
+    #letter .addr{text-align:center;font-size:11.5px;color:#333;}
+    hr.top{border:none;border-top:2px solid #111;margin:10px 0 18px;}
+    hr.bot{border:none;border-top:2px solid #111;margin:24px 0 8px;}
+    .meta{border-collapse:collapse;margin:6px 0;} .meta td{padding:2px 8px 2px 0;vertical-align:top;} .meta td:first-child{white-space:nowrap;font-weight:700;}
+    .date{text-align:right;margin:6px 0 14px;}
+    .p{margin:6px 0;} .p.b{font-weight:700;margin-top:14px;} .p.i{padding-left:16px;color:#222;}
+    .below{text-align:center;letter-spacing:6px;font-weight:700;margin:18px 0;border-top:1px dashed #999;border-bottom:1px dashed #999;padding:6px 0;}
+    .it{display:flex;gap:8px;margin:7px 0;padding-left:6px;} .it .no{white-space:nowrap;}
+    .sign{text-align:center;font-weight:800;font-size:17px;margin:30px 0 6px;}
+    .foot{text-align:center;font-size:11.5px;color:#333;}
+    @media print{ .bar{display:none;} body{background:#fff;} #letter{box-shadow:none;margin:0;width:auto;} }
+  </style></head><body>
+  <div class="bar">
+    <button onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+    <button class="g" onclick="saveDoc()">📄 Word(.doc) 저장</button>
+    <span class="note">필요 시 직인·로고는 인쇄물/Word에서 추가하세요.</span>
+  </div>
+  ${letter}
+  <script>
+    function saveDoc(){
+      var h="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>";
+      var c=document.getElementById('letter').outerHTML;
+      var blob=new Blob(['\\ufeff'+h+c+"</body></html>"],{type:'application/msword'});
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="사입경고공문_${esc(storeName)}_${level}차.doc"; a.click();
+    }
+  <\/script></body></html>`;
+}
+function openGongmun(brand, storeName, level){
+  const html=genGongmunHTML(brand, storeName, level);
+  const w=window.open("","_blank"); if(!w){ alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+function renderGongmun(res, root){
+  const saip=[]; res.list.forEach(b=>b.stores.forEach(s=>{ if(s.saip)saip.push({brand:b.brand, name:s.name, logi:s.logi}); }));
+  const sec=document.createElement("section");
+  if(!saip.length){ sec.innerHTML=`<h2>사입 경고 공문</h2><div class="msg ok">사입으로 분류된 매장이 없습니다.</div>`; root.appendChild(sec); return; }
+  saip.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  const today=new Date().toISOString().slice(0,10);
+  const rows=saip.map((s,i)=>`<tr>
+    <td class="l">${esc(s.brand)}</td><td class="l">${esc(s.name)}</td>
+    <td class="l"><button class="ghost gm-btn" data-i="${i}" data-lv="1" style="padding:5px 12px">1차 공문</button>
+      <button class="ghost gm-btn" data-i="${i}" data-lv="2" style="padding:5px 12px;margin-left:4px">2차 공문</button></td></tr>`).join("");
+  sec.innerHTML=`<h2>사입 경고 공문 <span class="muted" style="font-weight:400">· 사입매장 ${saip.length}개</span></h2>
+    <div class="note">사입으로 분류된 매장에 브랜드별 양식으로 사입행위 경고 공문을 생성합니다. 버튼을 누르면 새 창에 공문이 열리고, <b>인쇄(PDF) 또는 Word(.doc) 저장</b>할 수 있습니다.</div>
+    <div class="opts" style="margin:8px 0"><label>발송일: <input type="date" class="box" id="gmDate" value="${today}"></label></div>
+    <div class="tablewrap"><table><thead><tr><th class="l">브랜드</th><th class="l">매장</th><th class="l">공문 생성</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  root.appendChild(sec);
+  sec.querySelectorAll(".gm-btn").forEach(btn=>btn.addEventListener("click",e=>{
+    const s=saip[+e.target.dataset.i], lv=+e.target.dataset.lv;
+    const dv=document.getElementById("gmDate").value;
+    const html=genGongmunHTML(s.brand, s.name, lv, dv);
+    const w=window.open("","_blank"); if(!w){ alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요."); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }));
 }
 
 // ===== KPI 관리 =====
