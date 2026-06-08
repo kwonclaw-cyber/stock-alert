@@ -14,6 +14,8 @@
   4) 매장 끝나면 'next' → 새 브라우저 세션으로 다음 매장
   5) 전부 끝나면 'quit'
 
+로그인 시 새 탭으로 넘어가도 자동으로 "지금 보이는 탭"을 찾아 캡처한다.
+
 사용법:
     pip install playwright
     playwright install chromium
@@ -31,7 +33,7 @@ from playwright.sync_api import sync_playwright
 
 # 플랫폼별 로그인 시작 URL
 PLATFORM_URLS = {
-    "baemin": "https://ceo.baemin.com/",
+    "baemin": "https://self.baemin.com/",
     "coupang": "https://store.coupangeats.com/",
 }
 
@@ -63,8 +65,11 @@ def ask(prompt: str) -> str:
         sys.exit(0)
 
 
-def attach_network_logger(page, store_dir: Path):
-    """JSON 응답을 store_dir/network/ 에 저장 (정확한 수치 파싱용)."""
+def attach_network_logger(ctx, store_dir: Path):
+    """JSON 응답을 store_dir/network/ 에 저장 (정확한 수치 파싱용).
+
+    컨텍스트 단위로 붙여서 새 탭(팝업)에서 온 응답도 모두 잡는다.
+    """
     netdir = store_dir / "network"
     counter = {"n": 0}
 
@@ -93,7 +98,25 @@ def attach_network_logger(page, store_dir: Path):
             # 네트워크 로깅 실패는 조용히 무시 (본 캡처에 영향 없도록)
             pass
 
-    page.on("response", on_response)
+    ctx.on("response", on_response)
+
+
+def get_active_page(ctx):
+    """현재 열려 있는 탭 중 '지금 보고 있는' 탭을 고른다.
+
+    로그인 과정에서 새 탭이 열리거나 원래 탭이 닫혀도 알아서 살아있는 탭을 찾는다.
+    """
+    open_pages = [p for p in ctx.pages if not p.is_closed()]
+    if not open_pages:
+        return None
+    # 포커스(보이는) 탭 우선, 최신 탭부터 검사
+    for pg in reversed(open_pages):
+        try:
+            if pg.evaluate("() => document.hasFocus && document.hasFocus()"):
+                return pg
+        except Exception:
+            continue
+    return open_pages[-1]
 
 
 def save_capture(page, store_dir: Path, label: str, manifest: list):
@@ -102,6 +125,11 @@ def save_capture(page, store_dir: Path, label: str, manifest: list):
     base = f"{slug(label)}__{ts}"
     html_path = store_dir / f"{base}.html"
     png_path = store_dir / f"{base}.png"
+
+    try:
+        page.bring_to_front()
+    except Exception:
+        pass
 
     try:
         html = page.content()
@@ -113,17 +141,22 @@ def save_capture(page, store_dir: Path, label: str, manifest: list):
     try:
         page.screenshot(path=str(png_path), full_page=True)
     except Exception as e:
-        print(f"    ! 스크린샷 저장 실패(전체) → 보이는 영역만 시도: {e}")
+        print(f"    ! 스크린샷(전체) 실패 → 보이는 영역만 시도: {e}")
         try:
             page.screenshot(path=str(png_path))
         except Exception as e2:
             print(f"    ! 스크린샷 저장 완전 실패: {e2}")
             png_path = None
 
+    try:
+        title = page.title()
+    except Exception:
+        title = ""
+
     entry = {
         "label": label,
         "url": page.url,
-        "title": (page.title() if page else ""),
+        "title": title,
         "html": html_path.name if html_path else None,
         "screenshot": png_path.name if png_path else None,
         "captured_at": datetime.now().isoformat(),
@@ -132,7 +165,10 @@ def save_capture(page, store_dir: Path, label: str, manifest: list):
     (store_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(f"    ✓ 저장됨: {label}  ({page.url})")
+    if html_path or png_path:
+        print(f"    ✓ 저장됨: {label}  ({page.url})")
+    else:
+        print(f"    ! 저장 실패: {label} (아무것도 저장 못함)")
 
 
 def pick_label() -> str:
@@ -150,7 +186,7 @@ def capture_one_store(browser, run_dir: Path):
     brand = ask("\n브랜드명 (예: 브랜드A): ")
     store = ask("매장명 (예: 강남점): ")
     print("\n플랫폼 선택:")
-    print("  1) 배민 사장님광장")
+    print("  1) 배민 사장님 (self.baemin.com)")
     print("  2) 쿠팡이츠 스토어")
     print("  3) 직접 URL 입력")
     sel = ask("플랫폼> ")
@@ -170,28 +206,48 @@ def capture_one_store(browser, run_dir: Path):
         accept_downloads=True,
         viewport={"width": 1440, "height": 900},
     )
+    attach_network_logger(ctx, store_dir)
     page = ctx.new_page()
-    attach_network_logger(page, store_dir)
-    page.goto(start_url)
+    try:
+        page.goto(start_url)
+    except Exception as e:
+        print(f"  (시작 URL 이동 중 경고, 계속 진행): {e}")
 
     manifest = []
     print(f"\n=== [{brand} / {store}] ({platform}) ===")
-    print("브라우저에서 직접 로그인하세요 (2FA 포함).")
+    print("브라우저에서 직접 로그인하세요 (2FA 포함). 새 탭으로 넘어가도 괜찮습니다.")
     print("캡처할 페이지로 이동한 뒤 아래 명령을 사용합니다:")
-    print("  Enter / c : 현재 화면 캡처")
+    print("  Enter / c : 현재(보이는) 화면 캡처")
     print("  next      : 이 매장 끝, 다음 매장으로")
     print("  quit      : 전체 종료")
 
     while True:
         cmd = ask("\n[명령] Enter=캡처 / next / quit > ").lower()
         if cmd in ("quit", "q"):
-            ctx.close()
+            try:
+                ctx.close()
+            except Exception:
+                pass
+            print(f"  → {store} 캡처 {len(manifest)}건 저장 완료: {store_dir}")
             return False  # 더 진행 안 함
         if cmd in ("next", "n"):
-            ctx.close()
+            try:
+                ctx.close()
+            except Exception:
+                pass
             print(f"  → {store} 캡처 {len(manifest)}건 저장 완료: {store_dir}")
             return True  # 다음 매장
-        # 캡처
+
+        # 캡처: 지금 보이는 탭을 찾아서
+        page = get_active_page(ctx)
+        if page is None:
+            print("  ! 열린 탭이 없습니다. 새 탭을 엽니다. 다시 로그인/이동 후 캡처하세요.")
+            page = ctx.new_page()
+            try:
+                page.goto(start_url)
+            except Exception:
+                pass
+            continue
         label = pick_label()
         save_capture(page, store_dir, label, manifest)
 
