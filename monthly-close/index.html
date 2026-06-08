@@ -1190,7 +1190,7 @@ function renderCompareResult(res, logi){
     <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td>
     <td class="l"><button class="ghost cmp-merge-btn" data-cores='${esc(JSON.stringify(r.cores))}' style="padding:3px 10px;font-size:12px">합치기</button></td></tr>`).join("");
   box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b>(매출 ${won(ref.cur.sales)}) 대비 — 전용발주 <b>${rows.length}개 품목</b> (정상 ${cnt["정상"]||0} · 사입의심 ${cnt["사입의심"]||0} · 미발주 ${cnt["미발주"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 미발주+사입의심 사입예상금액 <b>${won(totalGap)}원</b>`:" · 사입의심 없음"}</div>
-    <div class="opts" style="margin:0 0 8px"><label>정상 기준: 이 매장 발주율이 표준 발주율의 <input class="box" id="cmpTh" type="number" min="1" max="100" value="${CMP_TH}" style="width:64px;text-align:right"> % 이상 → <b style="color:#2b8a3e">정상</b>, 미만 → <b style="color:#f59f00">사입의심</b></label>
+    <div class="opts" style="margin:0 0 8px"><label>정상 기준: 이 매장 발주율이 표준 발주율의 <input class="box" id="cmpTh" type="number" min="1" max="100" value="${CMP_TH}" style="width:64px;text-align:right"> % 이상 → <b style="color:#2b8a3e">정상</b>, 미만 → <b style="color:#f59f00">사입의심</b> <span class="muted">(표준 대비 −${(100-CMP_TH).toFixed(0)}%까지 정상)</span></label>
       <span class="muted">같은 품목인데 따로 잡힌 경우: 한쪽 <b>합치기</b> → 다른 한쪽 <b>합치기</b> (영구 저장).</span>
       <button class="ghost" id="cmpMergeReset" style="padding:4px 11px;font-size:12px;margin-left:auto">합친 품목 초기화${ITEM_SYN.length?` (${ITEM_SYN.length})`:""}</button></div>
     <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>사입예상금액</th><th class="l">상태</th><th class="l">합치기</th></tr></thead>
