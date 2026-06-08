@@ -1116,12 +1116,18 @@ function renderCompare(res, root){
   opts.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
   const emptyNote = opts.length?"" : '<div class="msg ok" style="margin-top:8px">사입으로 분류된 매장이 없습니다.</div>';
   sec.innerHTML=`<h2>발주 품목 비교 <span class="muted" style="font-weight:400">· 사입매장 → 표준매장(기준매장) 대비</span></h2>
-    <div class="note">사입으로 분류된 매장만 선택할 수 있습니다. 선택한 매장의 <b>전용상품 발주 전체</b>를 같은 브랜드 <b>표준매장(기준매장)</b>과 비교합니다. 동일 품목이 코드가 달라도 <b>품목명 기준으로 합산·매칭</b>합니다. 각 품목의 상태(미발주·과소발주·정상·표준외)를 표시합니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
+    <div class="note">사입으로 분류된 매장만 선택할 수 있습니다. 선택한 매장의 <b>전용상품 발주 전체</b>를 같은 브랜드 <b>표준매장(기준매장)</b>과 비교합니다(<b>표준매장 매출 대비</b> 발주율로 보정). 동일 품목은 <b>코드+품목명</b>으로 매칭하고, 핵심 품명이 같거나 포함되면 자동으로 합칩니다. 비슷하지만 자동으로 안 합쳐진 품목은 <b>체크 후 "선택 품목 합치기"</b>로 같은 품목으로 묶을 수 있습니다(영구 저장). 각 품목의 상태(미발주·과소발주·정상·표준외)를 표시합니다.</div>
     <div class="opts" style="margin-top:8px"><label>사입매장 선택: <select class="box" id="cmpStore"><option value="">사입매장 선택 (${opts.length}개)</option>${opts.map(o=>`<option value="${o.logi}">${o.name}</option>`).join("")}</select></label></div>
     ${emptyNote}<div id="cmpResult" style="margin-top:10px"></div>`;
   root.appendChild(sec);
   document.getElementById("cmpStore").addEventListener("change",e=>renderCompareResult(res,e.target.value));
 }
+// 품목명 핵심 추출 ([C]/괄호/단위/영문/숫자 제거 → 한글 핵심만)
+function itemCore(name){ return String(name||"").replace(/\[[^\]]*\]/g,"").replace(/\([^)]*\)/g,"").replace(/BOX/gi,"").replace(/[^가-힣]/g,""); }
+// 사용자가 수동으로 "같은 품목"으로 합친 그룹들(핵심품명 배열의 배열), localStorage 영구 저장
+const ITEMSYN_KEY="monthlyClose.itemSyn.v1";
+let ITEM_SYN=(()=>{ try{const v=JSON.parse(localStorage.getItem(ITEMSYN_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
+function saveItemSyn(){ localStorage.setItem(ITEMSYN_KEY, JSON.stringify(ITEM_SYN)); }
 function renderCompareResult(res, logi){
   const box=document.getElementById("cmpResult"); if(!box)return;
   if(!logi){ box.innerHTML=""; return; }
@@ -1132,23 +1138,36 @@ function renderCompareResult(res, logi){
   const ref=brand.ref;
   const refItems=(CUR_STORES[ref.logi]||{}).items||{}, stItems=(CUR_STORES[logi]||{}).items||{};
   const refSales=ref.cur.sales||1, stSales=store.cur.sales||1;
-  // 코드+품목명 매칭: 같은 품목명이면 코드가 달라도 하나로 합산 (품목명 없으면 코드로)
-  const byName={};
-  function key(pc){ const nm=(PNAME[pc]||"").trim(); return nm||String(pc); }
-  function add(items, fld){ for(const pc in items){ const k=key(pc);
-    if(!byName[k])byName[k]={name:k, codes:new Set(), refAmt:0, stAmt:0};
-    byName[k].codes.add(pc); byName[k][fld]+=items[pc].total; } }
-  add(refItems,"refAmt"); add(stItems,"stAmt");
-  const rows=[];
-  for(const k in byName){ const it=byName[k];
-    const refR=it.refAmt/refSales, stR=it.stAmt/stSales, expGap=(refR-stR)*stSales;
-    let status;
-    if(it.refAmt<=0 && it.stAmt>0) status="표준외";              // 표준은 발주 안 하는데 이 매장은 발주
-    else if(it.stAmt<=0) status="미발주";                        // 표준은 발주하는데 이 매장은 0 (사입 의심)
-    else if(stR<refR*0.5) status="과소발주";                     // 표준 대비 매출대비율 절반 미만
-    else status="정상";
-    rows.push({name:it.name, codes:[...it.codes], refAmt:it.refAmt, stAmt:it.stAmt, refR, stR, expGap, status});
+  // 1) 코드 단위 품목 수집 (코드+품목명)
+  const items={};
+  function collect(src, fld){ for(const pc in src){ if(!items[pc]) items[pc]={code:pc, name:PNAME[pc]||pc, core:itemCore(PNAME[pc]||pc)||String(pc), refAmt:0, stAmt:0}; items[pc][fld]+=src[pc].total; } }
+  collect(refItems,"refAmt"); collect(stItems,"stAmt");
+  const codes=Object.keys(items);
+  // 2) 클러스터링(union-find): 동일코어 / 코어 포함(짧은쪽 4자↑) / 수동 동의어
+  const parent={}; codes.forEach(c=>parent[c]=c);
+  const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
+  const uni=(a,b)=>{ a=find(a); b=find(b); if(a!==b)parent[a]=b; };
+  const byCore={}; codes.forEach(c=>{ const k=items[c].core; if(k){ (byCore[k]=byCore[k]||[]).push(c); } });
+  Object.values(byCore).forEach(arr=>{ for(let i=1;i<arr.length;i++)uni(arr[0],arr[i]); });   // 동일 코어
+  const coreList=Object.keys(byCore);
+  for(let i=0;i<coreList.length;i++)for(let j=i+1;j<coreList.length;j++){      // 코어 포함관계
+    const a=coreList[i], b=coreList[j]; if(a===b)continue;
+    if(a.indexOf(b)>=0||b.indexOf(a)>=0){ const short=a.length<b.length?a:b; if(short.length>=4) uni(byCore[a][0],byCore[b][0]); }
   }
+  ITEM_SYN.forEach(grp=>{                                                       // 수동 동의어 그룹
+    const reps=grp.map(core=>byCore[core]&&byCore[core][0]).filter(Boolean);
+    for(let i=1;i<reps.length;i++)uni(reps[0],reps[i]);
+  });
+  // 3) 클러스터 집계
+  const cl={};
+  codes.forEach(c=>{ const r=find(c); if(!cl[r])cl[r]={refAmt:0,stAmt:0,names:[],codes:[],cores:{}};
+    cl[r].refAmt+=items[c].refAmt; cl[r].stAmt+=items[c].stAmt; cl[r].names.push(items[c].name); cl[r].codes.push(c); if(items[c].core)cl[r].cores[items[c].core]=1; });
+  const rows=Object.values(cl).map(g=>{
+    g.names.sort((a,b)=>b.length-a.length);
+    const refR=g.refAmt/refSales, stR=g.stAmt/stSales, expGap=(refR-stR)*stSales;
+    let status; if(g.refAmt<=0&&g.stAmt>0)status="표준외"; else if(g.stAmt<=0)status="미발주"; else if(stR<refR*0.5)status="과소발주"; else status="정상";
+    return {name:g.names[0], names:g.names, codes:g.codes, cores:Object.keys(g.cores), refAmt:g.refAmt, stAmt:g.stAmt, refR, stR, expGap, status};
+  });
   const rank=s=>({"미발주":3,"과소발주":2,"정상":1,"표준외":0})[s]||0;
   rows.sort((a,b)=>(rank(b.status)-rank(a.status))||(b.expGap-a.expGap)||(b.stAmt-a.stAmt));
   if(!rows.length){ box.innerHTML='<div class="msg warn">표준매장·이 매장의 전용 발주 데이터가 없습니다.</div>'; return; }
@@ -1156,16 +1175,32 @@ function renderCompareResult(res, logi){
   const totalGap=flagged.reduce((s,r)=>s+Math.max(r.expGap,0),0);
   const cnt={}; rows.forEach(r=>cnt[r.status]=(cnt[r.status]||0)+1);
   const SC={"미발주":"#fa5252","과소발주":"#f59f00","정상":"#2b8a3e","표준외":"#868e96"};
-  const codeNote=r=>r.codes.length>1?` <span class="sub">(코드 ${r.codes.length}개 합산)</span>`:"";
+  const memberNote=r=>{ let h=""; if(r.codes.length>1)h+=` <span class="sub">(코드 ${r.codes.length}개 합산)</span>`;
+    if(r.names.length>1)h+=`<div class="sub" style="white-space:normal">${r.names.slice(1).map(esc).join(" · ")}</div>`; return h; };
   const tr=rows.map(r=>`<tr class="${r.status==='미발주'?'saip-row':''}">
-    <td class="l">${esc(r.name)}${codeNote(r)}</td>
+    <td class="l"><input type="checkbox" class="cmp-chk" data-cores='${esc(JSON.stringify(r.cores))}'></td>
+    <td class="l">${esc(r.name)}${memberNote(r)}</td>
     <td class="num">${won(r.refAmt)}<br><span class="sub">${pct(r.refR)}</span></td>
     <td class="num">${won(r.stAmt)}<br><span class="sub">${pct(r.stR)}</span></td>
     <td class="num">${r.expGap>0?won(r.expGap):"-"}</td>
     <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td></tr>`).join("");
-  box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b> 대비 — 전용발주 <b>${rows.length}개 품목</b> (미발주 ${cnt["미발주"]||0} · 과소 ${cnt["과소발주"]||0} · 정상 ${cnt["정상"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 누락/과소 예상 추가발주 <b>${won(totalGap)}원</b> (사입 의심)`:" · 누락·과소 없음"}</div>
-    <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
+  box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b>(매출 ${won(ref.cur.sales)}) 대비 — 전용발주 <b>${rows.length}개 품목</b> (미발주 ${cnt["미발주"]||0} · 과소 ${cnt["과소발주"]||0} · 정상 ${cnt["정상"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 누락/과소 예상 추가발주 <b>${won(totalGap)}원</b> (사입 의심)`:" · 누락·과소 없음"}</div>
+    <div class="btnrow" style="margin:0 0 8px"><button id="cmpMerge" style="padding:5px 12px">✓ 선택 품목 합치기</button>
+      <button class="ghost" id="cmpMergeReset" style="padding:5px 12px">합친 품목 초기화${ITEM_SYN.length?` (${ITEM_SYN.length})`:""}</button>
+      <span class="muted">비슷한 품목을 체크하고 "합치기"를 누르면 같은 품목으로 묶입니다(영구 저장).</span></div>
+    <div class="tablewrap"><table><thead><tr><th class="l">합치기</th><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
     <tbody>${tr}</tbody></table></div>`;
+  const mb=document.getElementById("cmpMerge");
+  if(mb) mb.addEventListener("click",()=>{
+    const sel=[...box.querySelectorAll(".cmp-chk:checked")].map(c=>{ try{return JSON.parse(c.dataset.cores);}catch(e){return [];} });
+    const union=[]; sel.forEach(arr=>arr.forEach(c=>{ if(c&&union.indexOf(c)<0)union.push(c); }));
+    if(union.length<2){ alert("합칠 품목을 2개 이상 선택하세요. (핵심품명이 없는 품목은 합치기 대상이 아닙니다)"); return; }
+    let merged=union.slice();
+    ITEM_SYN=ITEM_SYN.filter(g=>{ if(g.some(c=>merged.indexOf(c)>=0)){ g.forEach(c=>{ if(merged.indexOf(c)<0)merged.push(c); }); return false; } return true; });
+    ITEM_SYN.push(merged); saveItemSyn(); renderCompareResult(res, logi);
+  });
+  const rb=document.getElementById("cmpMergeReset");
+  if(rb) rb.addEventListener("click",()=>{ if(!ITEM_SYN.length){ alert("수동으로 합친 품목이 없습니다."); return; } if(confirm("수동으로 합친 품목 그룹을 모두 초기화할까요?")){ ITEM_SYN=[]; saveItemSyn(); renderCompareResult(res, logi); } });
 }
 
 // ===== 사입 경고 공문 생성 + 발송 기록 =====
