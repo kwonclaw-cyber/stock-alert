@@ -16,6 +16,7 @@ SRCS = [
     "vendor/xlsx.full.min.js",
     "vendor/pptxgen.bundle.js",
     "vendor/jszip.min.js",
+    "vendor/html2canvas.min.js",
     "data/buyprice.js",
     "data/storematch.js",
     "data/gongmun.js",
