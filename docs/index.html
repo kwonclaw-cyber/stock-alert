@@ -1180,6 +1180,7 @@ function itemCore(name){ return String(name||"").replace(/\[[^\]]*\]/g,"").repla
 const ITEMSYN_KEY="monthlyClose.itemSyn.v1";
 let ITEM_SYN=(()=>{ try{const v=JSON.parse(localStorage.getItem(ITEMSYN_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
 function saveItemSyn(){ localStorage.setItem(ITEMSYN_KEY, JSON.stringify(ITEM_SYN)); }
+let CMP_PICK=null;   // 발주 품목 비교 "합치기" 1차 선택 상태
 function renderCompareResult(res, logi){
   const box=document.getElementById("cmpResult"); if(!box)return;
   if(!logi){ box.innerHTML=""; return; }
@@ -1200,13 +1201,8 @@ function renderCompareResult(res, logi){
   const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
   const uni=(a,b)=>{ a=find(a); b=find(b); if(a!==b)parent[a]=b; };
   const byCore={}; codes.forEach(c=>{ const k=items[c].core; if(k){ (byCore[k]=byCore[k]||[]).push(c); } });
-  Object.values(byCore).forEach(arr=>{ for(let i=1;i<arr.length;i++)uni(arr[0],arr[i]); });   // 동일 코어
-  const coreList=Object.keys(byCore);
-  for(let i=0;i<coreList.length;i++)for(let j=i+1;j<coreList.length;j++){      // 코어 포함관계
-    const a=coreList[i], b=coreList[j]; if(a===b)continue;
-    if(a.indexOf(b)>=0||b.indexOf(a)>=0){ const short=a.length<b.length?a:b; if(short.length>=4) uni(byCore[a][0],byCore[b][0]); }
-  }
-  ITEM_SYN.forEach(grp=>{                                                       // 수동 동의어 그룹
+  Object.values(byCore).forEach(arr=>{ for(let i=1;i<arr.length;i++)uni(arr[0],arr[i]); });   // 동일 품목명(코어)만 자동 합산
+  ITEM_SYN.forEach(grp=>{                                                       // 수동으로 합친 품목 그룹
     const reps=grp.map(core=>byCore[core]&&byCore[core][0]).filter(Boolean);
     for(let i=1;i<reps.length;i++)uni(reps[0],reps[i]);
   });
@@ -1229,28 +1225,36 @@ function renderCompareResult(res, logi){
   const SC={"미발주":"#fa5252","과소발주":"#f59f00","정상":"#2b8a3e","표준외":"#868e96"};
   const memberNote=r=>{ let h=""; if(r.codes.length>1)h+=` <span class="sub">(코드 ${r.codes.length}개 합산)</span>`;
     if(r.names.length>1)h+=`<div class="sub" style="white-space:normal">${r.names.slice(1).map(esc).join(" · ")}</div>`; return h; };
-  const tr=rows.map(r=>`<tr class="${r.status==='미발주'?'saip-row':''}">
-    <td class="l"><input type="checkbox" class="cmp-chk" data-cores='${esc(JSON.stringify(r.cores))}'></td>
+  const tr=rows.map((r,i)=>`<tr class="${r.status==='미발주'?'saip-row':''}">
     <td class="l">${esc(r.name)}${memberNote(r)}</td>
     <td class="num">${won(r.refAmt)}<br><span class="sub">${pct(r.refR)}</span></td>
     <td class="num">${won(r.stAmt)}<br><span class="sub">${pct(r.stR)}</span></td>
     <td class="num">${r.expGap>0?won(r.expGap):"-"}</td>
-    <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td></tr>`).join("");
+    <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td>
+    <td class="l"><button class="ghost cmp-merge-btn" data-cores='${esc(JSON.stringify(r.cores))}' style="padding:3px 10px;font-size:12px">합치기</button></td></tr>`).join("");
   box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b>(매출 ${won(ref.cur.sales)}) 대비 — 전용발주 <b>${rows.length}개 품목</b> (미발주 ${cnt["미발주"]||0} · 과소 ${cnt["과소발주"]||0} · 정상 ${cnt["정상"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 누락/과소 예상 추가발주 <b>${won(totalGap)}원</b> (사입 의심)`:" · 누락·과소 없음"}</div>
-    <div class="btnrow" style="margin:0 0 8px"><button id="cmpMerge" style="padding:5px 12px">✓ 선택 품목 합치기</button>
-      <button class="ghost" id="cmpMergeReset" style="padding:5px 12px">합친 품목 초기화${ITEM_SYN.length?` (${ITEM_SYN.length})`:""}</button>
-      <span class="muted">비슷한 품목을 체크하고 "합치기"를 누르면 같은 품목으로 묶입니다(영구 저장).</span></div>
-    <div class="tablewrap"><table><thead><tr><th class="l">합치기</th><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
+    <div class="btnrow" style="margin:0 0 8px"><span class="muted">같은 품목인데 따로 잡힌 경우: 한쪽 <b>합치기</b> → 다른 한쪽 <b>합치기</b> 를 누르면 둘이 합쳐집니다(영구 저장).</span>
+      <button class="ghost" id="cmpMergeReset" style="padding:4px 11px;font-size:12px;margin-left:auto">합친 품목 초기화${ITEM_SYN.length?` (${ITEM_SYN.length})`:""}</button></div>
+    <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th><th class="l">합치기</th></tr></thead>
     <tbody>${tr}</tbody></table></div>`;
-  const mb=document.getElementById("cmpMerge");
-  if(mb) mb.addEventListener("click",()=>{
-    const sel=[...box.querySelectorAll(".cmp-chk:checked")].map(c=>{ try{return JSON.parse(c.dataset.cores);}catch(e){return [];} });
-    const union=[]; sel.forEach(arr=>arr.forEach(c=>{ if(c&&union.indexOf(c)<0)union.push(c); }));
-    if(union.length<2){ alert("합칠 품목을 2개 이상 선택하세요. (핵심품명이 없는 품목은 합치기 대상이 아닙니다)"); return; }
-    let merged=union.slice();
+  CMP_PICK=null;
+  box.querySelectorAll(".cmp-merge-btn").forEach(btn=>btn.addEventListener("click",()=>{
+    let cores; try{ cores=JSON.parse(btn.dataset.cores); }catch(e){ cores=[]; }
+    if(!cores.length){ alert("이 품목은 핵심품명이 없어 합치기 대상이 아닙니다."); return; }
+    if(!CMP_PICK){   // 1차 선택(armed)
+      CMP_PICK={cores, btn};
+      box.querySelectorAll(".cmp-merge-btn").forEach(b=>{ b.textContent = b===btn ? "✓ 선택됨(취소)" : "여기에 합치기"; });
+      btn.style.background="#fff3bf"; return;
+    }
+    if(CMP_PICK.btn===btn){   // 같은 버튼 재클릭 → 취소
+      CMP_PICK=null; box.querySelectorAll(".cmp-merge-btn").forEach(b=>{ b.textContent="합치기"; b.style.background=""; }); return;
+    }
+    // 2차 선택 → 합치기
+    let merged=[]; [CMP_PICK.cores, cores].forEach(arr=>arr.forEach(c=>{ if(c&&merged.indexOf(c)<0)merged.push(c); }));
     ITEM_SYN=ITEM_SYN.filter(g=>{ if(g.some(c=>merged.indexOf(c)>=0)){ g.forEach(c=>{ if(merged.indexOf(c)<0)merged.push(c); }); return false; } return true; });
-    ITEM_SYN.push(merged); saveItemSyn(); renderCompareResult(res, logi);
-  });
+    if(merged.length>=2){ ITEM_SYN.push(merged); saveItemSyn(); }
+    CMP_PICK=null; renderCompareResult(res, logi);
+  }));
   const rb=document.getElementById("cmpMergeReset");
   if(rb) rb.addEventListener("click",()=>{ if(!ITEM_SYN.length){ alert("수동으로 합친 품목이 없습니다."); return; } if(confirm("수동으로 합친 품목 그룹을 모두 초기화할까요?")){ ITEM_SYN=[]; saveItemSyn(); renderCompareResult(res, logi); } });
 }
