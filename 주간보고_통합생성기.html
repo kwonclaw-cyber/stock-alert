@@ -388,18 +388,22 @@ textarea:focus{border-color:#4B7BE8;}
 
     <!-- 파일 업로드 -->
     <div class="up-sect">
-      <div class="up-sect-tit">📂 파일 올리기 — 각 존에 여러 파일 동시 드래그 가능</div>
+      <div class="up-sect-tit">📂 파일 올리기</div>
       <div class="row2">
+        <!-- 전주: localStorage에서 자동 로드 -->
         <div>
-          <div class="file-zone" id="dz1" ondragover="dzDrag(event,'dz1')" ondragleave="dzLeave('dz1')" ondrop="dzDrop(event,'dz1',1)" onclick="document.getElementById('fi1').click()">
-            <div class="dz-week">① 전주 파일</div>
-            <div class="dz-icon">📁</div>
-            <div class="dz-tit">클릭 또는 드래그</div>
-            <div class="dz-sub">시간대별·경로별·매장별 모두 OK</div>
+          <div class="file-zone" id="dz1" style="cursor:default;" onclick="void(0)">
+            <div class="dz-week">① 전주 (자동 로드)</div>
+            <div class="dz-icon" id="dz1Icon">💾</div>
+            <div class="dz-tit" id="dz1Tit">저장된 이전 주 데이터</div>
+            <div class="dz-sub" id="dz1Sub">금주 분석 완료 시 자동 저장됩니다</div>
             <div class="file-list" id="fl1"></div>
+            <div style="margin-top:6px;display:flex;gap:5px;justify-content:center;">
+              <button onclick="clearSavedWeek()" style="font-size:9px;padding:2px 8px;border:1px solid #fca5a5;background:#fff1f1;color:#dc2626;border-radius:4px;cursor:pointer;">🗑 초기화</button>
+            </div>
           </div>
-          <input type="file" id="fi1" accept=".xlsx,.xls,.csv" multiple onchange="addFiles(1,this.files)">
         </div>
+        <!-- 금주: 파일 업로드 -->
         <div>
           <div class="file-zone" id="dz2" ondragover="dzDrag(event,'dz2')" ondragleave="dzLeave('dz2')" ondrop="dzDrop(event,'dz2',2)" onclick="document.getElementById('fi2').click()">
             <div class="dz-week">② 금주 파일</div>
@@ -576,6 +580,71 @@ let parsed={1:null,2:null};  // 분석 결과 캐시
 let curTab=0,activeBrand='전체',charts={};
 let analyzing=false;
 
+// ─── localStorage 키 ───
+const LS_KEY='babgujung_prev_week';
+
+// 이전 주 데이터를 localStorage에 저장 (store/time/channel만 보존, File 객체는 불가)
+function saveCurrentAsprev(data, label){
+  try{
+    const payload={
+      store:data.store, time:data.time, channel:data.channel, logs:data.logs,
+      savedLabel:label, savedAt:new Date().toLocaleDateString('ko-KR')
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+  }catch(e){console.warn('저장 실패',e);}
+}
+
+function loadPrevWeek(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+
+function clearSavedWeek(){
+  localStorage.removeItem(LS_KEY);
+  parsed[1]=null;
+  refreshPrevZone();
+  updateViewBtn();
+}
+
+function refreshPrevZone(){
+  const prev=loadPrevWeek();
+  const icon=document.getElementById('dz1Icon');
+  const tit=document.getElementById('dz1Tit');
+  const sub=document.getElementById('dz1Sub');
+  const fl=document.getElementById('fl1');
+  const dz=document.getElementById('dz1');
+  if(prev){
+    const storeCnt=Object.keys(prev.store||{}).length;
+    const hasTm=Object.keys(prev.time||{}).length>0;
+    const hasCh=Object.keys(prev.channel||{}).length>0;
+    icon.textContent='✅';
+    tit.textContent=prev.savedLabel||'저장된 전주 데이터';
+    sub.textContent=`저장일: ${prev.savedAt} · 매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`;
+    dz.className='file-zone done';
+    fl.innerHTML=`<div class="fitem" style="justify-content:center;"><span style="font-size:10px;color:#15803d;">✔ 로드 완료 · 매장 ${storeCnt}개</span></div>`;
+    parsed[1]=prev;
+  } else {
+    icon.textContent='💾';
+    tit.textContent='저장된 전주 데이터 없음';
+    sub.textContent='금주 분석 완료 후 자동 저장됩니다';
+    dz.className='file-zone';
+    fl.innerHTML='';
+    parsed[1]=null;
+  }
+}
+
+function updateViewBtn(){
+  const btn=document.getElementById('viewBtn');
+  if(parsed[1]&&parsed[2]){
+    btn.className='view-btn ready';btn.textContent='📊 보고서 보기 →';
+  } else {
+    btn.className='view-btn disabled';
+    btn.textContent=parsed[1]?'금주 파일을 업로드해주세요':'전주 데이터 없음 · 금주 파일을 먼저 분석해 저장하세요';
+  }
+}
+
 // ─── 드래그앤드롭 ───
 function dzDrag(e,id){e.preventDefault();e.stopPropagation();document.getElementById(id).classList.add('drag');}
 function dzLeave(id){document.getElementById(id).classList.remove('drag');}
@@ -598,6 +667,9 @@ function renderFL(n){
     return`<div class="fitem"><span class="ftag ${cls}">${tag}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span></div>`;
   }).join('');
 }
+
+// 페이지 로드 시 전주 데이터 복원
+window.addEventListener('DOMContentLoaded',()=>{ refreshPrevZone(); updateViewBtn(); });
 
 // ─── 파싱 유틸 ───
 function toNum(v){if(v===''||v==null)return 0;const n=parseFloat(String(v).replace(/[,\s]/g,''));return(isNaN(n)||n<0)?0:n;}
@@ -756,8 +828,8 @@ async function processWeek(files,sf){
 // ─── 자동 분석 ───
 let analyzeTimer=null;
 function triggerAnalyze(){
-  if(fileStore[1].length===0&&fileStore[2].length===0)return;
-  // 양쪽 모두 파일이 있을 때 또는 일정 시간 후 분석
+  if(fileStore[2].length===0)return;
+  // 금주 파일이 있으면 분석 실행
   clearTimeout(analyzeTimer);
   analyzeTimer=setTimeout(runAnalyze,300);
 }
@@ -765,11 +837,11 @@ function triggerAnalyze(){
 async function runAnalyze(){
   if(analyzing)return;
   analyzing=true;
-  parsed={1:null,2:null};
+  // 전주는 localStorage에서 유지 (parsed[1] 건드리지 않음)
+  parsed[2]=null;
 
   const bar=document.getElementById('analyzeBar');
   const badge=document.getElementById('abBadge');
-  const rows=document.getElementById('abRows');
   const btn=document.getElementById('viewBtn');
 
   bar.style.display='block';
@@ -777,37 +849,56 @@ async function runAnalyze(){
   btn.className='view-btn disabled';btn.textContent='분석 중...';
 
   const sf=document.getElementById('salesCol').value;
-  const errs=[];
 
-  for(const n of [1,2]){
-    const label=n===1?'전주':'금주';
-    if(fileStore[n].length===0){
-      setAbRow(n,`⚠ 파일 없음`,'',label);
-      continue;
-    }
-    try{
-      setAbRow(n,'⏳ 읽는 중...','',label);
-      const r=await processWeek(fileStore[n],sf);
-      parsed[n]=r;
-      const storeCnt=Object.keys(r.store).length;
-      const hasTm=Object.keys(r.time).length>0;
-      const hasCh=Object.keys(r.channel).length>0;
-      const summary=`매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`;
-      setAbRow(n,`✅ ${summary}`,r.logs.join(' | '),label);
-    }catch(e){
-      setAbRow(n,`❌ ${e.message}`,'',label);
-      errs.push(label+': '+e.message);
-    }
+  // 전주: localStorage 표시
+  if(parsed[1]){
+    const storeCnt=Object.keys(parsed[1].store||{}).length;
+    setAbRow(1,`✅ 저장된 데이터 (매장 ${storeCnt}개)`,'',
+      (parsed[1].savedLabel||'전주'));
+  } else {
+    setAbRow(1,'⚠ 저장된 전주 데이터 없음','금주 분석 후 자동 저장됩니다','전주');
+  }
+
+  // 금주: 파일 파싱
+  if(fileStore[2].length===0){
+    setAbRow(2,'⚠ 파일 없음','',document.getElementById('w2Label').value||'금주');
+    analyzing=false;
+    badge.className='ab-badge err';badge.textContent='금주 파일을 올려주세요';
+    updateViewBtn();
+    return;
+  }
+  try{
+    setAbRow(2,'⏳ 읽는 중...','',document.getElementById('w2Label').value||'금주');
+    const r=await processWeek(fileStore[2],sf);
+    parsed[2]=r;
+    const storeCnt=Object.keys(r.store).length;
+    const hasTm=Object.keys(r.time).length>0;
+    const hasCh=Object.keys(r.channel).length>0;
+    const summary=`매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`;
+    setAbRow(2,`✅ ${summary}`,r.logs.join(' | '),document.getElementById('w2Label').value||'금주');
+
+    // 금주 데이터를 전주로 저장 (다음 주에 사용)
+    const saveLabel=document.getElementById('w2Label').value||'금주';
+    saveCurrentAsprev(r, saveLabel);
+  }catch(e){
+    setAbRow(2,`❌ ${e.message}`,'',document.getElementById('w2Label').value||'금주');
+    analyzing=false;
+    badge.className='ab-badge err';badge.textContent='오류';
+    updateViewBtn();
+    return;
   }
 
   analyzing=false;
 
   if(parsed[1]&&parsed[2]){
-    badge.className='ab-badge done';badge.textContent='분석 완료 ✓';
+    badge.className='ab-badge done';badge.textContent='분석 완료 ✓ (금주 데이터 저장됨)';
     btn.className='view-btn ready';btn.textContent='📊 보고서 보기 →';
+  } else if(!parsed[1]&&parsed[2]){
+    badge.className='ab-badge done';badge.textContent='금주 저장 완료 ✓ — 전주 데이터 필요';
+    btn.className='view-btn disabled';btn.textContent='전주 데이터 없음 (다음 주에 사용 가능)';
   } else {
     badge.className='ab-badge err';badge.textContent='오류';
-    btn.className='view-btn disabled';btn.textContent='파일을 확인해주세요';
+    updateViewBtn();
   }
 }
 
@@ -838,7 +929,7 @@ function resolveStore(code,rawName){
 let _dashData=null;
 function showDashboard(){
   if(!parsed[1]||!parsed[2])return;
-  const w1L=document.getElementById('w1Label').value||'전주';
+  const w1L=document.getElementById('w1Label').value||(parsed[1].savedLabel||'전주');
   const w2L=document.getElementById('w2Label').value||'금주';
   _dashData={r1:parsed[1],r2:parsed[2],w1L,w2L};
   renderDashboard(_dashData);
@@ -1040,11 +1131,13 @@ function showTab(n){curTab=n;document.querySelectorAll('.tab').forEach((t,i)=>t.
 function resetToUpload(){
   document.getElementById('dashScreen').style.display='none';
   document.getElementById('uploadScreen').style.display='flex';
-  fileStore[1]=[];fileStore[2]=[];parsed={1:null,2:null};
-  ['fl1','fl2'].forEach(id=>document.getElementById(id).innerHTML='');
-  ['fi1','fi2'].forEach(id=>document.getElementById(id).value='');
+  fileStore[2]=[];parsed[2]=null;
+  document.getElementById('fl2').innerHTML='';
+  document.getElementById('fi2').value='';
   document.getElementById('analyzeBar').style.display='none';
-  const btn=document.getElementById('viewBtn');btn.className='view-btn disabled';btn.textContent='분석 완료 후 활성화됩니다';
+  // 전주는 localStorage 유지하면서 UI 갱신
+  refreshPrevZone();
+  updateViewBtn();
 }
 function closeOv(){document.getElementById('ov').classList.remove('on');}
 async function saveImg(){
