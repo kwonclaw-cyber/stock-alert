@@ -1446,7 +1446,12 @@ function initCollapsibles(){
 
 // ===== 실행 =====
 function setMsg(h){ document.getElementById("messages").innerHTML=h; }
-function rerun(){ if(!LOGI_AGG)return; const res=compute(); LAST=res; showWarnings(res); render(res); renderKPI();
+function rerun(){ if(!LOGI_AGG)return;
+  let res; try{ res=compute(); }catch(e){ setMsg('<div class="msg err">계산 오류: '+esc(e.message)+'<br><span style="font-size:11px">'+esc((e.stack||"").split("\n")[1]||"")+'</span></div>'); console.error(e); return; }
+  LAST=res;
+  try{ showWarnings(res); }catch(e){ console.error("showWarnings",e); }
+  try{ render(res); }catch(e){ const r=document.getElementById("results"); if(r)r.innerHTML='<section><div class="msg err">결과 표시 오류: '+esc(e.message)+'<br><span style="font-size:11px">'+esc((e.stack||"").split("\n")[1]||"")+'</span></div></section>'; console.error(e); }
+  try{ renderKPI(); }catch(e){ console.error("renderKPI",e); }
   document.getElementById("exportBtn").disabled=false; document.getElementById("saveCloseBtn").disabled=false;
   document.getElementById("pptBtn").disabled=false; updateSavedMsg(); }
 // ===== 월별 마감 저장 (전월 자동사용) =====
