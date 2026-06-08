@@ -510,11 +510,29 @@ textarea:focus{border-color:#4B7BE8;}
   <div class="tab-bar">
     <div class="tab on" onclick="zg_showTab(0)">📊 매출분석</div>
     <div class="tab" onclick="zg_showTab(1)">📋 분석보고용</div>
+    <button class="edit-btn" onclick="zg_saveImg()" style="background:#4B7BE8;color:#fff;border-left:none;gap:4px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      이미지 저장
+    </button>
     <button class="edit-btn" onclick="zg_editMode()">✏ 수정</button>
   </div>
+  <!-- 이미지 저장 오버레이 -->
+  <div class="ov" id="zg_ov">
+    <div class="ov-box">
+      <div class="ov-hd">
+        <div><div class="ov-title">📷 이미지 저장</div><div class="ov-hint">이미지를 꾹 누르거나 우클릭 → 저장</div></div>
+        <div class="ov-btns">
+          <a class="ov-dl" id="zg_dlBtn" download="제로고기찜_주간보고.png">⬇ 다운로드</a>
+          <button class="ov-close" onclick="document.getElementById('zg_ov').classList.remove('on')">✕</button>
+        </div>
+      </div>
+      <div class="ov-body" id="zg_ovBody"><div class="ov-spin"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+  <div id="zg_mainWrap">
   <div class="page on" id="zg_p0"><div id="zg_b0"></div></div>
   <div class="page" id="zg_p1"><div id="zg_b1"></div></div>
-</div>
+  </div>
 
 </div><!-- /tool-zg -->
 
@@ -556,15 +574,35 @@ textarea:focus{border-color:#4B7BE8;}
   <div class="tab-bar">
     <div class="tab on" onclick="si_showTab(0)">📊 매출분석</div>
     <div class="tab" onclick="si_showTab(1)">📋 분석보고용</div>
+    <button class="edit-btn" onclick="si_saveImg()" style="background:#4B7BE8;color:#fff;border-left:none;gap:4px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      이미지 저장
+    </button>
     <button class="edit-btn" onclick="si_editMode()">✏ 수정</button>
   </div>
+  <!-- 이미지 저장 오버레이 -->
+  <div class="ov" id="si_ov">
+    <div class="ov-box">
+      <div class="ov-hd">
+        <div><div class="ov-title">📷 이미지 저장</div><div class="ov-hint">이미지를 꾹 누르거나 우클릭 → 저장</div></div>
+        <div class="ov-btns">
+          <a class="ov-dl" id="si_dlBtn" download="샵인샵_주간보고.png">⬇ 다운로드</a>
+          <button class="ov-close" onclick="document.getElementById('si_ov').classList.remove('on')">✕</button>
+        </div>
+      </div>
+      <div class="ov-body" id="si_ovBody"><div class="ov-spin"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+  <div id="si_mainWrap">
   <div class="page on" id="si_p0"><div id="si_b0"></div></div>
   <div class="page" id="si_p1"><div id="si_b1"></div></div>
+  </div>
 </div>
 
 </div><!-- /tool-si -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 /* ── 툴 선택 ── */
 function selectTool(n){
@@ -1197,6 +1235,20 @@ function zg_editMode(){
   document.getElementById('zg_inputPanel').style.display='';
   document.getElementById('zg_dash').classList.remove('on');
 }
+async function zg_saveImg(){
+  const ov=document.getElementById('zg_ov'),ob=document.getElementById('zg_ovBody'),dl=document.getElementById('zg_dlBtn');
+  ob.innerHTML='<div class="ov-spin"><div class="spinner"></div><span>이미지 생성 중...</span></div>';
+  ov.classList.add('on');
+  try{
+    const t=document.getElementById('zg_mainWrap');
+    const activeTab=t.querySelector('.page.on');
+    const c=await html2canvas(activeTab||t,{backgroundColor:'#f0f4f8',scale:3,useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:(activeTab||t).scrollWidth,windowHeight:(activeTab||t).scrollHeight});
+    const url=c.toDataURL('image/png');
+    const img=document.createElement('img');img.src=url;img.style.cssText='max-width:100%;height:auto;display:block;border-radius:6px;';
+    ob.innerHTML='';ob.appendChild(img);
+    dl.href=url;
+  }catch(e){ob.innerHTML=`<div class="ov-spin"><span style="color:#dc2626;">⚠ ${e.message}</span></div>`;}
+}
 function zg_showErr(msg){const el=document.getElementById('zg_errMsg');el.textContent=msg;el.style.display='block';}
 function zg_toNum(v){return parseFloat(String(v).replace(/,/g,'').replace(/%/g,'').trim())||0;}
 
@@ -1445,6 +1497,20 @@ function si_editMode(){
   si_chartInst=[];
   document.getElementById('si_inputPanel').style.display='';
   document.getElementById('si_dash').classList.remove('on');
+}
+async function si_saveImg(){
+  const ov=document.getElementById('si_ov'),ob=document.getElementById('si_ovBody'),dl=document.getElementById('si_dlBtn');
+  ob.innerHTML='<div class="ov-spin"><div class="spinner"></div><span>이미지 생성 중...</span></div>';
+  ov.classList.add('on');
+  try{
+    const t=document.getElementById('si_mainWrap');
+    const activeTab=t.querySelector('.page.on');
+    const c=await html2canvas(activeTab||t,{backgroundColor:'#f0f4f8',scale:3,useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:(activeTab||t).scrollWidth,windowHeight:(activeTab||t).scrollHeight});
+    const url=c.toDataURL('image/png');
+    const img=document.createElement('img');img.src=url;img.style.cssText='max-width:100%;height:auto;display:block;border-radius:6px;';
+    ob.innerHTML='';ob.appendChild(img);
+    dl.href=url;
+  }catch(e){ob.innerHTML=`<div class="ov-spin"><span style="color:#dc2626;">⚠ ${e.message}</span></div>`;}
 }
 function si_showErr(msg){const el=document.getElementById('si_errMsg');el.textContent=msg;el.style.display='block';}
 function si_toNum(v){return parseFloat(String(v).replace(/,/g,'').replace(/%/g,'').trim())||0;}
