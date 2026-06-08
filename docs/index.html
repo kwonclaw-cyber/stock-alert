@@ -1588,7 +1588,7 @@ let EXTRA=(()=>{ try{const v=JSON.parse(localStorage.getItem(EXTRA_KEY)); if(Arr
 function saveExtra(){ localStorage.setItem(EXTRA_KEY, JSON.stringify(EXTRA)); }
 function sisVal(month){ return (SIS_BY_MONTH[month]||0)*SIS_MULT; }
 // 샵인샵 전년 매출 (월별, 직접 입력값을 브라우저에 저장·기억)
-const SIS_PY_KEY="monthlyClose.sisPrevYear.v2";
+const SIS_PY_KEY="monthlyClose.sisPrevYear.v3";
 // 샵인샵 전년 매출 (실제 연-월 기준, 2025년 1~12월, 물류매출 ×150%) — 전년대비는 '같은 달 작년'과 자동 비교
 const SIS_PY_DEFAULT={
   "2025-01":588865724,"2025-02":595047297,"2025-03":727061669,"2025-04":847699526,
