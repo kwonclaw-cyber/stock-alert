@@ -1146,7 +1146,7 @@ function renderCompare(res, root){
   opts.sort((a,b)=>a.name.localeCompare(b.name,"ko"));
   const emptyNote = opts.length?"" : '<div class="msg ok" style="margin-top:8px">사입으로 분류된 매장이 없습니다.</div>';
   sec.innerHTML=`<h2>발주 품목 비교 <span class="muted" style="font-weight:400">· 사입매장 → 표준매장(기준매장) 대비</span></h2>
-    <div class="note">사입으로 분류된 매장만 선택할 수 있습니다. 선택한 매장의 발주를 같은 브랜드 <b>표준매장(기준매장)</b>과 비교합니다. <b>전용상품 매입가 마스터에 등록된 정식 전용품목만</b> 대상으로, 표준매장은 발주하는데 이 매장은 안/적게 발주하는 품목 = <b>사입 의심·발주 누락</b>입니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
+    <div class="note">사입으로 분류된 매장만 선택할 수 있습니다. 선택한 매장의 <b>전용상품 발주 전체</b>를 같은 브랜드 <b>표준매장(기준매장)</b>과 비교합니다. 동일 품목이 코드가 달라도 <b>품목명 기준으로 합산·매칭</b>합니다. 각 품목의 상태(미발주·과소발주·정상·표준외)를 표시합니다. (매출 규모 차이를 보정해 매출대비 발주율로 비교)</div>
     <div class="opts" style="margin-top:8px"><label>사입매장 선택: <select class="box" id="cmpStore"><option value="">사입매장 선택 (${opts.length}개)</option>${opts.map(o=>`<option value="${o.logi}">${o.name}</option>`).join("")}</select></label></div>
     ${emptyNote}<div id="cmpResult" style="margin-top:10px"></div>`;
   root.appendChild(sec);
@@ -1162,30 +1162,40 @@ function renderCompareResult(res, logi){
   const ref=brand.ref;
   const refItems=(CUR_STORES[ref.logi]||{}).items||{}, stItems=(CUR_STORES[logi]||{}).items||{};
   const refSales=ref.cur.sales||1, stSales=store.cur.sales||1;
+  // 코드+품목명 매칭: 같은 품목명이면 코드가 달라도 하나로 합산 (품목명 없으면 코드로)
+  const byName={};
+  function key(pc){ const nm=(PNAME[pc]||"").trim(); return nm||String(pc); }
+  function add(items, fld){ for(const pc in items){ const k=key(pc);
+    if(!byName[k])byName[k]={name:k, codes:new Set(), refAmt:0, stAmt:0};
+    byName[k].codes.add(pc); byName[k][fld]+=items[pc].total; } }
+  add(refItems,"refAmt"); add(stItems,"stAmt");
   const rows=[];
-  for(const pc in refItems){
-    if(BUY[pc]==null) continue;                                // 전용상품 매입가 마스터에 등록된 정식 전용품목만 비교
-    const refAmt=refItems[pc].total, stAmt=stItems[pc]?stItems[pc].total:0;
-    const refR=refAmt/refSales; if(refR<0.002)continue;        // 표준에서도 미미한 품목 제외
-    const stR=stAmt/stSales, gap=refR-stR, expGap=gap*stSales;
-    const status= stAmt<=0?"미발주":(stR<refR*0.5?"과소발주":"정상");
-    rows.push({name:PNAME[pc]||pc, refAmt, stAmt, refR, stR, expGap, status});
+  for(const k in byName){ const it=byName[k];
+    const refR=it.refAmt/refSales, stR=it.stAmt/stSales, expGap=(refR-stR)*stSales;
+    let status;
+    if(it.refAmt<=0 && it.stAmt>0) status="표준외";              // 표준은 발주 안 하는데 이 매장은 발주
+    else if(it.stAmt<=0) status="미발주";                        // 표준은 발주하는데 이 매장은 0 (사입 의심)
+    else if(stR<refR*0.5) status="과소발주";                     // 표준 대비 매출대비율 절반 미만
+    else status="정상";
+    rows.push({name:it.name, codes:[...it.codes], refAmt:it.refAmt, stAmt:it.stAmt, refR, stR, expGap, status});
   }
-  const rank=s=>s==="미발주"?2:(s==="과소발주"?1:0);
-  rows.sort((a,b)=>(rank(b.status)-rank(a.status))||(b.expGap-a.expGap));
-  const flagged=rows.filter(r=>r.status!=="정상");
+  const rank=s=>({"미발주":3,"과소발주":2,"정상":1,"표준외":0})[s]||0;
+  rows.sort((a,b)=>(rank(b.status)-rank(a.status))||(b.expGap-a.expGap)||(b.stAmt-a.stAmt));
+  if(!rows.length){ box.innerHTML='<div class="msg warn">표준매장·이 매장의 전용 발주 데이터가 없습니다.</div>'; return; }
+  const flagged=rows.filter(r=>r.status==="미발주"||r.status==="과소발주");
   const totalGap=flagged.reduce((s,r)=>s+Math.max(r.expGap,0),0);
-  if(!rows.length){ box.innerHTML='<div class="msg warn">표준매장의 전용 발주 데이터가 없습니다.</div>'; return; }
-  if(!flagged.length){ box.innerHTML=`<div class="msg ok">표준매장(${ref.name}) 대비 누락·과소발주 품목이 없습니다. 발주 구성이 표준과 유사합니다.</div>`; return; }
-  const tr=flagged.slice(0,30).map(r=>`<tr class="${r.status==='미발주'?'saip-row':''}">
-    <td class="l">${esc(r.name)}</td>
+  const cnt={}; rows.forEach(r=>cnt[r.status]=(cnt[r.status]||0)+1);
+  const SC={"미발주":"#fa5252","과소발주":"#f59f00","정상":"#2b8a3e","표준외":"#868e96"};
+  const codeNote=r=>r.codes.length>1?` <span class="sub">(코드 ${r.codes.length}개 합산)</span>`:"";
+  const tr=rows.map(r=>`<tr class="${r.status==='미발주'?'saip-row':''}">
+    <td class="l">${esc(r.name)}${codeNote(r)}</td>
     <td class="num">${won(r.refAmt)}<br><span class="sub">${pct(r.refR)}</span></td>
     <td class="num">${won(r.stAmt)}<br><span class="sub">${pct(r.stR)}</span></td>
     <td class="num">${r.expGap>0?won(r.expGap):"-"}</td>
-    <td class="l"><span class="badge ${r.status==='미발주'?'':'warnb'}">${r.status}</span></td></tr>`).join("");
-  box.innerHTML=`<div class="msg warn">표준매장 <b>${ref.name}</b> 대비 누락·과소발주 <b>${flagged.length}개 품목</b> · 매출대비 기준 예상 추가발주 규모 <b>${won(totalGap)}원</b> (사입 의심)</div>
+    <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td></tr>`).join("");
+  box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b> 대비 — 전용발주 <b>${rows.length}개 품목</b> (미발주 ${cnt["미발주"]||0} · 과소 ${cnt["과소발주"]||0} · 정상 ${cnt["정상"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 누락/과소 예상 추가발주 <b>${won(totalGap)}원</b> (사입 의심)`:" · 누락·과소 없음"}</div>
     <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>예상 추가발주</th><th class="l">상태</th></tr></thead>
-    <tbody>${tr}</tbody></table></div>${flagged.length>30?`<div class="note">상위 30개만 표시 (총 ${flagged.length}개)</div>`:""}`;
+    <tbody>${tr}</tbody></table></div>`;
 }
 
 // ===== 사입 경고 공문 생성 + 발송 기록 =====
