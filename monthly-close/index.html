@@ -656,23 +656,27 @@ function storeAgg(itemsByPcode){
 const orderRate=m=>m.sales?m.ex/m.sales:0;
 const profitRate=m=>m.ex?m.profit/m.ex:0;
 
-// 리스트 정렬·필터 상태
-let LIST_SORT="sales", LIST_DIR=-1, LIST_FILTER="all";
+// 리스트 정렬·필터 상태 (브랜드별)
+let BRAND_VIEW={};
+function bview(b){ if(!BRAND_VIEW[b])BRAND_VIEW[b]={sort:"sales",dir:-1,filter:"all"}; return BRAND_VIEW[b]; }
 const SORT_VAL={ sales:s=>s.cur.sales, ex:s=>s.cur.ex, profit:s=>s.cur.profit,
   orate:s=>orderRate(s.cur), prate:s=>profitRate(s.cur), name:s=>s.name,
   salesMoM:s=>{ const p=s.prev?s.prev.sales:0; return p? (s.cur.sales-p)/p : (s.cur.sales>0?9:0); } };
-function applyFilterSort(stores){
+const SORT_OPTS=[["sales","매출"],["salesMoM","매출 증감률"],["ex","전용물류매출"],["profit","전용이익"],["orate","전용발주율"],["prate","전용이익률"],["name","매장명"]];
+const FILT_OPTS=[["all","전체"],["saip","사입"],["open","당월오픈"],["ref","기준매장"],["normal","일반"]];
+function applyFilterSort(stores, brand){
+  const v=bview(brand);
   let arr=stores.filter(s=>{
-    if(LIST_FILTER==="saip")return s.saip;
-    if(LIST_FILTER==="open")return s.isNew;
-    if(LIST_FILTER==="ref")return s.isRef;
-    if(LIST_FILTER==="normal")return !s.saip&&!s.isNew&&!s.isRef;
+    if(v.filter==="saip")return s.saip;
+    if(v.filter==="open")return s.isNew;
+    if(v.filter==="ref")return s.isRef;
+    if(v.filter==="normal")return !s.saip&&!s.isNew&&!s.isRef;
     return true;
   });
-  const f=SORT_VAL[LIST_SORT]||SORT_VAL.sales;
+  const f=SORT_VAL[v.sort]||SORT_VAL.sales;
   arr=arr.slice().sort((a,b)=>{ const x=f(a),y=f(b);
-    if(LIST_SORT==="name")return LIST_DIR*String(x).localeCompare(String(y),"ko");
-    return LIST_DIR*((x||0)-(y||0)); });
+    if(v.sort==="name")return v.dir*String(x).localeCompare(String(y),"ko");
+    return v.dir*((x||0)-(y||0)); });
   return arr;
 }
 
@@ -1014,32 +1018,19 @@ function render(res){
     <div class="legend">증감 <span class="up">▲</span>/<span class="down">▼</span> · 비율 %p · <span class="badge ref" style="margin:0">기준</span> <span class="badge" style="margin:0 0 0 4px">사입</span> <span class="badge openb" style="margin:0 0 0 4px">당월오픈</span>(전월 데이터 없음)</div>`;
   root.appendChild(sum);
 
-  // 정렬·필터 툴바
-  const bar=document.createElement("section");
-  const sortOpts=[["sales","매출"],["salesMoM","매출 증감률(전월대비)"],["ex","전용물류매출"],["profit","전용이익"],["orate","전용발주율"],["prate","전용이익률"],["name","매장명"]]
-    .map(([v,t])=>`<option value="${v}" ${LIST_SORT===v?"selected":""}>${t}</option>`).join("");
-  const filtOpts=[["all","전체"],["saip","사입"],["open","당월오픈"],["ref","기준매장"],["normal","일반"]]
-    .map(([v,t])=>`<option value="${v}" ${LIST_FILTER===v?"selected":""}>${t}</option>`).join("");
+  // 수기 수정모드 안내(전체 1회)
   const ovN=Object.keys(USER_OV).length;
-  bar.innerHTML=`<h2>리스트 정렬·필터</h2>
-    <div class="opts">
-      <label>정렬: <select class="box" id="listSort">${sortOpts}</select></label>
-      <label><select class="box" id="listDir"><option value="-1" ${LIST_DIR<0?"selected":""}>내림차순 ▼</option><option value="1" ${LIST_DIR>0?"selected":""}>오름차순 ▲</option></select></label>
-      <label>구분: <select class="box" id="listFilter">${filtOpts}</select></label>
-      <label style="margin-left:auto"><input type="checkbox" id="editMode" ${EDIT_MODE?"checked":""}> 수기 수정 모드</label>
-    </div>
-    ${EDIT_MODE?`<div class="note">매출·전용물류매출·전용이익의 <b>당월/전월 값</b>을 직접 입력하면 그 매장 수치를 덮어씁니다(합계·비율·사입판정·전월대비 반영, 브라우저 저장). 칸을 비우면 자동계산으로 복원됩니다. 전용물류매출 칸의 <b>기준맞춤</b>은 기준매장 발주율 수준으로 채웁니다. 매장별 <b>특이사항</b>은 표 오른쪽 칸에 입력합니다.${ovN?` <a href="#" id="resetOV" style="color:#c4c4c4;font-size:11px;margin-left:6px">수기수정 초기화(${ovN})</a>`:""}</div>`:''}`;
-  root.appendChild(bar);
-  bar.querySelector("#listSort").addEventListener("change",e=>{ LIST_SORT=e.target.value; render(LAST); });
-  bar.querySelector("#listDir").addEventListener("change",e=>{ LIST_DIR=+e.target.value; render(LAST); });
-  bar.querySelector("#listFilter").addEventListener("change",e=>{ LIST_FILTER=e.target.value; render(LAST); });
-  bar.querySelector("#editMode").addEventListener("change",e=>{ EDIT_MODE=e.target.checked; render(LAST); });
-  if(bar.querySelector("#resetOV")) bar.querySelector("#resetOV").addEventListener("click",(e)=>{ e.preventDefault(); if(confirm("수기 수정값을 모두 삭제할까요?")){ USER_OV={}; saveOV(); rerun(); } });
+  if(EDIT_MODE){
+    const note=document.createElement("section");
+    note.innerHTML=`<div class="note" style="margin:0">수기 수정 모드 ON · 매출·전용물류매출·전용이익의 <b>당월/전월 값</b>을 직접 입력하면 덮어씁니다(합계·비율·사입판정 반영, 저장). 칸을 비우면 자동복원. 전용물류매출 칸의 <b>기준맞춤</b>은 기준매장 발주율 수준으로 채움. 구분 칸의 <b>사입</b> 체크로 사입 지정. 각 브랜드 바의 체크박스로 켜고 끕니다.${ovN?` <a href="#" id="resetOV" style="color:#c4c4c4;font-size:11px;margin-left:6px">수기수정 초기화(${ovN})</a>`:""}</div>`;
+    root.appendChild(note);
+    if(note.querySelector("#resetOV")) note.querySelector("#resetOV").addEventListener("click",(e)=>{ e.preventDefault(); if(confirm("수기 수정값을 모두 삭제할까요?")){ USER_OV={}; saveOV(); rerun(); } });
+  }
 
   // 브랜드 상세
   list.forEach(b=>{
     const sec=document.createElement("section"); let rows="";
-    const shown=applyFilterSort(b.stores);
+    const shown=applyFilterSort(b.stores, b.brand);
     shown.forEach(s=>{
       const o=s.rate,p=profitRate(s.cur), po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
       let badges=""; if(s.isNew)badges+='<span class="badge openb">당월오픈</span>';
@@ -1063,10 +1054,24 @@ function render(res){
     const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
     const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
-    sec.innerHTML=`<h3>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></h3>
+    const bv=bview(b.brand);
+    const sortOpts=SORT_OPTS.map(([v,t])=>`<option value="${v}" ${bv.sort===v?"selected":""}>${t}</option>`).join("");
+    const filtOpts=FILT_OPTS.map(([v,t])=>`<option value="${v}" ${bv.filter===v?"selected":""}>${t}</option>`).join("");
+    sec.innerHTML=`<h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></span>
+        <span class="opts" style="margin:0 0 0 auto;font-size:12px;font-weight:400;gap:8px">
+          <label>정렬 <select class="box bsort" data-brand="${b.brand}">${sortOpts}</select></label>
+          <select class="box bdir" data-brand="${b.brand}"><option value="-1" ${bv.dir<0?"selected":""}>내림 ▼</option><option value="1" ${bv.dir>0?"selected":""}>오름 ▲</option></select>
+          <label>구분 <select class="box bfilter" data-brand="${b.brand}">${filtOpts}</select></label>
+          <label style="white-space:nowrap"><input type="checkbox" class="bedit" ${EDIT_MODE?"checked":""}> 수기수정</label>
+        </span></h3>
       <div class="tablewrap storewrap"><table class="stbl"><thead><tr><th class="l">매장명</th>
         <th>매출</th><th>전용물류매출</th><th>전용발주율</th><th>전용이익</th><th>전용이익률</th><th class="l">구분</th><th class="l">특이사항</th></tr></thead>
         <tbody>${tot}${rows}</tbody></table></div>`;
+    sec.querySelector(".bsort").addEventListener("change",e=>{ bview(b.brand).sort=e.target.value; render(LAST); });
+    sec.querySelector(".bdir").addEventListener("change",e=>{ bview(b.brand).dir=+e.target.value; render(LAST); });
+    sec.querySelector(".bfilter").addEventListener("change",e=>{ bview(b.brand).filter=e.target.value; render(LAST); });
+    sec.querySelector(".bedit").addEventListener("change",e=>{ EDIT_MODE=e.target.checked; render(LAST); });
     root.appendChild(sec);
   });
   // 매장별 특이사항 메모 입력 저장
@@ -1539,8 +1544,11 @@ const SIS_PY_DEFAULT={
   "2025-09":878391606,"2025-10":790693664,"2025-11":738154545,"2025-12":796116723 };
 let SIS_PY=(()=>{ try{return Object.assign({}, SIS_PY_DEFAULT, JSON.parse(localStorage.getItem(SIS_PY_KEY)||"{}"));}catch(e){return Object.assign({},SIS_PY_DEFAULT);} })();
 function saveSisPy(){ localStorage.setItem(SIS_PY_KEY, JSON.stringify(SIS_PY)); }
-function prevYearMonth(ym){ if(!ym)return ""; const p=String(ym).split("-"); return (Number(p[0])-1)+"-"+p[1]; }
-function sisPyVal(month){ return +SIS_PY[prevYearMonth(month)]||0; }   // 당월의 '작년 같은 달' 값
+// 월 문자열에서 (연,월) 추출 — "2026-06","202606","2026.06","2026-6" 등 형식 무관
+function ymYearMon(ym){ const d=String(ym||"").match(/(\d{4})\D*(\d{1,2})/); return d?[+d[1],+d[2]]:null; }
+function prevYearMonth(ym){ const p=ymYearMon(ym); if(!p)return ""; return (p[0]-1)+"-"+String(p[1]).padStart(2,"0"); }   // 전년 같은 달 키 "2025-06"
+function sisPyVal(month){ const p=ymYearMon(month); if(!p)return 0; const y=p[0]-1, mm=String(p[1]).padStart(2,"0");
+  return +SIS_PY[y+"-"+mm] || +SIS_PY[""+y+mm] || +SIS_PY[y+"-"+p[1]] || 0; }   // 전년 같은 달(형식 여러개 시도)
 function curPrevMonths(){ const sel=document.getElementById("curMonth"); const cur=sel?sel.value:""; const i=MONTHS.indexOf(cur); return [cur, i>0?MONTHS[i-1]:""]; }
 function extraDeltaTotals(){
   const [cm,pm]=curPrevMonths();
