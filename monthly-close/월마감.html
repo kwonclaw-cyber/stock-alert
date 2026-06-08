@@ -394,6 +394,28 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
 
 <script>
 "use strict";
+// 전역 오류 표시: 어떤 오류로 화면이 비더라도 하단에 빨간 배너로 원인을 보여줌
+window.addEventListener("error", function(ev){
+  try{
+    var b=document.getElementById("globalErr");
+    if(!b){ b=document.createElement("div"); b.id="globalErr";
+      b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#fff0f0;color:#c92a2a;border-top:2px solid #ffc9c9;padding:8px 14px;font:12px/1.45 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";
+      (document.body||document.documentElement).appendChild(b); }
+    var msg=(ev&&ev.error&&ev.error.stack)||(ev&&ev.message)||String(ev);
+    b.textContent="⚠️ 오류 발생: "+msg;
+  }catch(e){}
+});
+// 패널 하나가 실패해도 전체 화면이 비지 않도록 — 실패 패널만 메시지로 대체
+function safePanel(label, fn){
+  try{ fn(); }
+  catch(e){
+    try{ var d=document.createElement("section");
+      d.innerHTML='<div class="msg err">["'+label+'" 표시 중 오류 — 다른 항목은 정상 표시됩니다] '+String(e&&e.message||e)+'</div>';
+      (document.getElementById("results")||document.body).appendChild(d);
+    }catch(_){}
+    if(window.console&&console.error) console.error(label, e);
+  }
+}
 
 // ===== 내장 참조 =====
 const BUY_KEY = "monthlyClose.buyUser.v1";              // 사용자 추가 매입가 (localStorage 영구 저장)
@@ -993,11 +1015,11 @@ function render(res){
   root.appendChild(cfg);
 
   // 양도양수 매장 통합
-  renderGroupPanel(root);
+  safePanel("양도양수 통합", ()=>renderGroupPanel(root));
   // 매장 매칭 관리 (매출 미매칭 물류매장 ↔ POS 매장 수동 연결)
-  renderMatchPanel(res, root);
+  safePanel("매장 매칭 관리", ()=>renderMatchPanel(res, root));
   // 반영되지 않은 매출 (미매칭 POS) — 매장 직접 연결
-  renderOrphanPanel(res, root);
+  safePanel("반영되지 않은 매출", ()=>renderOrphanPanel(res, root));
 
   // 요약
   const sum=document.createElement("section"); let cards="";
@@ -1133,8 +1155,8 @@ function render(res){
   }));
 
   // 발주 품목 비교 (표준매장 대비)
-  renderCompare(res, root);
-  renderGongmun(res, root);
+  safePanel("발주 품목 비교", ()=>renderCompare(res, root));
+  safePanel("사입 경고 공문", ()=>renderGongmun(res, root));
   initCollapsibles();
 }
 
