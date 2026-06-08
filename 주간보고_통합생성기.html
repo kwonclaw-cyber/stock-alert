@@ -390,17 +390,19 @@ textarea:focus{border-color:#4B7BE8;}
     <div class="up-sect">
       <div class="up-sect-tit">📂 파일 올리기</div>
       <div class="row2">
-        <!-- 전주: localStorage에서 자동 로드 -->
+        <!-- 전주: 파일 업로드 or 저장본 자동 로드 -->
         <div>
-          <div class="file-zone" id="dz1" style="cursor:default;" onclick="void(0)">
-            <div class="dz-week">① 전주 (자동 로드)</div>
-            <div class="dz-icon" id="dz1Icon">💾</div>
-            <div class="dz-tit" id="dz1Tit">저장된 이전 주 데이터</div>
-            <div class="dz-sub" id="dz1Sub">금주 분석 완료 시 자동 저장됩니다</div>
+          <div class="file-zone" id="dz1" ondragover="dzDrag(event,'dz1')" ondragleave="dzLeave('dz1')" ondrop="dzDrop(event,'dz1',1)" onclick="document.getElementById('fi1').click()">
+            <div class="dz-week">① 전주 파일 (없으면 저장본 사용)</div>
+            <div class="dz-icon" id="dz1Icon">📁</div>
+            <div class="dz-tit" id="dz1Tit">클릭 또는 드래그</div>
+            <div class="dz-sub" id="dz1Sub">업로드 안 하면 저장된 이전 주 데이터 자동 사용</div>
             <div class="file-list" id="fl1"></div>
-            <div style="margin-top:6px;display:flex;gap:5px;justify-content:center;">
-              <button onclick="clearSavedWeek()" style="font-size:9px;padding:2px 8px;border:1px solid #fca5a5;background:#fff1f1;color:#dc2626;border-radius:4px;cursor:pointer;">🗑 초기화</button>
-            </div>
+          </div>
+          <input type="file" id="fi1" accept=".xlsx,.xls,.csv" multiple onchange="addFiles(1,this.files)">
+          <div id="savedInfo" style="display:none;margin-top:5px;font-size:9.5px;color:#64748b;text-align:center;"></div>
+          <div style="margin-top:4px;display:flex;justify-content:flex-end;">
+            <button onclick="clearSavedWeek()" style="font-size:9px;padding:2px 8px;border:1px solid #fca5a5;background:#fff1f1;color:#dc2626;border-radius:4px;cursor:pointer;">🗑 저장본 초기화</button>
           </div>
         </div>
         <!-- 금주: 파일 업로드 -->
@@ -615,22 +617,38 @@ function refreshPrevZone(){
   const sub=document.getElementById('dz1Sub');
   const fl=document.getElementById('fl1');
   const dz=document.getElementById('dz1');
+  const info=document.getElementById('savedInfo');
+
+  // 파일이 업로드된 경우 → 파일 우선 (parsed[1]은 runAnalyze에서 처리)
+  if(fileStore[1].length>0){
+    icon.textContent='📁';
+    tit.textContent='클릭 또는 드래그';
+    sub.textContent='업로드 안 하면 저장된 이전 주 데이터 자동 사용';
+    dz.className='file-zone done';
+    info.style.display='none';
+    return;
+  }
+
+  // 파일 없음 → 저장본 체크
   if(prev){
     const storeCnt=Object.keys(prev.store||{}).length;
     const hasTm=Object.keys(prev.time||{}).length>0;
     const hasCh=Object.keys(prev.channel||{}).length>0;
-    icon.textContent='✅';
-    tit.textContent=prev.savedLabel||'저장된 전주 데이터';
-    sub.textContent=`저장일: ${prev.savedAt} · 매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`;
     dz.className='file-zone done';
-    fl.innerHTML=`<div class="fitem" style="justify-content:center;"><span style="font-size:10px;color:#15803d;">✔ 로드 완료 · 매장 ${storeCnt}개</span></div>`;
+    icon.textContent='💾';
+    tit.textContent='저장된 전주 데이터 자동 사용';
+    sub.textContent=`저장일: ${prev.savedAt} · 매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`;
+    fl.innerHTML=`<div class="fitem" style="justify-content:center;"><span style="font-size:10px;color:#15803d;">✔ 저장본 로드 · 매장 ${storeCnt}개</span></div>`;
+    info.style.display='block';
+    info.innerHTML=`💾 저장본 사용 중 · <span style="color:#4B7BE8;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('fi1').click()">파일로 덮어쓰기</span>`;
     parsed[1]=prev;
   } else {
-    icon.textContent='💾';
-    tit.textContent='저장된 전주 데이터 없음';
-    sub.textContent='금주 분석 완료 후 자동 저장됩니다';
     dz.className='file-zone';
+    icon.textContent='📁';
+    tit.textContent='클릭 또는 드래그 (선택사항)';
+    sub.textContent='저장된 전주 데이터 없음 · 파일 업로드 또는 금주 분석 후 저장';
     fl.innerHTML='';
+    info.style.display='none';
     parsed[1]=null;
   }
 }
@@ -653,7 +671,7 @@ function dzDrop(e,id,n){e.preventDefault();e.stopPropagation();dzLeave(id);addFi
 function addFiles(n,files){
   if(!files||!files.length)return;
   for(const f of files)fileStore[n].push(f);
-  renderFL(n);
+  if(n===1){refreshPrevZone();}else{renderFL(n);}
   triggerAnalyze();
 }
 
@@ -828,8 +846,8 @@ async function processWeek(files,sf){
 // ─── 자동 분석 ───
 let analyzeTimer=null;
 function triggerAnalyze(){
-  if(fileStore[2].length===0)return;
-  // 금주 파일이 있으면 분석 실행
+  if(fileStore[1].length===0&&fileStore[2].length===0)return;
+  // 전주 또는 금주 파일이 있으면 분석 실행
   clearTimeout(analyzeTimer);
   analyzeTimer=setTimeout(runAnalyze,300);
 }
@@ -850,13 +868,25 @@ async function runAnalyze(){
 
   const sf=document.getElementById('salesCol').value;
 
-  // 전주: localStorage 표시
-  if(parsed[1]){
+  // 전주: 파일 있으면 파일 파싱, 없으면 저장본
+  if(fileStore[1].length>0){
+    try{
+      setAbRow(1,'⏳ 읽는 중...','',document.getElementById('w1Label').value||'전주');
+      const r=await processWeek(fileStore[1],sf);
+      parsed[1]=r;
+      const storeCnt=Object.keys(r.store).length;
+      const hasTm=Object.keys(r.time).length>0;
+      const hasCh=Object.keys(r.channel).length>0;
+      setAbRow(1,`✅ 매장 ${storeCnt}개${hasTm?' · 시간대별':''}${hasCh?' · 경로별':''}`,r.logs.join(' | '),document.getElementById('w1Label').value||'전주');
+    }catch(e){
+      setAbRow(1,`❌ ${e.message}`,'',document.getElementById('w1Label').value||'전주');
+      parsed[1]=null;
+    }
+  } else if(parsed[1]){
     const storeCnt=Object.keys(parsed[1].store||{}).length;
-    setAbRow(1,`✅ 저장된 데이터 (매장 ${storeCnt}개)`,'',
-      (parsed[1].savedLabel||'전주'));
+    setAbRow(1,`✅ 저장본 사용 (매장 ${storeCnt}개)`,'저장된 전주 데이터',parsed[1].savedLabel||'전주');
   } else {
-    setAbRow(1,'⚠ 저장된 전주 데이터 없음','금주 분석 후 자동 저장됩니다','전주');
+    setAbRow(1,'⚠ 전주 데이터 없음','파일 업로드 또는 금주 분석 후 저장 필요','전주');
   }
 
   // 금주: 파일 파싱
@@ -1131,11 +1161,11 @@ function showTab(n){curTab=n;document.querySelectorAll('.tab').forEach((t,i)=>t.
 function resetToUpload(){
   document.getElementById('dashScreen').style.display='none';
   document.getElementById('uploadScreen').style.display='flex';
-  fileStore[2]=[];parsed[2]=null;
+  fileStore[1]=[];fileStore[2]=[];parsed[2]=null;
   document.getElementById('fl2').innerHTML='';
-  document.getElementById('fi2').value='';
+  ['fi1','fi2'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('analyzeBar').style.display='none';
-  // 전주는 localStorage 유지하면서 UI 갱신
+  // 전주 zone 갱신 (저장본 있으면 자동 표시, parsed[1]도 복원)
   refreshPrevZone();
   updateViewBtn();
 }
