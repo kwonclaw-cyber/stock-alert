@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표본매장 데이터 수집 가이드</title>
+<style>
+  :root{ --b:#1971c2; --b2:#e7f5ff; --g:#2f9e44; --o:#e8590c; --y:#fff3bf; --line:#dee2e6; --ink:#212529; --mut:#868e96;}
+  *{box-sizing:border-box;}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:var(--ink); line-height:1.65; margin:0; background:#f8f9fa;}
+  .wrap{max-width:880px; margin:0 auto; padding:32px 20px 80px;}
+  h1{font-size:28px; margin:0 0 4px;}
+  .sub{color:var(--mut); margin:0 0 28px;}
+  h2{font-size:20px; margin:36px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--ink);}
+  h3{font-size:16px; margin:22px 0 8px; color:var(--b);}
+  .card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin:14px 0; box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .step{display:flex; gap:14px; align-items:flex-start; padding:12px 0; border-bottom:1px dashed var(--line);}
+  .step:last-child{border-bottom:none;}
+  .num{flex:0 0 30px; height:30px; border-radius:50%; background:var(--b); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .step .t{flex:1;}
+  .badge{display:inline-block; background:var(--b2); color:var(--b); font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; margin-bottom:6px;}
+  code{background:#f1f3f5; padding:2px 7px; border-radius:5px; font-family:'D2Coding',Consolas,monospace; font-size:13px; color:#c92a2a;}
+  .tip{background:var(--b2); border-left:4px solid var(--b); padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:14px;}
+  .warn{background:#fff9db; border-left:4px solid var(--o); padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:14px;}
+  .codebox{position:relative; margin:14px 0;}
+  .codebox pre{background:#1e2128; color:#e6e6e6; padding:18px; border-radius:10px; overflow:auto; font-family:'D2Coding',Consolas,monospace; font-size:12px; line-height:1.5; max-height:340px; margin:0;}
+  .copybtn{position:absolute; top:10px; right:10px; background:var(--g); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;}
+  .copybtn:active{transform:scale(.96);}
+  .copybtn.done{background:#1971c2;}
+  table{border-collapse:collapse; width:100%; margin:10px 0; font-size:14px;}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left;}
+  th{background:#f1f3f5;}
+  .flow{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; font-size:14px;}
+  .pill{background:#fff; border:1px solid var(--b); color:var(--b); border-radius:20px; padding:6px 14px; font-weight:600;}
+  .arrow{color:var(--mut); font-weight:700;}
+  .hl{background:var(--y); padding:1px 5px; border-radius:4px;}
+  .foot{margin-top:40px; color:var(--mut); font-size:13px; text-align:center;}
+  kbd{background:#fff; border:1px solid #adb5bd; border-bottom-width:2px; border-radius:5px; padding:1px 7px; font-size:12px; font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>📊 표본매장 데이터 수집 가이드</h1>
+  <p class="sub">배민 운영 변경이력 × 매출 — 매장별 표본 데이터 만드는 전체 과정</p>
+
+  <div class="card">
+    <h3 style="margin-top:0;">한눈에 보는 흐름</h3>
+    <div class="flow">
+      <span class="pill">① 배민 변경이력 수집<br>(콘솔 코드)</span>
+      <span class="arrow">→</span>
+      <span class="pill">② matetech 매출 받기<br>(월별 엑셀)</span>
+      <span class="arrow">→</span>
+      <span class="pill">③ 파일 전달</span>
+      <span class="arrow">→</span>
+      <span class="pill">④ 통합 워크북<br>(매출×변경)</span>
+    </div>
+    <p style="margin:8px 0 0; font-size:14px; color:var(--mut);">매장 한 곳당 ①·②를 하고 파일을 넘기면, 일자별·시간대별로 매출과 운영변경이 합쳐진 엑셀이 만들어집니다.</p>
+  </div>
+
+  <!-- STEP 1 -->
+  <h2>STEP 1 · 배민 변경이력 수집 (개발자도구 콘솔)</h2>
+  <p style="font-size:14px;">배민 사장님사이트가 스스로 불러오는 데이터를 가로채 모으는 방식이라 <b>설치·로그인 자동화가 전혀 필요 없고</b>, 토큰/차단 문제도 없습니다.</p>
+
+  <div class="card">
+    <div class="step"><div class="num">1</div><div class="t">
+      <span class="badge">로그인</span><br>
+      크롬에서 <b>self.baemin.com</b> 로그인 → 왼쪽 메뉴 <b>변경이력</b> 화면 열기
+    </div></div>
+    <div class="step"><div class="num">2</div><div class="t">
+      <span class="badge">콘솔 열기</span><br>
+      <kbd>F12</kbd> → 상단 <b>Console</b> 탭. <span class="hl">아래 코드를 먼저 붙여넣고</span> <kbd>Enter</kbd>.<br>
+      <span style="font-size:13px; color:var(--mut);">※ 붙여넣기가 막히면 콘솔에 <code>allow pasting</code> 입력 후 다시 붙여넣기</span>
+    </div></div>
+    <div class="step"><div class="num">3</div><div class="t">
+      <span class="badge">가게 탭</span><br>
+      <b>가게</b> 탭 클릭 → 파란 <b>조회</b> → 콘솔에 <code>+10 가게 …</code> 찍히면 성공 →
+      콘솔에 <code>__scrollAll()</code> 입력하면 끝까지 자동으로 다 불러옵니다
+    </div></div>
+    <div class="step"><div class="num">4</div><div class="t">
+      <span class="badge">즉시할인 탭</span><br>
+      <b>즉시할인</b> 탭 → <b>조회</b> → <code>__scrollAll()</code>
+    </div></div>
+    <div class="step"><div class="num">5</div><div class="t">
+      <span class="badge">광고·서비스 탭</span><br>
+      <b>광고·서비스</b> 탭 → (캠페인/변경항목 골라가며) <b>조회</b> → <code>__scrollAll()</code> (캠페인 여러 개면 바꿔가며 반복)
+    </div></div>
+    <div class="step"><div class="num">6</div><div class="t">
+      <span class="badge">저장</span><br>
+      콘솔에 <code>__save()</code> 입력 → <b>baemin_변경이력_매장번호.json</b> 파일 다운로드 ✅
+    </div></div>
+  </div>
+
+  <div class="tip"><b>핵심 순서:</b> 반드시 <b>코드 붙여넣기 → 그다음 조회</b>. 조회를 먼저 하면 데이터를 못 잡습니다.</div>
+  <div class="warn"><b>여러 매장:</b> 가게 드롭다운만 바꿔 <b>조회 → __scrollAll() → __save()</b> 하면 매장마다 파일이 따로 나옵니다. 다른 계정이면 그 계정으로 로그인 후 동일하게.</div>
+
+  <h3>📋 붙여넣을 콘솔 코드 <span style="font-weight:400; font-size:13px; color:var(--mut);">(복사 버튼 사용)</span></h3>
+  <div class="codebox">
+    <button class="copybtn" onclick="copyCode(this)">📋 복사</button>
+    <pre id="codeview"></pre>
+  </div>
+
+  <!-- STEP 2 -->
+  <h2>STEP 2 · matetech 매출 받기 (월별 엑셀)</h2>
+  <p style="font-size:14px;">matetech(메이트포스)는 <b>1개월씩만</b> 받을 수 있어, 6개월이면 6개씩 나눠 받습니다. 두 종류를 받으세요.</p>
+  <div class="card">
+    <h3 style="margin-top:0;">① 주문경로별 매출분석 — <span style="color:var(--g);">배민/쿠팡 분리용</span></h3>
+    <div class="step"><div class="num">1</div><div class="t">matetech 로그인 → <b>매출분석 → 주문경로별 매출분석</b></div></div>
+    <div class="step"><div class="num">2</div><div class="t">기간을 <b>한 달</b>씩 지정 (예: 2025-12-01 ~ 2025-12-31)</div></div>
+    <div class="step"><div class="num">3</div><div class="t"><b>조회 → 엑셀 다운로드</b>. 6개월이면 월별로 6번 반복</div></div>
+    <h3>② 시간대별 매출분석 — <span style="color:var(--g);">시간대 분석용</span></h3>
+    <div class="step"><div class="num">1</div><div class="t"><b>매출분석 → 시간대별 매출분석</b>에서 동일하게 월별로 받기</div></div>
+  </div>
+  <div class="warn"><b>참고:</b> 시간대별은 채널이 <b>내점/배달/포장</b>으로만 나뉘어 “배달” = 배민+쿠팡 합산입니다(배민만 따로는 안 나옴). 운영시간 분석엔 충분합니다.</div>
+
+  <!-- STEP 3 -->
+  <h2>STEP 3 · 파일 전달</h2>
+  <div class="card">
+    <p style="margin-top:0;">매장 한 곳당 모인 파일을 넘기면 됩니다:</p>
+    <ul style="font-size:14px; margin:0;">
+      <li><b>baemin_변경이력_매장번호.json</b> (STEP 1 결과) — 1개</li>
+      <li><b>주문경로별</b> 엑셀 — 월별 (6개월이면 6개)</li>
+      <li><b>시간대별</b> 엑셀 — 월별 (6개월이면 6개)</li>
+    </ul>
+    <p style="font-size:14px; margin-bottom:0;">한 번에 5개까지 업로드되니, 많으면 <b>zip으로 묶어서</b> 전달하면 됩니다.</p>
+  </div>
+
+  <!-- STEP 4 -->
+  <h2>STEP 4 · 결과물 (자동 생성)</h2>
+  <p style="font-size:14px;">전달한 파일로 아래 3개 시트짜리 통합 워크북이 만들어집니다.</p>
+  <table>
+    <tr><th>시트</th><th>내용</th></tr>
+    <tr><td><b>일자별 타임라인</b></td><td>날짜·요일·배민매출·건수·쿠팡매출·총매출 + <span class="hl">그날 운영변경</span> (변경일은 노란색 강조)</td></tr>
+    <tr><td><b>시간대별</b></td><td>날짜·시간대·배달건수·배달매출 + 운영시간 변경 표시</td></tr>
+    <tr><td><b>배민 변경이력</b></td><td>운영시간·즉시할인·광고 입찰/예산 변경 원본 (변경 전→후)</td></tr>
+  </table>
+  <div class="tip">이렇게 하면 <b>“광고 입찰을 올린 날·즉시할인을 켠 날·운영시간을 늘린 날”</b> 전후로 매출이 어떻게 움직였는지 한눈에 비교됩니다.</div>
+
+  <p class="foot">표본매장 데이터 수집 가이드 · 매장마다 STEP 1~3 반복</p>
+</div>
+
+<!-- 콘솔 코드 원본 (실행되지 않는 raw 텍스트) -->
+<script type="text/plain" id="snippet">
+(()=>{if(window.__bmReady){console.log('이미 설치됨. 조회/스크롤 후 __save().');return;}const origFetch=window.fetch.bind(window);const store={shopNumber:null,owner:null,shop:[],instantDiscount:[],ad:[],promotion:[]};const seen=new Set();function push(arr,rows,key){if(!Array.isArray(rows))return 0;let added=0;for(const r of rows){const id=key(r);if(seen.has(id))continue;seen.add(id);arr.push(r);added++;}return added;}function absorb(url,text){if(!url||url.indexOf('self-api.baemin.com')<0||!text)return;let m=url.match(/shopNumber=(\d+)/);if(m)store.shopNumber=m[1];m=url.match(/shop-owners\/(\d+)\//);if(m)store.owner=m[1];let data;try{data=JSON.parse(text);}catch(e){return;}const content=(data&&data.content)||(data&&data.data&&data.data.content);let added=0,label='';if(url.indexOf('modify-history/shop')>=0){added=push(store.shop,content,r=>'S'+r.id);label='가게';}else if(url.indexOf('modify-history/instant-discount')>=0){added=push(store.instantDiscount,content,r=>'D'+r.id);label='즉시할인';}else if(url.indexOf('modify-history/ad-campaign')>=0){added=push(store.ad,content,r=>'A'+(r.id||(r.adCampaignId+r.historyType+r.createdAt+r.beforeValue+r.afterValue)));label='광고';}else if(url.indexOf('promotions/history')>=0){added=push(store.promotion,content,r=>'P'+(r.id||JSON.stringify(r).slice(0,40)));label='메뉴할인';}else return;if(added)console.log('  +'+added+' '+label+'  (누적 가게 '+store.shop.length+' / 즉시할인 '+store.instantDiscount.length+' / 광고 '+store.ad.length+')');}window.fetch=function(input,init){const url=(typeof input==='string')?input:(input&&input.url);return origFetch.apply(this,arguments).then(res=>{try{if(url&&url.indexOf('self-api.baemin.com')>=0)res.clone().text().then(t=>absorb(url,t)).catch(()=>{});}catch(e){}return res;});};const oOpen=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(method,url){this.__u=url;return oOpen.apply(this,arguments);};const oSend=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(){this.addEventListener('load',()=>{try{if(this.__u&&this.__u.indexOf('self-api.baemin.com')>=0)absorb(this.__u,this.responseText);}catch(e){}});return oSend.apply(this,arguments);};window.__scrollAll=async function(){let last=-1,same=0;for(let i=0;i<300&&same<5;i++){window.scrollTo(0,document.body.scrollHeight);const sc=document.scrollingElement||document.documentElement;if(sc)sc.scrollTop=sc.scrollHeight;await new Promise(r=>setTimeout(r,600));const h=(sc?sc.scrollHeight:document.body.scrollHeight);if(h===last)same++;else{same=0;last=h;}}console.log('%c스크롤 완료. 누적 가게 '+store.shop.length+' / 즉시할인 '+store.instantDiscount.length+' / 광고 '+store.ad.length,'color:#1971c2');};window.__save=function(){const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='baemin_변경이력_'+(store.shopNumber||'shop')+'.json';document.body.appendChild(a);a.click();a.remove();console.log('%c✓ 저장 완료! 총 '+(store.shop.length+store.instantDiscount.length+store.ad.length+store.promotion.length)+'건','color:green;font-weight:bold;font-size:14px');};window.__bmStore=store;window.__bmReady=true;console.log('%c[설치완료] 탭마다 조회 후 __scrollAll(), 마지막에 __save().','color:#e8590c;font-weight:bold;font-size:14px');})();
+</script>
+
+<script>
+  // 원본 코드를 화면에 표시
+  const raw = document.getElementById('snippet').textContent.trim();
+  document.getElementById('codeview').textContent = raw;
+  // 복사 버튼
+  function copyCode(btn){
+    navigator.clipboard.writeText(raw).then(()=>{
+      btn.textContent='✓ 복사됨!'; btn.classList.add('done');
+      setTimeout(()=>{ btn.textContent='📋 복사'; btn.classList.remove('done'); },1800);
+    }).catch(()=>{
+      const r=document.createRange(); r.selectNode(document.getElementById('codeview'));
+      window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+      document.execCommand('copy'); btn.textContent='✓ 복사됨!';
+    });
+  }
+</script>
+</body>
+</html>
