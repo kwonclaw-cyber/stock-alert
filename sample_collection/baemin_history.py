@@ -64,6 +64,7 @@ class Sniffer:
 
     def __init__(self):
         self.headers = None
+        self.auth = None          # Authorization 토큰(있으면)
         self.shop_numbers = set()
         self.shop_owners = set()
         self.seen = 0
@@ -91,6 +92,7 @@ class Sniffer:
                      if k.lower() not in DROP_HEADERS and not k.startswith(":")}
             if h.get("authorization"):
                 self.headers = clean          # 인증 헤더 있는 게 최우선
+                self.auth = h.get("authorization")
             elif self.headers is None:
                 self.headers = clean
         except Exception:
@@ -127,33 +129,51 @@ def date_range_6m():
 
 
 class Fetcher:
-    def __init__(self, api_request, headers, net_dir: Path):
-        self.api = api_request
-        self.headers = headers or {}
+    """로그인된 '페이지 안에서' fetch 를 실행해 데이터를 가져온다.
+
+    바깥(요청 라이브러리)에서 흉내내면 배민이 403으로 막는다. 페이지 내부에서
+    fetch(credentials:'include') 하면 쿠키·Origin·Referer 가 그대로 따라가고,
+    캡처한 Authorization 토큰까지 얹어 인증을 통과한다.
+    """
+
+    JS_FETCH = """
+    async ({url, auth}) => {
+        const headers = {'Accept': 'application/json'};
+        if (auth) headers['Authorization'] = auth;
+        try {
+            const r = await fetch(url, {headers, credentials: 'include'});
+            const body = await r.text();
+            return {status: r.status, body: body};
+        } catch (e) {
+            return {status: -1, body: String(e)};
+        }
+    }
+    """
+
+    def __init__(self, page, auth, net_dir: Path):
+        self.page = page
+        self.auth = auth
         self.net_dir = net_dir
         self.net_dir.mkdir(parents=True, exist_ok=True)
         self.n = 0
 
     def get(self, url, save_name=None):
-        """GET → JSON 반환. 응답은 network 폴더에 캡처와 동일 형식으로 저장."""
+        """페이지 내부 fetch → JSON 반환. 응답은 network 폴더에 저장."""
         try:
-            resp = self.api.get(url, headers=self.headers, timeout=30000)
+            res = self.page.evaluate(self.JS_FETCH, {"url": url, "auth": self.auth})
         except Exception as e:
             print(f"    ! 요청 실패: {e}  ({url[:90]})")
             return None
-        body = ""
-        try:
-            body = resp.text()
-        except Exception:
-            pass
+        status = res.get("status")
+        body = res.get("body") or ""
         if save_name:
             self.n += 1
-            meta = {"url": url, "status": resp.status, "captured_at": datetime.now().isoformat()}
+            meta = {"url": url, "status": status, "captured_at": datetime.now().isoformat()}
             fp = self.net_dir / f"{self.n:03d}__{slug(save_name)}.json"
             fp.write_text("// " + json.dumps(meta, ensure_ascii=False) + "\n" + body,
                           encoding="utf-8")
-        if not resp.ok:
-            print(f"    ! 상태 {resp.status}: {url[:90]}")
+        if not isinstance(status, int) or status < 200 or status >= 300:
+            print(f"    ! 상태 {status}: {url[:90]}")
             return None
         try:
             return json.loads(body)
@@ -267,8 +287,9 @@ def capture_one_store(browser, run_dir: Path):
 
     print(f"\n=== [{brand} / {store}] 배민 ===")
     print("1) 브라우저에서 로그인하세요 (2FA 포함).")
-    print("2) '가게' 탭에서 '조회'를 한 번 눌러주세요. (매장번호·인증정보 수집)")
-    print("   → 즉시할인·광고는 스크립트가 알아서 가져오니 탭마다 누를 필요 없습니다.")
+    print("2) ★중요★ '가게' 탭을 누르고 파란 '조회' 버튼을 꼭 한 번 누르세요.")
+    print("   (이때 인증 토큰과 매장번호가 잡힙니다. 이걸 안 누르면 403이 납니다.)")
+    print("   → 즉시할인·광고는 스크립트가 알아서 가져오니 더 누를 필요 없습니다.")
     print("3) 그 다음 아래에서 Enter 를 누르면 6개월치를 자동수집합니다.")
 
     while True:
@@ -293,11 +314,23 @@ def capture_one_store(browser, run_dir: Path):
                 continue
             sniffer.shop_numbers.add(manual)
 
-        if sniffer.headers is None:
-            print("  ! 인증 헤더를 못 잡았습니다(쿠키만으로 시도합니다). 실패하면 '가게' 탭 조회 후 다시 Enter.")
+        if sniffer.auth is None:
+            print("  ! 인증 토큰(Authorization)을 아직 못 잡았습니다.")
+            print("    → '가게' 탭을 누르고 파란 '조회'를 한 번 누른 뒤, 다시 Enter 하세요.")
+            print("    (그래도 진행은 해보지만 403이 나면 위 방법으로 토큰을 잡아야 합니다.)")
+
+        # 로그인된 self.baemin.com 페이지 안에서 fetch 실행 (쿠키·인증 그대로 사용)
+        live = None
+        for pg in ctx.pages:
+            try:
+                if not pg.is_closed() and "baemin.com" in (pg.url or ""):
+                    live = pg
+            except Exception:
+                continue
+        live = live or page
 
         s, e = date_range_6m()
-        fetcher = Fetcher(ctx.request, sniffer.headers or {}, net_dir)
+        fetcher = Fetcher(live, sniffer.auth, net_dir)
         print(f"\n  수집 시작: 매장ID {sorted(sniffer.shop_numbers)}, 기간 {s} ~ {e}")
         for sn in sorted(sniffer.shop_numbers):
             print(f"  [매장번호 {sn}]")
