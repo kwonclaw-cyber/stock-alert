@@ -227,6 +227,58 @@ def write_outputs(rows, out_base):
         return csv_path
 
 
+def parse_bundle(path):
+    """콘솔 스니펫(baemin_console.js)이 만든 JSON 번들 → 표 행 리스트."""
+    d = json.load(open(path, encoding="utf-8"))
+    rows = []
+    for r in d.get("shop", []):
+        rows.append({
+            "구분": "가게",
+            "항목": _shop_item_label(r.get("changedItem"), r.get("subDivision")),
+            "변경전": (r.get("beforeState") or "").strip(),
+            "변경후": (r.get("afterState") or "").strip(),
+            "변경일시": _norm_dt(r.get("modified") or r.get("createdAt")),
+            "변경일": _date_only(r.get("modified") or r.get("createdAt")),
+            "작업자": r.get("modifyId") or "",
+            "경로": r.get("modifyChannel") or "",
+        })
+    for r in d.get("instantDiscount", []):
+        rows.append({
+            "구분": "즉시할인",
+            "항목": r.get("name") or r.get("type") or "",
+            "변경전": "",
+            "변경후": (r.get("description") or "").strip(),
+            "변경일시": _norm_dt(r.get("modifiedAt")),
+            "변경일": _date_only(r.get("modifiedAt")),
+            "작업자": r.get("modifiedBy") or "",
+            "경로": "",
+        })
+    for r in d.get("ad", []):
+        rows.append({
+            "구분": "광고",
+            "항목": f"{r.get('adKindTitle','')} ({_ad_type_label(r.get('historyType'))})".strip(),
+            "변경전": _fmt_ad_value(r.get("beforeValue")),
+            "변경후": _fmt_ad_value(r.get("afterValue")),
+            "변경일시": _norm_dt(r.get("createdAt")),
+            "변경일": _date_only(r.get("createdAt")),
+            "작업자": r.get("createdById") or "",
+            "경로": "",
+        })
+    for r in d.get("promotion", []):
+        rows.append({
+            "구분": "메뉴할인",
+            "항목": r.get("name") or r.get("promotionName") or r.get("title") or "",
+            "변경전": "",
+            "변경후": json.dumps(r, ensure_ascii=False),
+            "변경일시": _norm_dt(r.get("modifiedAt") or r.get("createdAt")),
+            "변경일": _date_only(r.get("modifiedAt") or r.get("createdAt")),
+            "작업자": r.get("modifiedBy") or "",
+            "경로": "",
+        })
+    rows.sort(key=lambda x: x["변경일시"])
+    return rows
+
+
 def find_latest_captures():
     base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "captures")
     runs = sorted(glob.glob(os.path.join(base, "*")))
@@ -235,8 +287,18 @@ def find_latest_captures():
 
 def main():
     target = sys.argv[1] if len(sys.argv) > 1 else find_latest_captures()
+
+    # 콘솔 스니펫 JSON 번들이면 바로 표로 변환
+    if target and os.path.isfile(target) and target.endswith(".json"):
+        out = sys.argv[2] if len(sys.argv) > 2 else os.path.splitext(target)[0] + "_표"
+        out = out[:-5] if out.endswith(".xlsx") else out
+        rows = parse_bundle(target)
+        print(f"  번들 {os.path.basename(target)}: {len(rows)}건")
+        write_outputs(rows, out)
+        return
+
     if not target or not os.path.isdir(target):
-        print("captures 폴더 경로를 인자로 주세요. 예: python parse_baemin.py captures/20260609_092839")
+        print("captures 폴더 경로 또는 JSON 번들 경로를 인자로 주세요.")
         sys.exit(1)
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(target, "변경이력_정리")
     out = out[:-5] if out.endswith(".xlsx") else out
