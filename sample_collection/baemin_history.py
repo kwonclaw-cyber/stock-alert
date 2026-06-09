@@ -159,10 +159,22 @@ class Fetcher:
 
     def get(self, url, save_name=None):
         """페이지 내부 fetch → JSON 반환. 응답은 network 폴더에 저장."""
-        try:
-            res = self.page.evaluate(self.JS_FETCH, {"url": url, "auth": self.auth})
-        except Exception as e:
-            print(f"    ! 요청 실패: {e}  ({url[:90]})")
+        res = None
+        for attempt in range(2):
+            try:
+                res = self.page.evaluate(self.JS_FETCH, {"url": url, "auth": self.auth})
+                break
+            except Exception as e:
+                if attempt == 0 and "context was destroyed" in str(e):
+                    # 페이지가 막 이동 중이었으면 잠시 안정시킨 뒤 재시도
+                    try:
+                        self.page.wait_for_load_state("networkidle", timeout=8000)
+                    except Exception:
+                        pass
+                    continue
+                print(f"    ! 요청 실패: {e}  ({url[:90]})")
+                return None
+        if res is None:
             return None
         status = res.get("status")
         body = res.get("body") or ""
@@ -320,14 +332,29 @@ def capture_one_store(browser, run_dir: Path):
             print("    (그래도 진행은 해보지만 403이 나면 위 방법으로 토큰을 잡아야 합니다.)")
 
         # 로그인된 self.baemin.com 페이지 안에서 fetch 실행 (쿠키·인증 그대로 사용)
+        print("  (열린 페이지 목록)")
+        for pg in ctx.pages:
+            try:
+                print("    ·", (pg.url or "")[:90])
+            except Exception:
+                pass
+
+        # self.baemin.com 페이지를 고르고, 같은 출처를 보장하기 위해 변경이력 페이지로 확정
         live = None
         for pg in ctx.pages:
             try:
-                if not pg.is_closed() and "baemin.com" in (pg.url or ""):
+                if not pg.is_closed() and (pg.url or "").startswith("https://self.baemin.com"):
                     live = pg
             except Exception:
                 continue
         live = live or page
+        try:
+            live.bring_to_front()
+            live.goto(HISTORY_PAGE, wait_until="domcontentloaded")
+            live.wait_for_load_state("networkidle", timeout=15000)
+        except Exception as ex:
+            print(f"    (페이지 확정 경고): {ex}")
+        print(f"  수집에 사용할 페이지: {(live.url or '')[:90]}")
 
         s, e = date_range_6m()
         fetcher = Fetcher(live, sniffer.auth, net_dir)
