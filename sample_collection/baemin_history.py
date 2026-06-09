@@ -31,6 +31,7 @@ from playwright.sync_api import sync_playwright
 import parse_baemin  # 같은 폴더
 
 API = "https://self-api.baemin.com"
+ROOT_PAGE = "https://self.baemin.com/"
 HISTORY_PAGE = "https://self.baemin.com/history/change/shop"
 OUT_ROOT = Path(__file__).parent / "auto_captures"
 
@@ -126,6 +127,38 @@ def date_range_6m():
     end = date.today()
     start = end - timedelta(days=183)
     return start.isoformat(), end.isoformat()
+
+
+def attach_response_saver(ctx, net_dir: Path):
+    """사용자가 직접 조회한 화면의 변경이력 응답을 그대로 저장(안전장치).
+
+    자동 fetch 가 막혀도, 사용자가 탭에서 '조회'한 만큼은 이걸로 건진다.
+    """
+    net_dir.mkdir(parents=True, exist_ok=True)
+    counter = {"n": 0}
+
+    def on_resp(resp):
+        try:
+            url = resp.url
+            if "self-api.baemin.com" not in url:
+                return
+            if not any(k in url for k in (
+                "modify-history", "promotions/history",
+                "operating-ad-campaign", "possible-history-type")):
+                return
+            body = resp.text()
+            if not body:
+                return
+            counter["n"] += 1
+            name = slug(url.split("?")[0].split("/")[-1] or "resp")[:50]
+            fp = net_dir / f"live_{counter['n']:03d}__{name}.json"
+            meta = {"url": url, "status": resp.status, "captured_at": datetime.now().isoformat()}
+            fp.write_text("// " + json.dumps(meta, ensure_ascii=False) + "\n" + body,
+                          encoding="utf-8")
+        except Exception:
+            pass
+
+    ctx.on("response", on_resp)
 
 
 class Fetcher:
@@ -289,18 +322,20 @@ def capture_one_store(browser, run_dir: Path):
     ctx = browser.new_context(viewport={"width": 1440, "height": 900})
     sniffer = Sniffer()
     sniffer.attach(ctx)
+    attach_response_saver(ctx, net_dir)   # 사용자가 조회한 화면도 그대로 저장(안전장치)
     page = ctx.new_page()
     page.on("request", sniffer.on_request)
     page.on("response", sniffer.on_response)
     try:
-        page.goto(HISTORY_PAGE)
+        page.goto(ROOT_PAGE)   # ★ 루트에서 시작해야 로그인 창이 추적에서 벗어나지 않음
     except Exception as e:
         print(f"  (페이지 이동 경고): {e}")
 
     print(f"\n=== [{brand} / {store}] 배민 ===")
-    print("1) 브라우저에서 로그인하세요 (2FA 포함).")
-    print("2) ★중요★ '가게' 탭을 누르고 파란 '조회' 버튼을 꼭 한 번 누르세요.")
-    print("   (이때 인증 토큰과 매장번호가 잡힙니다. 이걸 안 누르면 403이 납니다.)")
+    print("1) 방금 열린 이 창에서 로그인하세요 (2FA 포함).")
+    print("2) 로그인 후 왼쪽/상단 메뉴에서 '변경이력' 화면으로 들어가세요.")
+    print("3) ★중요★ '가게' 탭을 누르고 파란 '조회' 버튼을 꼭 한 번 누르세요.")
+    print("   (이때 매장번호·인증이 잡힙니다.)")
     print("   → 즉시할인·광고는 스크립트가 알아서 가져오니 더 누를 필요 없습니다.")
     print("3) 그 다음 아래에서 Enter 를 누르면 6개월치를 자동수집합니다.")
 
@@ -339,15 +374,24 @@ def capture_one_store(browser, run_dir: Path):
             except Exception:
                 pass
 
-        # self.baemin.com 페이지를 고르고, 같은 출처를 보장하기 위해 변경이력 페이지로 확정
+        # 로그인된 self.baemin.com 페이지 찾기 (login/biz-member 페이지는 제외)
         live = None
         for pg in ctx.pages:
             try:
-                if not pg.is_closed() and (pg.url or "").startswith("https://self.baemin.com"):
+                u = pg.url or ""
+                if (not pg.is_closed() and u.startswith("https://self.baemin.com")
+                        and "login" not in u):
                     live = pg
             except Exception:
                 continue
-        live = live or page
+
+        if live is None:
+            print("  ! 로그인된 self.baemin.com 화면을 못 찾았습니다.")
+            print("    → 이 창에서 로그인을 끝내고, '변경이력' 화면을 띄운 뒤 다시 Enter 하세요.")
+            print("    (스크립트가 추적하는 창에서 로그인해야 합니다. 다른 크롬 창은 안 됩니다.)")
+            continue
+
+        # 같은 출처 보장 위해 변경이력 페이지로 확정
         try:
             live.bring_to_front()
             live.goto(HISTORY_PAGE, wait_until="domcontentloaded")
@@ -355,6 +399,9 @@ def capture_one_store(browser, run_dir: Path):
         except Exception as ex:
             print(f"    (페이지 확정 경고): {ex}")
         print(f"  수집에 사용할 페이지: {(live.url or '')[:90]}")
+        if "login" in (live.url or "") or "biz-member" in (live.url or ""):
+            print("  ! 아직 로그인 화면입니다. 이 창에서 로그인을 완료한 뒤 다시 Enter 하세요.")
+            continue
 
         s, e = date_range_6m()
         fetcher = Fetcher(live, sniffer.auth, net_dir)
