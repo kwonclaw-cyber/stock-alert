@@ -57,35 +57,67 @@ def ask(prompt: str) -> str:
 
 
 class Sniffer:
-    """로그인 후 오가는 self-api 요청에서 인증 헤더와 매장/업주 ID를 수집."""
+    """로그인 후 오가는 self-api 트래픽에서 인증 헤더와 매장/업주 ID를 수집.
+
+    request/response 이벤트 + 새 탭(page)까지 모두 청취해 놓치지 않게 한다.
+    """
 
     def __init__(self):
         self.headers = None
         self.shop_numbers = set()
         self.shop_owners = set()
+        self.seen = 0
+        self.sample_urls = []
 
-    def on_request(self, request):
-        url = request.url
+    def _scan_url(self, url):
         if "self-api.baemin.com" not in url:
             return
-        if request.method == "OPTIONS":
-            return
-        try:
-            h = request.all_headers()
-            if h.get("authorization") or h.get("Authorization"):
-                self.headers = {k: v for k, v in h.items()
-                                if k.lower() not in DROP_HEADERS and not k.startswith(":")}
-            elif self.headers is None:
-                self.headers = {k: v for k, v in h.items()
-                                if k.lower() not in DROP_HEADERS and not k.startswith(":")}
-        except Exception:
-            pass
+        self.seen += 1
+        if len(self.sample_urls) < 10:
+            self.sample_urls.append(url)
         for m in re.findall(r"shopNumber=(\d+)", url):
             self.shop_numbers.add(m)
         for m in re.findall(r"shopOwnerNo=(\d+)", url):
             self.shop_owners.add(m)
         for m in re.findall(r"/shop-owners/(\d+)/", url):
             self.shop_owners.add(m)
+
+    def _grab_headers(self, request):
+        try:
+            if request is None or "self-api.baemin.com" not in request.url:
+                return
+            h = request.all_headers()
+            clean = {k: v for k, v in h.items()
+                     if k.lower() not in DROP_HEADERS and not k.startswith(":")}
+            if h.get("authorization"):
+                self.headers = clean          # 인증 헤더 있는 게 최우선
+            elif self.headers is None:
+                self.headers = clean
+        except Exception:
+            pass
+
+    def on_request(self, request):
+        try:
+            self._scan_url(request.url)
+            self._grab_headers(request)
+        except Exception:
+            pass
+
+    def on_response(self, response):
+        try:
+            self._scan_url(response.url)
+            self._grab_headers(response.request)
+        except Exception:
+            pass
+
+    def attach(self, ctx):
+        ctx.on("request", self.on_request)
+        ctx.on("response", self.on_response)
+        # 로그인 시 새로 열리는 탭에도 직접 리스너를 건다
+        def _on_page(page):
+            page.on("request", self.on_request)
+            page.on("response", self.on_response)
+        ctx.on("page", _on_page)
 
 
 def date_range_6m():
@@ -224,8 +256,10 @@ def capture_one_store(browser, run_dir: Path):
 
     ctx = browser.new_context(viewport={"width": 1440, "height": 900})
     sniffer = Sniffer()
-    ctx.on("request", sniffer.on_request)
+    sniffer.attach(ctx)
     page = ctx.new_page()
+    page.on("request", sniffer.on_request)
+    page.on("response", sniffer.on_response)
     try:
         page.goto(HISTORY_PAGE)
     except Exception as e:
@@ -233,8 +267,8 @@ def capture_one_store(browser, run_dir: Path):
 
     print(f"\n=== [{brand} / {store}] 배민 ===")
     print("1) 브라우저에서 로그인하세요 (2FA 포함).")
-    print("2) 변경이력 화면에서 '가게 / 즉시할인 / 광고·서비스 / 메뉴 할인' 탭을")
-    print("   한 번씩 눌러 '조회'까지 해주세요. (인증정보와 매장ID를 수집합니다)")
+    print("2) '가게' 탭에서 '조회'를 한 번 눌러주세요. (매장번호·인증정보 수집)")
+    print("   → 즉시할인·광고는 스크립트가 알아서 가져오니 탭마다 누를 필요 없습니다.")
     print("3) 그 다음 아래에서 Enter 를 누르면 6개월치를 자동수집합니다.")
 
     while True:
@@ -246,15 +280,24 @@ def capture_one_store(browser, run_dir: Path):
             ctx.close()
             return True
 
+        # 매장번호 확보: 자동수집 실패 시 화면에 보이는 번호를 직접 입력받음
         if not sniffer.shop_numbers:
-            print("  ! 아직 매장ID를 못 잡았습니다. 변경이력 탭에서 '조회'를 한 번 더 눌러주세요.")
-            continue
+            print(f"  (진단) self-api 트래픽 {sniffer.seen}건 관측됨.")
+            for u in sniffer.sample_urls:
+                print("    ·", u[:110])
+            print("  매장번호를 자동으로 못 잡았습니다.")
+            manual = ask("  광고탭 첫 칸에 보이는 매장번호 8자리를 입력하세요 (예: 14323681): ")
+            manual = re.sub(r"\D", "", manual)
+            if not manual:
+                print("  매장번호가 없으면 진행할 수 없어요. '가게' 탭에서 조회 후 다시 시도하세요.")
+                continue
+            sniffer.shop_numbers.add(manual)
+
         if sniffer.headers is None:
-            print("  ! 인증정보를 못 잡았습니다. 탭에서 '조회'를 한 번 더 눌러주세요.")
-            continue
+            print("  ! 인증 헤더를 못 잡았습니다(쿠키만으로 시도합니다). 실패하면 '가게' 탭 조회 후 다시 Enter.")
 
         s, e = date_range_6m()
-        fetcher = Fetcher(ctx.request, sniffer.headers, net_dir)
+        fetcher = Fetcher(ctx.request, sniffer.headers or {}, net_dir)
         print(f"\n  수집 시작: 매장ID {sorted(sniffer.shop_numbers)}, 기간 {s} ~ {e}")
         for sn in sorted(sniffer.shop_numbers):
             print(f"  [매장번호 {sn}]")
