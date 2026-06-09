@@ -147,6 +147,13 @@ _SHOP_LABELS = {
     "SHOP_DELIVERY_RULES_MODIFY": "주문금액·배달팁",
     "SHOP_DELIVERY_RULES_RESERVATION_MODIFY": "주문금액·배달팁(예약)",
     "SHOP_REGION_DELIVERY_FEE_MODIFY": "지역 할증 배달팁",
+    "SHOP_DAY_OFF_MODIFY": "휴무일 변경",
+    "TEMPORARY_STOP_MODIFY": "임시중지",
+    "SHOP_TEMPORARY_STOP_MODIFY": "임시중지",
+    "SHOP_STATUS_MODIFY": "가게 상태",
+    "SHOP_ORIGIN_INFO_MODIFY": "원산지 정보",
+    "SHOP_MENU_INFO_MODIFY": "메뉴 정보",
+    "SHOP_BASE_INFO_MODIFY": "기본 정보",
 }
 
 
