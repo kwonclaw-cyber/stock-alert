@@ -19,6 +19,11 @@
     let m = u.match(/shopNumber=(\d+)/); if (m) cap.shop = m[1];
     m = u.match(/shop-owners\/(\d+)\//); if (m) cap.owner = m[1];
   }
+  function setAuth(a) {
+    if (!a || cap.auth) return;
+    cap.auth = a;
+    console.log('%c✓ 인증 토큰 포착됨 — 이제 __bm() 실행하세요.', 'color:green;font-weight:bold');
+  }
 
   // fetch 후킹 (인증 토큰 + 매장번호 포착)
   window.fetch = function (input, init) {
@@ -27,8 +32,8 @@
       note(url);
       let h = (init && init.headers) || (input && input.headers);
       if (h) {
-        if (h instanceof Headers) { const a = h.get('authorization'); if (a) cap.auth = a; }
-        else { const a = h.authorization || h.Authorization; if (a) cap.auth = a; }
+        if (h instanceof Headers) { setAuth(h.get('authorization')); }
+        else { setAuth(h.authorization || h.Authorization); }
       }
     } catch (e) {}
     return origFetch.apply(this, arguments);
@@ -39,7 +44,7 @@
   const oSet = XMLHttpRequest.prototype.setRequestHeader;
   XMLHttpRequest.prototype.open = function (method, url) { this.__u = url; note(url); return oOpen.apply(this, arguments); };
   XMLHttpRequest.prototype.setRequestHeader = function (k, v) {
-    try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0 && k.toLowerCase() === 'authorization') cap.auth = v; } catch (e) {}
+    try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0 && k.toLowerCase() === 'authorization') setAuth(v); } catch (e) {}
     return oSet.apply(this, arguments);
   };
 
@@ -48,6 +53,35 @@
     const end = new Date();
     const start = new Date(); start.setMonth(start.getMonth() - 6); start.setDate(start.getDate() - 3);
     return [ymd(start), ymd(end)];
+  }
+
+  // 저장소(localStorage/sessionStorage)에서 JWT 토큰을 직접 찾아낸다 (후킹 실패 대비)
+  function looksJwt(x) { return typeof x === 'string' && x.split('.').length === 3 && x.replace(/^Bearer\s+/i, '').length > 40; }
+  function asBearer(x) { return /^Bearer\s+/i.test(x) ? x : ('Bearer ' + x); }
+  function digToken(v, depth) {
+    if (depth > 4 || v == null) return null;
+    if (typeof v === 'string') {
+      if (looksJwt(v)) return asBearer(v);
+      if (v.length > 1 && (v[0] === '{' || v[0] === '[')) { try { return digToken(JSON.parse(v), depth + 1); } catch (e) {} }
+      return null;
+    }
+    if (typeof v === 'object') {
+      for (const k of Object.keys(v)) {
+        const r = digToken(v[k], depth + 1); if (r) return r;
+      }
+    }
+    return null;
+  }
+  function findToken() {
+    for (const store of [window.localStorage, window.sessionStorage]) {
+      try {
+        for (let i = 0; i < store.length; i++) {
+          const v = store.getItem(store.key(i));
+          const t = digToken(v, 0); if (t) return t;
+        }
+      } catch (e) {}
+    }
+    return null;
   }
 
   async function getJson(url) {
@@ -79,7 +113,8 @@
     let sn = cap.shop;
     if (!sn) sn = prompt('매장번호 8자리를 입력하세요 (가게 드롭다운에 보이는 숫자)');
     if (!sn) { console.warn('매장번호가 없습니다.'); return; }
-    if (!cap.auth) console.warn('※ 인증 토큰을 못 잡았습니다. 쿠키만으로 시도합니다(실패 시 화면에서 조회 한 번 더).');
+    if (!cap.auth) { cap.auth = findToken(); if (cap.auth) console.log('%c✓ 저장소에서 인증 토큰 발견', 'color:green'); }
+    if (!cap.auth) console.warn('※ 인증 토큰을 못 잡았습니다. 화면에서 "조회"를 한 번 누른 뒤 다시 __bm() 하세요.');
 
     const [s, e] = range6m();
     console.log('%c수집 시작 매장 ' + sn + ' (' + s + ' ~ ' + e + ')', 'color:#1971c2;font-weight:bold');
