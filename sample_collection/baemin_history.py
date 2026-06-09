@@ -312,61 +312,99 @@ def crawl_menu_promotion(fetcher, owner, s, e):
     print(f"    · 메뉴할인 변경이력: {n}건")
 
 
-def capture_one_store(browser, run_dir: Path):
+class StoreState:
+    """응답 저장기가 '현재 매장의 network 폴더'를 알도록 공유하는 상태."""
+    def __init__(self):
+        self.net_dir = None
+        self.counter = 0
+
+
+def attach_dynamic_saver(ctx, state: StoreState):
+    """사용자가 조회한 변경이력 응답을 현재 매장 폴더에 그대로 저장(안전장치)."""
+    def on_resp(resp):
+        try:
+            if state.net_dir is None:
+                return
+            url = resp.url
+            if "self-api.baemin.com" not in url:
+                return
+            if not any(k in url for k in (
+                "modify-history", "promotions/history",
+                "operating-ad-campaign", "possible-history-type")):
+                return
+            body = resp.text()
+            if not body:
+                return
+            state.counter += 1
+            state.net_dir.mkdir(parents=True, exist_ok=True)
+            name = slug(url.split("?")[0].split("/")[-1] or "resp")[:50]
+            fp = state.net_dir / f"live_{state.counter:03d}__{name}.json"
+            meta = {"url": url, "status": resp.status, "captured_at": datetime.now().isoformat()}
+            fp.write_text("// " + json.dumps(meta, ensure_ascii=False) + "\n" + body,
+                          encoding="utf-8")
+        except Exception:
+            pass
+
+    ctx.on("response", on_resp)
+
+
+def open_browser(p):
+    """로그인을 기억하는 persistent 브라우저. 실제 Chrome 우선, 없으면 기본 chromium."""
+    profile = OUT_ROOT / "_browser_profile"
+    profile.mkdir(parents=True, exist_ok=True)
+    last = None
+    for ch in ("chrome", "msedge", None):
+        try:
+            ctx = p.chromium.launch_persistent_context(
+                str(profile),
+                channel=ch,
+                headless=False,
+                no_viewport=True,
+                args=["--start-maximized"],
+            )
+            print(f"  브라우저: {ch or '기본 chromium'} (로그인 기억됨)")
+            return ctx
+        except Exception as e:
+            last = e
+            print(f"  ({ch or 'chromium'} 실행 불가: {str(e)[:70]})")
+    raise RuntimeError(f"브라우저 실행 실패: {last}")
+
+
+def _find_live_page(ctx):
+    """로그인된 self.baemin.com 페이지(로그인 페이지 제외) 중 가장 최근 것."""
+    live = None
+    for pg in ctx.pages:
+        try:
+            u = pg.url or ""
+            if (not pg.is_closed() and u.startswith("https://self.baemin.com")
+                    and "login" not in u):
+                live = pg
+        except Exception:
+            continue
+    return live
+
+
+def collect_one(ctx, sniffer, state, run_dir: Path):
     brand = ask("\n브랜드명 (예: 브랜드A): ")
     store = ask("매장명 (예: 강남점): ")
     store_dir = run_dir / slug(brand) / slug(store)
     net_dir = store_dir / "network"
     net_dir.mkdir(parents=True, exist_ok=True)
-
-    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
-    sniffer = Sniffer()
-    sniffer.attach(ctx)
-    attach_response_saver(ctx, net_dir)   # 사용자가 조회한 화면도 그대로 저장(안전장치)
-    page = ctx.new_page()
-    page.on("request", sniffer.on_request)
-    page.on("response", sniffer.on_response)
-    try:
-        page.goto(ROOT_PAGE)   # ★ 루트에서 시작해야 로그인 창이 추적에서 벗어나지 않음
-    except Exception as e:
-        print(f"  (페이지 이동 경고): {e}")
+    state.net_dir = net_dir
 
     print(f"\n=== [{brand} / {store}] 배민 ===")
-    print("1) 방금 열린 이 창에서 로그인하세요 (2FA 포함).")
-    print("2) 로그인 후 왼쪽/상단 메뉴에서 '변경이력' 화면으로 들어가세요.")
-    print("3) ★중요★ '가게' 탭을 누르고 파란 '조회' 버튼을 꼭 한 번 누르세요.")
-    print("   (이때 매장번호·인증이 잡힙니다.)")
-    print("   → 즉시할인·광고는 스크립트가 알아서 가져오니 더 누를 필요 없습니다.")
-    print("3) 그 다음 아래에서 Enter 를 누르면 6개월치를 자동수집합니다.")
+    print("1) 열린 창에서 로그인하세요(처음 한 번만. 다음 매장부터는 기억됩니다).")
+    print("2) 로그인 후 왼쪽 메뉴 '변경이력'으로 들어가세요.")
+    print("3) '가게' 탭에서 파란 '조회'를 한 번 누르세요. (즉시할인·광고는 자동)")
+    print("4) 그 다음 아래에서 Enter.")
 
     while True:
         cmd = ask("\n[명령] Enter=수집시작 / next=다음매장 / quit=종료 > ").lower()
         if cmd in ("quit", "q"):
-            ctx.close()
             return False
         if cmd in ("next", "n"):
-            ctx.close()
             return True
 
-        # 매장번호 확보: 자동수집 실패 시 화면에 보이는 번호를 직접 입력받음
-        if not sniffer.shop_numbers:
-            print(f"  (진단) self-api 트래픽 {sniffer.seen}건 관측됨.")
-            for u in sniffer.sample_urls:
-                print("    ·", u[:110])
-            print("  매장번호를 자동으로 못 잡았습니다.")
-            manual = ask("  광고탭 첫 칸에 보이는 매장번호 8자리를 입력하세요 (예: 14323681): ")
-            manual = re.sub(r"\D", "", manual)
-            if not manual:
-                print("  매장번호가 없으면 진행할 수 없어요. '가게' 탭에서 조회 후 다시 시도하세요.")
-                continue
-            sniffer.shop_numbers.add(manual)
-
-        if sniffer.auth is None:
-            print("  ! 인증 토큰(Authorization)을 아직 못 잡았습니다.")
-            print("    → '가게' 탭을 누르고 파란 '조회'를 한 번 누른 뒤, 다시 Enter 하세요.")
-            print("    (그래도 진행은 해보지만 403이 나면 위 방법으로 토큰을 잡아야 합니다.)")
-
-        # 로그인된 self.baemin.com 페이지 안에서 fetch 실행 (쿠키·인증 그대로 사용)
         print("  (열린 페이지 목록)")
         for pg in ctx.pages:
             try:
@@ -374,39 +412,39 @@ def capture_one_store(browser, run_dir: Path):
             except Exception:
                 pass
 
-        # 로그인된 self.baemin.com 페이지 찾기 (login/biz-member 페이지는 제외)
-        live = None
-        for pg in ctx.pages:
-            try:
-                u = pg.url or ""
-                if (not pg.is_closed() and u.startswith("https://self.baemin.com")
-                        and "login" not in u):
-                    live = pg
-            except Exception:
-                continue
-
+        live = _find_live_page(ctx)
         if live is None:
             print("  ! 로그인된 self.baemin.com 화면을 못 찾았습니다.")
-            print("    → 이 창에서 로그인을 끝내고, '변경이력' 화면을 띄운 뒤 다시 Enter 하세요.")
-            print("    (스크립트가 추적하는 창에서 로그인해야 합니다. 다른 크롬 창은 안 됩니다.)")
+            print("    → 이 창에서 로그인을 끝내고 '변경이력' 화면을 띄운 뒤 다시 Enter 하세요.")
             continue
 
-        # 같은 출처 보장 위해 변경이력 페이지로 확정
         try:
             live.bring_to_front()
             live.goto(HISTORY_PAGE, wait_until="domcontentloaded")
             live.wait_for_load_state("networkidle", timeout=15000)
         except Exception as ex:
             print(f"    (페이지 확정 경고): {ex}")
-        print(f"  수집에 사용할 페이지: {(live.url or '')[:90]}")
-        if "login" in (live.url or "") or "biz-member" in (live.url or ""):
-            print("  ! 아직 로그인 화면입니다. 이 창에서 로그인을 완료한 뒤 다시 Enter 하세요.")
+        cur = live.url or ""
+        print(f"  수집에 사용할 페이지: {cur[:90]}")
+        if "login" in cur or "biz-member" in cur:
+            print("  ! 아직 로그인 화면입니다. 로그인을 완료한 뒤 다시 Enter 하세요.")
+            continue
+
+        # 매장번호: 자동으로 잡힌 게 있으면 추천, 없으면 직접 입력
+        suggested = sorted(sniffer.shop_numbers)
+        hint = f" (자동감지: {', '.join(suggested)})" if suggested else ""
+        raw = ask(f"  이 매장의 매장번호 8자리를 입력하세요{hint}\n  (화면 가게 드롭다운에 보이는 숫자, 여러 개면 콤마로): ")
+        nums = [n for n in re.split(r"[^\d]+", raw) if n]
+        if not nums:
+            nums = suggested
+        if not nums:
+            print("  매장번호가 필요합니다. 가게 드롭다운의 숫자를 입력하세요.")
             continue
 
         s, e = date_range_6m()
         fetcher = Fetcher(live, sniffer.auth, net_dir)
-        print(f"\n  수집 시작: 매장ID {sorted(sniffer.shop_numbers)}, 기간 {s} ~ {e}")
-        for sn in sorted(sniffer.shop_numbers):
+        print(f"\n  수집 시작: 매장번호 {nums}, 기간 {s} ~ {e}")
+        for sn in nums:
             print(f"  [매장번호 {sn}]")
             crawl_shop(fetcher, sn, s, e)
             crawl_instant_discount(fetcher, sn, s, e)
@@ -415,14 +453,11 @@ def capture_one_store(browser, run_dir: Path):
             print(f"  [업주번호 {owner}]")
             crawl_menu_promotion(fetcher, owner, s, e)
 
-        # 표로 정리
         rows = parse_baemin.parse_records(str(net_dir))
         out_base = str(store_dir / f"{slug(brand)}_{slug(store)}_변경이력")
         parse_baemin.write_outputs(rows, out_base)
         print(f"\n  ✓ 완료: {store_dir}")
         print("    (network/ 원본 + 변경이력 표 CSV/XLSX 저장됨)")
-        # 같은 매장에서 더 받을 일은 없으니 다음으로
-        ctx.close()
         return True
 
 
@@ -432,11 +467,27 @@ def main():
     print("배민 변경이력 자동수집 시작")
     print(f"저장 위치: {run_dir}")
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        ctx = open_browser(p)
+        sniffer = Sniffer()
+        sniffer.attach(ctx)
+        state = StoreState()
+        attach_dynamic_saver(ctx, state)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.on("request", sniffer.on_request)
+        page.on("response", sniffer.on_response)
+        try:
+            page.goto(ROOT_PAGE)
+        except Exception as e:
+            print(f"  (첫 페이지 이동 경고): {e}")
+        print("\n열린 창에서 배민에 로그인하세요. (한 번 로그인하면 다음 매장부터 기억됩니다)")
+
         more = True
         while more:
-            more = capture_one_store(browser, run_dir)
-        browser.close()
+            more = collect_one(ctx, sniffer, state, run_dir)
+        try:
+            ctx.close()
+        except Exception:
+            pass
     print(f"\n전체 완료! 폴더를 압축해서 올려주세요:\n  {run_dir}")
 
 
