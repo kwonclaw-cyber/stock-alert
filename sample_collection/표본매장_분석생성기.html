@@ -40,6 +40,18 @@
   .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13px;}
   .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;}
   .arrow{color:var(--mut);font-weight:700;}
+  .legend{font-size:13px;color:var(--mut);margin:4px 0 12px;}
+  .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin:6px 0;}
+  .bcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff;}
+  .bcard .blabel{font-size:13px;font-weight:700;}
+  .bcard .bnet{font-size:27px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px;}
+  .bcard .bsub{font-size:11.5px;color:var(--mut);}
+  .bcard .bverdict{font-size:12.5px;font-weight:700;margin-top:6px;}
+  .bcard .bnote{font-size:11px;color:var(--o);margin-top:4px;}
+  .bcard.base{background:#f1f3f5;grid-column:1/-1;} .bcard.base .bnet{color:var(--ink);font-size:23px;}
+  .bcard.pos{border-color:#b2f2bb;background:#ebfbee;} .bcard.pos .bnet,.bcard.pos .bverdict{color:var(--g);}
+  .bcard.neg{border-color:#ffc9c9;background:#fff5f5;} .bcard.neg .bnet,.bcard.neg .bverdict{color:var(--r);}
+  .bcard.neu .bnet,.bcard.neu .bverdict{color:var(--mut);}
 </style>
 </head>
 <body>
@@ -68,8 +80,9 @@
       <button class="dl" id="dlAnalysis">⬇ 분석.xlsx</button>
       <button class="dl" id="dlMerged">⬇ 통합본.xlsx</button>
     </div>
-    <h2>분석요약 — 전주 동일요일 대비(평균)</h2>
-    <table id="sumtable"></table>
+    <h2>📊 분석 보드 — 변경이 매출에 준 직접 영향</h2>
+    <p class="legend">각 카드의 큰 숫자 = <b>순효과(%p)</b> = 그날 매출(전주 동일요일 대비) − 기준선. 변경만의 영향에 가깝게 보정한 값입니다. <b style="color:var(--g)">＋면 매출 견인</b>, <b style="color:var(--r)">－면 매출 하락.</b></p>
+    <div class="board" id="board"></div>
     <div class="warn"><b>해석 주의:</b> "변경한 날 하루" 비교는 사장님 반응(매출 부진 → 광고·할인 ON)이 섞여 역인과일 수 있습니다. 지속적 변경(운영시간 등)과 <b>주차·월 비교 시트</b>를 함께 보세요.</div>
     <h2>월별 비교</h2>
     <table id="montable"></table>
@@ -189,9 +202,8 @@
       try {
         const o = JSON.parse(s), cpc = o.cpc || o, p = [];
         if ('bid' in cpc) p.push('입찰 ' + Number(cpc.bid).toLocaleString() + '원');
-        if ('maxBid' in cpc) p.push('최대입찰 ' + Number(cpc.maxBid).toLocaleString() + '원');
-        if ('monthlyBudget' in cpc) p.push('월예산 ' + Number(cpc.monthlyBudget).toLocaleString() + '원');
         if ('autoBidding' in cpc) p.push(cpc.autoBidding ? '자동입찰' : '수동입찰');
+        // 예산(월예산·최대입찰)은 매출영향 분석에 불필요 → 표시 제외
         return p.length ? p.join(', ') : s;
       } catch (e) { return s; }
     }
@@ -326,6 +338,16 @@
 
   function pctStr(p){ return p==null?'N/A':(p>=0?'+':'')+p.toFixed(1)+'%'; }
   function cls(p){ return p==null?'':(p>0?'up':(p<0?'dn':'')); }
+  function netStr(n){ return n==null?'N/A':(n>=0?'+':'')+n.toFixed(1)+'%p'; }
+  function verdictOf(net){ if(net==null) return {t:'데이터 없음',c:'neu',ic:'–'};
+    if(net>=3) return {t:'매출 상승',c:'pos',ic:'▲'}; if(net<=-3) return {t:'매출 하락',c:'neg',ic:'▼'};
+    return {t:'영향 미미',c:'neu',ic:'–'}; }
+  function boardData(a){ var b=a.base;
+    function row(label,o,note){ var net=(o.v==null||b==null)?null:o.v-b; var v=verdictOf(net);
+      return {label:label,n:o.n,wow:o.v,net:net,c:v.c,verdict:v.ic+' '+v.t,note:note||''}; }
+    return [ row('운영시간 변경',a.op), row('즉시할인 시작',a.dStart),
+      row('즉시할인 종료',a.dEnd,'⚠ 종료일↑은 역인과 가능'),
+      row('우리가게클릭 입찰 인상',a.bidUp), row('우리가게클릭 입찰 인하',a.bidDn) ]; }
 
   function showResult(){
     var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
@@ -334,13 +356,9 @@
     document.getElementById('kpi').innerHTML=
       kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
       kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
-    var rows=[['구분','일수','전주동일요일 대비(평균)']];
-    var R=[['전체 일평균(기준선)','',a.base],['운영시간 변경일',a.op.n,a.op.v],
-      ['즉시할인 시작일',a.dStart.n,a.dStart.v],['즉시할인 종료일',a.dEnd.n,a.dEnd.v],
-      ['우리가게클릭 입찰▲인상',a.bidUp.n,a.bidUp.v],['우리가게클릭 입찰▼인하',a.bidDn.n,a.bidDn.v]];
-    var html='<tr><th>구분</th><th>일수</th><th>전주 동일요일 대비(평균)</th></tr>';
-    R.forEach(function(x){ html+='<tr><td>'+x[0]+'</td><td class="num">'+(x[1]===''?'-':x[1])+'</td><td class="num '+cls(x[2])+'">'+pctStr(x[2])+'</td></tr>'; });
-    document.getElementById('sumtable').innerHTML=html;
+    var bh='<div class="bcard base"><div class="blabel">기준선 · 평소 주간 변동</div><div class="bnet">'+pctStr(a.base)+'</div><div class="bsub">이 값보다 높을수록 그 변경이 매출에 ＋효과 (아래 순효과의 기준)</div></div>';
+    boardData(a).forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+netStr(r.net)+'</div><div class="bsub">적용 '+r.n+'일 · 그날매출 '+pctStr(r.wow)+'</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
+    document.getElementById('board').innerHTML=bh;
     // 월별
     var mo=SAMPLE.monthly(gd.daily), mk=Object.keys(mo).sort();
     var mh='<tr><th>월</th><th>'+gd.salesName+'</th><th>건수</th><th>전월 대비</th></tr>';
@@ -373,19 +391,20 @@
       var cs=catRange(cats,days.filter(function(dt){return dt.slice(0,7)===ym;}));
       a3.push([ym,s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
     var an=SAMPLE.analyze(daily,cats);
-    var a4=[['변경요인별 매출영향 (전주 동일요일 대비 평균)'],[''],
-      ['전체 일평균(기준선)', pctStr(an.base)],
-      ['운영시간 변경일('+an.op.n+'일)', pctStr(an.op.v)],
-      ['즉시할인 시작일('+an.dStart.n+'일)', pctStr(an.dStart.v)],
-      ['즉시할인 종료일('+an.dEnd.n+'일)', pctStr(an.dEnd.v)],
-      ['우리가게클릭 입찰▲인상('+an.bidUp.n+'일)', pctStr(an.bidUp.v)],
-      ['우리가게클릭 입찰▼인하('+an.bidDn.n+'일)', pctStr(an.bidDn.v)],[''],
-      ['해석: 기준선보다 높으면 그 변경일 매출이 평소보다 좋았다는 뜻. 단 같은날 여러변경/역인과 가능 → 주차·월 비교와 함께 보세요.']];
+    var a4=[['[ 분석 보드 ] 변경이 매출에 준 직접 영향'],[''],
+      ['기준선(평소 주간 변동, 전주 동일요일 대비 평균)', pctStr(an.base)],[''],
+      ['변경 유형','적용일수','그날 매출(전주대비)','기준선 대비 순효과','판정']];
+    boardData(an).forEach(function(r){ a4.push([r.label, r.n, pctStr(r.wow), netStr(r.net), r.verdict]); });
+    a4.push([''],
+      ['※ 순효과 = 그날 매출(전주대비) − 기준선. 변경만의 영향에 가깝게 본 값.'],
+      ['※ ＋면 매출 견인, －면 매출 하락. (±3%p 미만은 영향 미미)'],
+      ['※ 우리가게클릭은 입찰가 변화만 반영합니다(예산 제외).'],
+      ['※ "즉시할인 종료일"이 높게 나오면 역인과(잘 팔리던 흐름 + 행사 종료)일 수 있습니다.']);
     var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석 보드');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a1),'일자별 분석');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a2),'주차별 비교');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a3),'월별 비교');
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석요약');
     return wb;
   }
   function buildMerged(){
