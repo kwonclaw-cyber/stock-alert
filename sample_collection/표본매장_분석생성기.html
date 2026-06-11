@@ -120,6 +120,9 @@
       <input type="file" id="picker" multiple accept=".json,.xlsx" class="hide">
     </div>
     <ul class="files" id="filelist"></ul>
+    <div style="margin-top:12px">
+      <select id="loadGen" class="loadsel" style="max-width:420px"><option value="">📂 저장된 표본 불러와서 분석 보기…</option></select>
+    </div>
     <div style="margin-top:14px;">
       매장 이름(선택): <input type="text" id="storename" placeholder="예: 밥구정로데오">
       <br><button class="go" id="run" disabled>분석 만들기 ▶</button>
@@ -1036,8 +1039,18 @@
     Array.prototype.slice.call(box.querySelectorAll('.del')).forEach(function(btn){ btn.addEventListener('click',function(){
       if(confirm('이 표본을 삭제할까요?')){ delSample(btn.getAttribute('data-id')); refreshSamples(); } }); });
   }
-  function refreshSamples(){ fillSelect(document.getElementById('loadRef')); fillSelect(document.getElementById('loadTgt')); renderSavedList(); }
+  function refreshSamples(){ fillSelect(document.getElementById('loadGen')); fillSelect(document.getElementById('loadRef')); fillSelect(document.getElementById('loadTgt')); renderSavedList(); }
   window.__refreshSamples=refreshSamples;
+  // 분석 생성기: 저장된 표본 불러와서 분석 보기
+  var loadGen=document.getElementById('loadGen');
+  if(loadGen) loadGen.addEventListener('change',function(){
+    var rec=pickSample(this.value); if(!rec) return;
+    computed=Object.assign({hourly:[]},rec.comp);   // 저장본엔 시간대 원본이 없음(분석엔 불필요)
+    document.getElementById('storename').value=rec.name;
+    showResult();
+    document.getElementById('status').innerHTML='<span style="color:var(--g)">불러옴: ['+esc(rec.brand)+'] '+esc(rec.name)+'</span>';
+    document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+  });
   // 분석 생성기: 표본 저장 버튼
   var saveBtn=document.getElementById('saveSample');
   if(saveBtn) saveBtn.addEventListener('click',function(){
@@ -1184,7 +1197,7 @@
     t.classList.add('active');
     var tab=t.getAttribute('data-tab');
     var el=document.getElementById('tab-'+tab); if(el) el.classList.add('active');
-    if(tab==='compare' && window.__refreshSamples) window.__refreshSamples();
+    if((tab==='compare'||tab==='gen') && window.__refreshSamples) window.__refreshSamples();
     window.scrollTo(0,0);
   }); });
 })();
