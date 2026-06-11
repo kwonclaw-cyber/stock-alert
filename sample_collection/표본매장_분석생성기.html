@@ -619,12 +619,16 @@
       if(prevH==null) ev.운영시간.push({date:d,content:'신규 '+h.toFixed(1)+'h/일',change:'신규 설정',kind:'신규'});
       else { var dl=h-prevH; if(Math.abs(dl)>=0.1) ev.운영시간.push({date:d,content:prevH.toFixed(1)+'h → '+h.toFixed(1)+'h',change:(dl>0?'연장 +':'감소 ')+dl.toFixed(1)+'h/일',kind:dl>0?'연장':'감소'}); }
       prevH=h; });
-    // 즉시할인: 그날 시작·종료 건수의 순증감 (순0이면 변화 없음 → 제외)
+    // 즉시할인: 그날 시작·종료를 모아 순증감 + '무슨 할인'인지(금액/율)까지 표시
+    function discAmt(name){ var m=name.match(/([\d,]+\s*원|\d+\s*%)/); return m?m[1].replace(/\s+/g,''):name.replace(/^모든주문\s*/,'').replace(/\s*할인$/,'').trim(); }
+    function uniq(a){ return a.filter(function(v,i){return a.indexOf(v)===i;}); }
     var ds={}; ch.filter(function(c){return c.gubun==='즉시할인';}).forEach(function(c){
-      if(!ds[c.date]) ds[c.date]={s:0,e:0}; if(c.item.indexOf('[시작]')>=0) ds[c.date].s++; else if(c.item.indexOf('[종료]')>=0) ds[c.date].e++; });
-    Object.keys(ds).sort().forEach(function(d){ var o=ds[d], net=o.s-o.e;
-      if(net>0) ev.즉시할인.push({date:d,content:'할인 '+net+'건 순시작',change:'시작',kind:'시작'});
-      else if(net<0) ev.즉시할인.push({date:d,content:'할인 '+(-net)+'건 순종료',change:'종료',kind:'종료'}); });
+      var mk=c.item.indexOf('[시작]')>=0?'s':(c.item.indexOf('[종료]')>=0?'e':null); if(!mk) return;
+      if(!ds[c.date]) ds[c.date]={s:[],e:[]};
+      ds[c.date][mk].push(discAmt(c.item.replace(/\[(시작|종료)\]\s*/,'').trim())); });
+    Object.keys(ds).sort().forEach(function(d){ var o=ds[d], net=o.s.length-o.e.length;
+      if(net>0) ev.즉시할인.push({date:d,content:'할인 시작: '+uniq(o.s).join(', '),change:'시작',kind:'시작'});
+      else if(net<0) ev.즉시할인.push({date:d,content:'할인 종료: '+uniq(o.e).join(', '),change:'종료',kind:'종료'}); });
     // 우리가게클릭: 그날 입찰 첫 변경전 → 마지막 변경후 (순변동만)
     var bl=ch.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;})
       .map(function(c){ var b=bidNum(c.before),a=bidNum(c.after); return (b==null||a==null)?null:{date:c.date,ts:c.ts||c.date,b:b,a:a}; })
