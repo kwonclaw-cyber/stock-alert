@@ -997,14 +997,24 @@
   function storeMetrics(comp){
     var daily=comp.gd.daily, days=Object.keys(daily).sort();
     var avgDaily=avgOf(days.map(function(d){return daily[d].sales;}));
-    var a=SAMPLE.analyze(daily,comp.cats);
+    // 효과 = 변경 전·후(최대 14일·동일 요일구성) 매출변화 평균 — 분석 보드와 동일 측정
+    var rows0=detailRows(comp);
+    function grp(cat,pred){ var es=rows0.filter(function(r){return r.cat===cat&&r.measurable&&pred(r);}); return {n:es.length, v:avgOf(es.map(function(r){return r.pct;}))}; }
+    var eff={
+      opUp:grp('운영시간',function(r){return r.kind==='연장'||r.kind==='신규';}),
+      opDn:grp('운영시간',function(r){return r.kind==='감소';}),
+      dUp:grp('즉시할인',function(r){return r.kind==='시작';}),
+      dDn:grp('즉시할인',function(r){return r.kind==='종료';}),
+      bidUp:grp('우리가게클릭',function(r){return r.kind==='인상';}),
+      bidDn:grp('우리가게클릭',function(r){return r.kind==='인하';})
+    };
     var ophrs=null, opL=comp.changes.filter(function(c){return c.gubun==='가게'&&c.item==='운영시간';}).sort(function(x,y){return x.date<y.date?-1:1;});
     if(opL.length){ var ao=opHours(opL[opL.length-1].after); if(ao) ophrs=ao.min/ao.days/60; }
     var dStarts=comp.changes.filter(function(c){return c.gubun==='즉시할인'&&c.item.indexOf('[시작]')>=0;}).length;
     var bid=null, bL=comp.changes.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;});
     for(var i=bL.length-1;i>=0;i--){ var v=bidNum(bL[i].after); if(v!=null){ bid=v; break; } }
     return {name:comp.name, days:days.length, span:[days[0],days[days.length-1]], avgDaily:avgDaily,
-      board:a, ophrs:ophrs, dStarts:dStarts, bid:bid, comp:comp,
+      eff:eff, ophrs:ophrs, dStarts:dStarts, bid:bid, comp:comp,
       salesName:comp.gd.salesName};
   }
   function maIndex(comp){
@@ -1036,50 +1046,50 @@
       +'<div style="font-size:12px;color:var(--mut);margin-top:6px"><span style="color:#1971c2">━ 기준 '+esc(R.name)+'</span> &nbsp; <span style="color:#e8590c">━ 선택 '+esc(S.name)+'</span> &nbsp; <span>▼ 변경 시점(파랑=기준·주황=선택)</span> &nbsp;(각 매장 시작=100 지수 · 7일 이동평균)</div>';
   }
   function buildSolution(R,S){
-    var levers=[['운영시간 변경','op'],['즉시할인 시작','dStart'],['즉시할인 종료','dEnd'],['우리가게클릭 클릭비 인상','bidUp'],['우리가게클릭 클릭비 인하','bidDn']];
-    var ranked=levers.map(function(l){ return {k:l[0], key:l[1], Rnet:netOf(R.board[l[1]],R.board.base), Snet:netOf(S.board[l[1]],S.board.base), Rn:R.board[l[1]].n, Sn:S.board[l[1]].n }; })
+    var levers=[['운영시간 증가','opUp'],['운영시간 감소','opDn'],['즉시할인 증가','dUp'],['즉시할인 감소','dDn'],['클릭비 인상','bidUp'],['클릭비 인하','bidDn']];
+    var ranked=levers.map(function(l){ return {k:l[0], key:l[1], Rnet:R.eff[l[1]].v, Snet:S.eff[l[1]].v, Rn:R.eff[l[1]].n, Sn:S.eff[l[1]].n }; })
       .sort(function(a,b){ return (b.Rnet==null?-999:b.Rnet)-(a.Rnet==null?-999:a.Rnet); });
-    // 등급: 기준매장(표본)에서 '측정된 실제 효과(E)' 기준 — 격차가 아니라 효과로 추천
+    // 등급: 기준매장(표본)에서 '변경 전·후 비교로 측정된 효과(E)' 기준 — 격차가 아니라 효과로 추천
     function tier(E){ return E>=10?'우선':E>=3?'권장':'참고'; }
     function mk(title,t,detail,basis,pri){ return {title:title,tier:t,detail:detail,basis:basis,pri:pri||0}; }
-    function E(key){ return netOf(R.board[key],R.board.base); }     // 기준매장 효과
+    function E(key){ return R.eff[key]?R.eff[key].v:null; }     // 기준매장 효과(전·후 비교 평균)
     var acts=[];
-    // 1) 운영시간: 기준매장이 더 길고 + 운영시간 변경 효과가 +일 때만 연장 추천
-    var Eop=E('op');
+    // 1) 운영시간: 기준매장이 더 길고 + 운영시간 증가 효과가 +일 때만 연장 추천
+    var Eop=E('opUp');
     if(R.ophrs!=null && S.ophrs!=null && R.ophrs-S.ophrs>=0.5){
       var dh=(R.ophrs-S.ophrs).toFixed(1);
       if(Eop!=null && Eop>=3) acts.push(mk('운영시간 연장', tier(Eop),
         '기준매장 '+R.ophrs.toFixed(1)+'h/일 · 선택매장 '+S.ophrs.toFixed(1)+'h/일 (선택 −'+dh+'h)',
-        '기준매장에서 운영시간 변경일 매출 '+netStr(Eop)+' → 효과 확인됨', 100+(Eop||0)));
+        '기준매장에서 운영시간 증가 후 매출 '+pctStr(Eop)+' → 효과 확인됨', 100+(Eop||0)));
       else acts.push(mk('운영시간 연장(참고)','참고',
-        '기준매장이 '+dh+'h 더 길지만, 운영시간 변경의 매출효과는 약함('+netStr(Eop)+')',
+        '기준매장이 '+dh+'h 더 길지만, 운영시간 증가의 매출효과는 약함('+pctStr(Eop)+')',
         '효과 근거 약함 → 우선순위 낮음', 5));
     }
-    // 2) 즉시할인: 기준매장이 더 자주 + 할인시작 효과가 +일 때만 도입 추천
-    var Ed=E('dStart');
+    // 2) 즉시할인: 기준매장이 더 자주 + 할인 증가 효과가 +일 때만 도입 추천
+    var Ed=E('dUp');
     if(R.dStarts>S.dStarts){
       if(Ed!=null && Ed>=3) acts.push(mk('즉시할인 도입·확대', tier(Ed),
         '기준매장 할인 시작 '+R.dStarts+'회 · 선택매장 '+S.dStarts+'회',
-        '기준매장에서 할인 시작일 매출 '+netStr(Ed)+' → 효과 확인됨', 100+(Ed||0)));
+        '기준매장에서 할인 증가 후 매출 '+pctStr(Ed)+' → 효과 확인됨', 100+(Ed||0)));
       else acts.push(mk('즉시할인 도입(참고)','참고',
-        '기준매장이 할인을 더 자주('+R.dStarts+'회) 하지만 효과는 약함('+netStr(Ed)+')',
+        '기준매장이 할인을 더 자주('+R.dStarts+'회) 하지만 효과는 약함('+pctStr(Ed)+')',
         '효과 근거 약함 → 참고', 4));
     }
-    // 3) 우가클 클릭비: '인상' 효과가 +면 상향 추천 / 효과가 −면 반대(점검·하향) 조언
+    // 3) 클릭비: '인상' 효과가 +면 상향 추천 / 효과가 −면 반대(점검·하향) 조언
     var Eup=E('bidUp');
     if(R.bid!=null && S.bid!=null){
       if(Eup!=null && Eup>=3 && R.bid>S.bid*1.05)
         acts.push(mk('우리가게클릭 클릭비 상향', tier(Eup),
           '기준매장 클릭비 '+R.bid.toLocaleString()+'원 · 선택매장 '+S.bid.toLocaleString()+'원',
-          '기준매장에서 클릭비 인상일 매출 '+netStr(Eup)+' → 효과 확인됨', 100+(Eup||0)));
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+' → 효과 확인됨', 100+(Eup||0)));
       else if(Eup!=null && Eup<=-3 && S.bid>R.bid*1.05)
         acts.push(mk('우리가게클릭 클릭비 점검·하향','주의',
           '선택매장 클릭비('+S.bid.toLocaleString()+'원)가 기준매장('+R.bid.toLocaleString()+'원)보다 높음',
-          '기준매장에서 클릭비 인상은 매출 '+netStr(Eup)+'(효과 부정) → 비용 대비 점검', 50+Math.abs(Eup)));
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+'(효과 부정) → 비용 대비 점검', 50+Math.abs(Eup)));
       else if(Eup!=null && Eup<=-3 && R.bid>S.bid*1.05)
         acts.push(mk('클릭비 상향은 보류','주의',
           '기준매장 클릭비가 더 높지만, 클릭비 인상은 매출에 마이너스',
-          '기준매장에서 클릭비 인상일 매출 '+netStr(Eup)+'(효과 부정) → 단순 따라하기 금지', 30));
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+'(효과 부정) → 단순 따라하기 금지', 30));
     }
     if(!acts.length) acts.push(mk('효과가 확인되는 개선 레버 없음','참고',
       '운영시간·할인·클릭비에서 "기준매장 효과 + 격차"가 동시에 성립하는 항목이 없습니다. 메뉴·리뷰·가게 상세 콘텐츠 등 다른 요인을 검토하세요.','',0));
@@ -1098,18 +1108,17 @@
       +row('현재 운영시간',R.ophrs==null?'-':R.ophrs.toFixed(1)+'h/일',S.ophrs==null?'-':S.ophrs.toFixed(1)+'h/일')
       +row('즉시할인 시작 횟수',R.dStarts+'회',S.dStarts+'회')
       +row('최신 클릭비',R.bid==null?'-':R.bid.toLocaleString()+'원',S.bid==null?'-':S.bid.toLocaleString()+'원')
-      +row('기준선(주간 변동)',pctStr(R.board.base),pctStr(S.board.base))
       +'</table>';
     html+='<h2>📈 매출 추이 비교 (지수 100 기준)</h2>'+compareChart(R,S);
     var sol=buildSolution(R,S);
     html+='<h2>🏆 변경 효과 순위 &amp; 근거</h2>';
-    html+='<p class="legend">기준매장에서 매출을 끌어올린 변경 순서(순효과=기준선 대비). 선택매장 수치도 함께 비교하세요.</p>';
-    html+='<table><tr><th>순위</th><th>변경 유형</th><th>🔵 기준 순효과</th><th>🟠 선택 순효과</th></tr>';
-    sol.ranked.forEach(function(r,i){ function c(v){return '<td class="num" style="color:'+(v==null?'var(--mut)':v>0?'var(--g)':v<0?'var(--r)':'var(--mut)')+';font-weight:700">'+netStr(v)+'</td>';}
-      html+='<tr><td>'+(i+1)+'</td><td>'+r.k+' <span style="color:var(--mut);font-size:11px">(기준 '+r.Rn+'일/선택 '+r.Sn+'일)</span></td>'+c(r.Rnet)+c(r.Snet)+'</tr>'; });
+    html+='<p class="legend">각 유형을 <b>변경 전·후(최대 14일·동일 요일구성)</b>로 비교한 <b>평균 매출변화</b>입니다(분석 보드와 동일 측정). 기준매장에서 효과가 큰 순서로 정렬, 선택매장 수치도 함께 비교하세요.</p>';
+    html+='<table><tr><th>순위</th><th>변경 유형</th><th>🔵 기준 매출변화</th><th>🟠 선택 매출변화</th></tr>';
+    sol.ranked.forEach(function(r,i){ function c(v){return '<td class="num" style="color:'+(v==null?'var(--mut)':v>0?'var(--g)':v<0?'var(--r)':'var(--mut)')+';font-weight:700">'+pctStr(v)+'</td>';}
+      html+='<tr><td>'+(i+1)+'</td><td>'+r.k+' <span style="color:var(--mut);font-size:11px">(기준 '+r.Rn+'건/선택 '+r.Sn+'건)</span></td>'+c(r.Rnet)+c(r.Snet)+'</tr>'; });
     html+='</table>';
     html+='<h2>✅ 선택매장 권장 액션</h2>';
-    html+='<p class="legend">격차가 아니라 <b>기준매장에서 실제 측정된 효과</b>로 추천합니다. 효과 큰 순서로 <b style="color:var(--r)">우선</b>(≥+10%p)·<b style="color:var(--g)">권장</b>(≥+3%p)·<b style="color:var(--mut)">참고</b>(효과 약함), 효과가 마이너스인 레버는 <b style="color:var(--o)">주의</b>(반대 조언)로 표시합니다.</p>';
+    html+='<p class="legend">격차가 아니라 <b>기준매장에서 변경 전·후로 측정된 효과</b>로 추천합니다. 효과 큰 순서로 <b style="color:var(--r)">우선</b>(≥+10%)·<b style="color:var(--g)">권장</b>(≥+3%)·<b style="color:var(--mut)">참고</b>(효과 약함), 효과가 마이너스인 레버는 <b style="color:var(--o)">주의</b>(반대 조언)로 표시합니다.</p>';
     sol.actions.forEach(function(a,i){
       var tc=a.tier==='우선'?'var(--r)':a.tier==='권장'?'var(--g)':a.tier==='주의'?'var(--o)':'var(--mut)';
       html+='<div class="sol-card" style="border-left-color:'+tc+'"><b>'+(i+1)+'. '+esc(a.title)+'</b><span class="pri" style="background:'+tc+'">'+a.tier+'</span>'
