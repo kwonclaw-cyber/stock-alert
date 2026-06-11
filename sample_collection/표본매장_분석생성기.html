@@ -766,11 +766,15 @@
       return seg.map(function(p){return '<polyline points="'+p.join(' ')+'" fill="none" stroke="'+color+'" stroke-width="2.5"/>';}).join(''); }
     var y100=Y(100), xlab='',seen={};
     dates.forEach(function(d,i){ var m=d.slice(0,7); if(!seen[m]){seen[m]=1; xlab+='<text x="'+X(i)+'" y="'+(H-pB+18)+'" text-anchor="middle" font-size="10" fill="#868e96">'+m.slice(2)+'</text>';} });
+    var di={}; dates.forEach(function(d,i){di[d]=i;});
+    function ticks(comp,color,yy){ var sn={}, s=''; detailRows(comp).forEach(function(r){ if(di[r.date]==null||sn[r.date])return; sn[r.date]=1;
+      var x=X(di[r.date]); s+='<polygon points="'+(x-3.2)+','+yy+' '+(x+3.2)+','+yy+' '+x+','+(yy+5.5)+'" fill="'+color+'"/>'; }); return s; }
     return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="background:#fff;border:1px solid var(--line);border-radius:10px">'
       +'<line x1="'+pL+'" y1="'+y100+'" x2="'+(W-pR)+'" y2="'+y100+'" stroke="#dee2e6" stroke-dasharray="4 4"/>'
       +'<text x="'+(pL-4)+'" y="'+(y100+4)+'" text-anchor="end" font-size="10" fill="#868e96">100</text>'
-      +xlab+poly(mapA,'#1971c2')+poly(mapB,'#e8590c')+'</svg>'
-      +'<div style="font-size:12px;color:var(--mut);margin-top:6px"><span style="color:#1971c2">━ 기준 '+esc(R.name)+'</span> &nbsp; <span style="color:#e8590c">━ 선택 '+esc(S.name)+'</span> &nbsp;(각 매장 시작=100 지수 · 7일 이동평균)</div>';
+      +xlab+poly(mapA,'#1971c2')+poly(mapB,'#e8590c')
+      +ticks(R.comp,'#1971c2',pT)+ticks(S.comp,'#e8590c',pT+7)+'</svg>'
+      +'<div style="font-size:12px;color:var(--mut);margin-top:6px"><span style="color:#1971c2">━ 기준 '+esc(R.name)+'</span> &nbsp; <span style="color:#e8590c">━ 선택 '+esc(S.name)+'</span> &nbsp; <span>▼ 변경 시점(파랑=기준·주황=선택)</span> &nbsp;(각 매장 시작=100 지수 · 7일 이동평균)</div>';
   }
   function buildSolution(R,S){
     var levers=[['운영시간 변경','op'],['즉시할인 시작','dStart'],['즉시할인 종료','dEnd'],['우리가게클릭 입찰 인상','bidUp'],['우리가게클릭 입찰 인하','bidDn']];
@@ -815,8 +819,36 @@
     sol.actions.forEach(function(a,i){ html+='<div class="sol-card"><b>'+(i+1)+'. '+esc(a.title)+'</b>'+(a.pri>=2?'<span class="pri">우선</span>':'')
       +'<div style="font-size:13.5px;margin-top:3px">'+esc(a.detail)+'</div>'+(a.basis?'<div class="basis">'+esc(a.basis)+'</div>':'')+'</div>'; });
     html+='<div class="warn" style="margin-top:14px"><b>주의:</b> 권장 액션은 두 매장의 데이터 격차에 기반한 <b>가설</b>입니다. 상관관계가 인과를 보장하지 않으므로, 적용은 작게 시작해 효과를 재측정하세요.</div>';
-    document.getElementById('cmpResult').innerHTML=html;
-    document.getElementById('cmpResult').classList.remove('hide');
+    var el=document.getElementById('cmpResult');
+    el.innerHTML='<div style="margin:6px 0 10px"><button class="dl" id="cmpReport">📄 가맹점 전달용 리포트 생성</button></div>'+html;
+    el.classList.remove('hide');
+    document.getElementById('cmpReport').addEventListener('click',function(){ downloadReport(R,S,html); });
+  }
+  var REPORTCSS=":root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}"
+    +"*{box-sizing:border-box}body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.6;margin:0;background:#fff;}"
+    +".rwrap{max-width:840px;margin:0 auto;padding:30px 22px 60px;}"
+    +"h1{font-size:24px;margin:0 0 4px;}h2{font-size:18px;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}"
+    +".rmeta{color:var(--mut);margin:0 0 18px;font-size:14px;}.rfoot{margin-top:30px;color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:12px;}"
+    +"table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px;}th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;}th{background:#f1f3f5;}"
+    +"td.num{text-align:right;font-variant-numeric:tabular-nums;}"
+    +".tip{background:var(--b2);border-left:4px solid var(--b);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}"
+    +".warn{background:#fff9db;border-left:4px solid var(--o);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}"
+    +".legend{font-size:13px;color:var(--mut);margin:4px 0 10px;}"
+    +".sol-card{border:1px solid var(--line);border-left:4px solid var(--g);border-radius:0 10px 10px 0;padding:11px 14px;margin:8px 0;}"
+    +".sol-card .pri{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--r);border-radius:20px;padding:1px 8px;margin-left:6px;}"
+    +".sol-card .basis{font-size:12px;color:var(--mut);margin-top:4px;}"
+    +"@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}";
+  function downloadReport(R,S,body){
+    var today=new Date().toISOString().slice(0,10);
+    var doc='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+      +'<title>매장 비교 리포트 — '+esc(R.name)+' vs '+esc(S.name)+'</title><style>'+REPORTCSS+'</style></head><body><div class="rwrap">'
+      +'<h1>📊 매장 비교 리포트</h1><p class="rmeta">기준매장 <b>'+esc(R.name)+'</b> vs 선택매장 <b>'+esc(S.name)+'</b> · 생성일 '+today+'</p>'
+      +body
+      +'<p class="rfoot">본 리포트의 권장 액션은 두 매장 데이터 격차에 기반한 가설입니다. 적용은 작게 시작해 효과를 재측정하세요. · 브라우저에서 인쇄(Ctrl+P) → PDF로 저장해 전달할 수 있습니다.</p>'
+      +'</div></body></html>';
+    var blob=new Blob([doc],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='매장비교리포트_'+R.name+'_vs_'+S.name+'.html'; document.body.appendChild(a); a.click(); a.remove();
   }
 
   // --- 비교 탭 파일 입력 ---
