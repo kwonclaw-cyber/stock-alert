@@ -79,6 +79,10 @@
   .fxval{width:96px;flex:none;font-size:12.5px;font-weight:700;text-align:right;}
   .fxbadge{display:inline-block;margin-top:9px;padding:3px 13px;border-radius:20px;color:#fff;font-weight:700;font-size:13px;}
   .fxnote{font-size:11px;color:var(--mut);margin-left:8px;}
+  /* 매출 그래프 점·툴팁 */
+  .mk{cursor:pointer;transition:r .12s;}
+  .mk:hover{r:8.5;}
+  .charttip{display:none;position:absolute;transform:translate(-50%,-100%);background:rgba(33,37,41,.96);color:#fff;font-size:12px;line-height:1.5;padding:8px 11px;border-radius:8px;white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:20;}
   /* 표본 저장/불러오기 */
   .savebar{border:1px solid var(--line);border-left:4px solid var(--b);background:var(--b2);border-radius:0 10px 10px 0;padding:11px 14px;margin:10px 0;}
   .loadsel{width:100%;margin-top:6px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;}
@@ -152,7 +156,7 @@
     <div class="board" id="board"></div>
     <div class="warn"><b>해석 주의:</b> "변경한 날 하루" 비교는 사장님 반응(매출 부진 → 광고·할인 ON)이 섞여 역인과일 수 있습니다. 지속적 변경(운영시간 등)과 <b>아래 추이 그래프·구간 비교</b>를 함께 보세요.</div>
     <h2>📈 매출 추이 &amp; 변경 시점</h2>
-    <p class="legend"><b>매출 이동선(7일 평균)</b>으로 흐름을 보고, <b>매출을 크게 움직인 주요 변경시점</b>만 점·라벨로 표시합니다(모든 변경이 아님).</p>
+    <p class="legend"><b>일매출선</b> 위에 <b>매출을 크게 움직인 주요 변경시점</b>만 점으로 표시합니다(모든 변경이 아님). <b>점에 커서를 올리면</b> 날짜·변경 내용·매출 변화가 상세히 보입니다.</p>
     <div id="chart"></div>
     <h2>월별 비교</h2>
     <table id="montable"></table>
@@ -713,43 +717,56 @@
     picked.sort(function(a,b){return a.date<b.date?-1:1;});
     return picked;
   }
-  // ===== 매출 추이 그래프 (7일 이동평균 + 주요 변경시점만 표시) =====
+  // ===== 매출 추이 그래프 (일매출선 + 주요 변경시점 점 마킹, 호버 툴팁) =====
   function salesChart(comp){
     comp=comp||computed;
     var daily=comp.gd.daily, days=Object.keys(daily).sort();
     if(days.length<2) return '<p style="color:var(--mut)">데이터가 부족합니다.</p>';
     var vals=days.map(function(d){return daily[d].sales;});
-    function ma(arr,w){ var o=[]; for(var i=0;i<arr.length;i++){ var s=0,c=0; for(var j=Math.max(0,i-w+1);j<=i;j++){s+=arr[j];c++;} o.push(s/c);} return o; }
-    var mav=ma(vals,7);
-    var W=860,H=320,pL=58,pR=14,pT=14,pB=40, n=days.length;
-    var maxV=Math.max.apply(null,vals)*1.05||1;
+    var W=860,H=340,pL=58,pR=16,pT=18,pB=38, n=days.length;
+    var maxV=Math.max.apply(null,vals)*1.08||1;
     function X(i){ return pL+(W-pL-pR)*(n<=1?0:i/(n-1)); }
     function Y(v){ return pT+(H-pT-pB)*(1-v/maxV); }
-    var grid='',gl;
+    var grid='';
     for(var g=0;g<=4;g++){ var yv=maxV*g/4, yy=Y(yv);
-      grid+='<line x1="'+pL+'" y1="'+yy+'" x2="'+(W-pR)+'" y2="'+yy+'" stroke="#edf0f2"/>'
-        +'<text x="'+(pL-6)+'" y="'+(yy+4)+'" text-anchor="end" font-size="10" fill="#868e96">'+Math.round(yv/10000)+'만</text>'; }
+      grid+='<line x1="'+pL+'" y1="'+yy+'" x2="'+(W-pR)+'" y2="'+yy+'" stroke="#eef1f4"/>'
+        +'<text x="'+(pL-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="10" fill="#adb5bd">'+Math.round(yv/10000)+'만</text>'; }
     var xlab='',seen={}; days.forEach(function(d,i){ var m=d.slice(0,7); if(!seen[m]){ seen[m]=1; var xx=X(i);
-      xlab+='<text x="'+xx+'" y="'+(H-pB+18)+'" text-anchor="middle" font-size="10" fill="#868e96">'+m.slice(2)+'</text>'; } });
+      xlab+='<line x1="'+xx+'" y1="'+pT+'" x2="'+xx+'" y2="'+(H-pB)+'" stroke="#f3f5f7"/>'
+        +'<text x="'+xx+'" y="'+(H-pB+18)+'" text-anchor="middle" font-size="10" fill="#adb5bd">'+m.slice(2)+'</text>'; } });
     var idx={}; days.forEach(function(d,i){idx[d]=i;});
-    function catShort(c){ return c==='운영시간'?'운영':(c==='즉시할인'?'할인':'입찰'); }
-    var majors=majorChanges(comp), marks='', labels='';
-    majors.forEach(function(r,k){ var i=idx[r.date]; if(i==null)return; var xx=X(i), col=CATCOL[r.cat]||'#868e96', yy=Y(mav[i]);
-      marks+='<line x1="'+xx+'" y1="'+pT+'" x2="'+xx+'" y2="'+(H-pB)+'" stroke="'+col+'" stroke-opacity="0.4" stroke-width="1.4" stroke-dasharray="4 3"/>'
-        +'<circle cx="'+xx+'" cy="'+yy+'" r="4.5" fill="'+col+'" stroke="#fff" stroke-width="1.5"/>';
-      var ly=pT+11+(k%2)*15, an=xx>W-130?'end':'start', lx=an==='end'?xx-6:xx+6;
-      labels+='<text x="'+lx+'" y="'+ly+'" text-anchor="'+an+'" font-size="11" font-weight="700" fill="'+col+'">'+r.date.slice(5)+' '+catShort(r.cat)+' '+(r.pct>=0?'+':'')+r.pct.toFixed(0)+'%</text>'; });
-    var raw=vals.map(function(v,i){return X(i)+','+Y(v);}).join(' ');
-    var line=mav.map(function(v,i){return X(i)+','+Y(v);}).join(' ');
-    return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="background:#fff;border:1px solid var(--line);border-radius:10px">'
-      +grid+xlab+marks
-      +'<polyline points="'+raw+'" fill="none" stroke="#dee2e6" stroke-width="1" stroke-opacity="0.5"/>'
-      +'<polyline points="'+line+'" fill="none" stroke="#212529" stroke-width="2.6"/>'
-      +labels
-      +'</svg>'
-      +'<div style="font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">'
-      +'<span>━ <b style="color:#212529">매출 이동선(7일 평균)</b></span><span style="color:#ced4da">━ 일매출</span>'
-      +'<span>● 주요 변경시점 — <span style="color:#1971c2;font-weight:700">운영</span> · <span style="color:#e8590c;font-weight:700">할인</span> · <span style="color:#e03131;font-weight:700">입찰</span> (매출 영향 큰 순 '+majors.length+'건)</span></div>';
+    function w만(v){ return v==null?'-':Math.round(v/10000).toLocaleString()+'만'; }
+    function tipHtml(r){ var pcol=r.pct>=0?'#69db7c':'#ff8787';
+      return ('<b>'+r.date+' · '+r.cat+'</b><br>'+esc(r.content)+' ('+esc(r.change)+')<br>'
+        +'매출 변화 <b style="color:'+pcol+'">'+(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%</b><br>'
+        +'<span style="opacity:.8">변경 전 '+w만(r.bf)+'원 → 변경 후 '+w만(r.af)+'원 · 동일 '+r.W+'일 비교</span>').replace(/"/g,'&quot;'); }
+    var majors=majorChanges(comp), dots='';
+    majors.forEach(function(r){ var i=idx[r.date]; if(i==null)return; var xx=X(i), yy=Y(vals[i]), col=CATCOL[r.cat]||'#868e96';
+      dots+='<circle class="mk" cx="'+xx+'" cy="'+yy+'" r="6" fill="'+col+'" stroke="#fff" stroke-width="2.5" data-tip="'+tipHtml(r)+'"/>'; });
+    var area=days.map(function(d,i){return X(i)+','+Y(vals[i]);}).join(' ');
+    var line=vals.map(function(v,i){return X(i)+','+Y(v);}).join(' ');
+    return '<div class="chartwrap" style="position:relative">'
+      +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="background:#fff;border:1px solid var(--line);border-radius:10px">'
+      +grid+xlab
+      +'<polygon points="'+X(0)+','+Y(0)+' '+area+' '+X(n-1)+','+Y(0)+'" fill="#4dabf7" fill-opacity="0.08"/>'
+      +'<polyline points="'+line+'" fill="none" stroke="#1c7ed6" stroke-width="1.8" stroke-linejoin="round"/>'
+      +dots+'</svg>'
+      +'<div class="charttip"></div></div>'
+      +'<div style="font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +'<span>━ <b style="color:#1c7ed6">일매출</b></span>'
+      +'<span>● 주요 변경시점 — <span style="color:#1971c2;font-weight:700">운영</span> · <span style="color:#e8590c;font-weight:700">할인</span> · <span style="color:#e03131;font-weight:700">입찰</span></span>'
+      +'<span style="color:var(--mut)">점에 커서를 올리면 상세 정보가 보입니다 ('+majors.length+'건)</span></div>';
+  }
+  function wireChartTips(root){
+    var tip=root.querySelector('.charttip'); if(!tip) return;
+    Array.prototype.slice.call(root.querySelectorAll('.mk')).forEach(function(c){
+      c.addEventListener('mouseenter',function(){
+        var r=c.getBoundingClientRect(), wr=root.getBoundingClientRect();
+        tip.innerHTML=c.getAttribute('data-tip'); tip.style.display='block';
+        tip.style.left=(r.left-wr.left+r.width/2)+'px'; tip.style.top=(r.top-wr.top-10)+'px';
+      });
+      c.addEventListener('mouseleave',function(){ tip.style.display='none'; });
+    });
   }
 
   function showResult(){
@@ -770,7 +787,7 @@
     mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:null; var p=pv?((s-pv)/pv*100):null;
       mh+='<tr><td>'+ym+'</td><td class="num">'+s.toLocaleString()+'</td><td class="num">'+c.toLocaleString()+'</td><td class="num '+cls(p)+'">'+pctStr(p)+'</td></tr>'; });
     document.getElementById('montable').innerHTML=mh;
-    document.getElementById('chart').innerHTML=salesChart(computed);
+    var chEl=document.getElementById('chart'); chEl.innerHTML=salesChart(computed); wireChartTips(chEl);
     renderDetails();
   }
   function kpi(v,l){ return '<div><b>'+(typeof v==='number'?v.toLocaleString():v)+'</b><span>'+l+'</span></div>'; }
