@@ -79,6 +79,14 @@
   .fxval{width:96px;flex:none;font-size:12.5px;font-weight:700;text-align:right;}
   .fxbadge{display:inline-block;margin-top:9px;padding:3px 13px;border-radius:20px;color:#fff;font-weight:700;font-size:13px;}
   .fxnote{font-size:11px;color:var(--mut);margin-left:8px;}
+  /* 표본 저장/불러오기 */
+  .savebar{border:1px solid var(--line);border-left:4px solid var(--b);background:var(--b2);border-radius:0 10px 10px 0;padding:11px 14px;margin:10px 0;}
+  .loadsel{width:100%;margin-top:6px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;}
+  .savedlist{border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:#fff;}
+  .savedlist .row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f3f5;font-size:13px;}
+  .savedlist .row:last-child{border-bottom:none;}
+  .savedlist .bchip{font-size:11px;font-weight:700;color:#fff;background:var(--b);border-radius:20px;padding:1px 9px;}
+  .savedlist .del{margin-left:auto;color:var(--r);cursor:pointer;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:#fff;}
   /* 로직 정리 탭 */
   #tab-doc h2{font-size:20px;margin:34px 0 12px;} #tab-doc h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
   .ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;}
@@ -126,6 +134,16 @@
       <button class="dl" id="dlAnalysis">⬇ 분석.xlsx</button>
       <button class="dl" id="dlMerged">⬇ 통합본.xlsx</button>
     </div>
+    <div class="savebar">
+      <b>💾 이 매장을 표본으로 저장</b>
+      <span style="color:var(--mut);font-size:12px">브랜드별로 여러 개 저장 후, 매장 비교 탭에서 불러올 수 있어요.</span>
+      <div style="margin-top:7px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="saveBrand" placeholder="브랜드명 (예: 밥구정)" style="width:180px">
+        <input type="text" id="saveName" placeholder="표본매장 이름" style="width:180px">
+        <button class="go" id="saveSample" style="padding:8px 16px">표본 저장 ▶</button>
+        <span id="saveStatus" style="font-size:13px;color:var(--mut)"></span>
+      </div>
+    </div>
     <h2>📊 분석 보드 — 변경이 매출에 준 직접 영향</h2>
     <p class="legend">각 카드의 큰 숫자 = <b>순효과(%p)</b> = 그날 매출(전주 동일요일 대비) − 기준선. 변경만의 영향에 가깝게 보정한 값입니다. <b style="color:var(--g)">＋면 매출 견인</b>, <b style="color:var(--r)">－면 매출 하락.</b></p>
     <div class="board" id="board"></div>
@@ -151,18 +169,21 @@
       <div>
         <div class="dz ref" id="dzRef"><b>🔵 기준매장 (잘 되는 곳)</b><p>파일 끌어다 놓기 / 클릭</p>
           <input type="file" id="pickRef" multiple accept=".json,.xlsx" class="hide"></div>
+        <select id="loadRef" class="loadsel"><option value="">📂 저장된 표본 불러오기…</option></select>
         <input type="text" id="nameRef" placeholder="기준매장 이름" style="width:100%;margin-top:6px">
         <ul class="files" id="listRef"></ul>
       </div>
       <div>
         <div class="dz tgt" id="dzTgt"><b>🟠 선택매장 (개선 대상)</b><p>파일 끌어다 놓기 / 클릭</p>
           <input type="file" id="pickTgt" multiple accept=".json,.xlsx" class="hide"></div>
+        <select id="loadTgt" class="loadsel"><option value="">📂 저장된 표본 불러오기…</option></select>
         <input type="text" id="nameTgt" placeholder="선택매장 이름" style="width:100%;margin-top:6px">
         <ul class="files" id="listTgt"></ul>
       </div>
     </div>
     <button class="go" id="cmpRun" disabled>비교 분석 ▶</button>
     <span id="cmpStatus" style="margin-left:10px;font-size:13px;color:var(--mut)"></span>
+    <div id="savedBox" style="margin-top:16px"></div>
     <div id="cmpResult" class="hide"></div>
   </div><!-- /tab-compare -->
 
@@ -711,6 +732,8 @@
     var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
     var a=SAMPLE.analyze(gd.daily,cats);
     document.getElementById('result').classList.remove('hide');
+    var snEl=document.getElementById('saveName'); if(snEl && !snEl.value) snEl.value=computed.name;
+    document.getElementById('saveStatus').textContent='';
     document.getElementById('kpi').innerHTML=
       kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
       kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
@@ -965,21 +988,74 @@
     function draw(){ list.innerHTML=''; arr.forEach(function(f){ var n=f.name.toLowerCase(), tag=n.endsWith('.json')?'<span class="tag t-j">변경이력</span>':'<span class="tag t-s">매출</span>';
       var li=document.createElement('li'); li.innerHTML=tag+f.name; list.appendChild(li); }); }
   }
+  // ===================== 💾 표본매장 저장/불러오기 (브랜드별, localStorage) =====================
+  var SKEY='stockalert_samples_v1';
+  function loadSamples(){ try{ return JSON.parse(localStorage.getItem(SKEY))||[]; }catch(e){ return []; } }
+  function saveSamples(a){ try{ localStorage.setItem(SKEY,JSON.stringify(a)); return true; }catch(e){ alert('브라우저 저장 공간이 부족합니다. 저장된 표본을 일부 삭제해 주세요.'); return false; } }
+  function slimComp(c){ return {gd:{daily:c.gd.daily,salesName:c.gd.salesName,hasChannel:c.gd.hasChannel}, changes:c.changes, cats:c.cats, name:c.name, shopNumber:c.shopNumber}; }
+  function putSample(brand,name,comp){
+    var a=loadSamples(), id=brand+''+name,
+      rec={id:id,brand:brand,name:name,savedAt:new Date().toISOString().slice(0,16).replace('T',' '),comp:slimComp(comp)};
+    var i=-1; a.forEach(function(x,k){ if(x.id===id) i=k; }); if(i>=0) a[i]=rec; else a.push(rec);
+    return saveSamples(a)?rec:null;
+  }
+  function delSample(id){ saveSamples(loadSamples().filter(function(x){return x.id!==id;})); }
+  function pickSample(id){ if(!id) return null; var f=loadSamples().filter(function(x){return x.id===id;}); return f.length?f[0]:null; }
+  function fillSelect(sel){ if(!sel) return; var a=loadSamples(), by={};
+    a.forEach(function(r){ (by[r.brand]=by[r.brand]||[]).push(r); });
+    var h='<option value="">📂 저장된 표본 불러오기…</option>';
+    Object.keys(by).sort().forEach(function(b){ h+='<optgroup label="'+esc(b)+'">';
+      by[b].forEach(function(r){ h+='<option value="'+esc(r.id)+'">'+esc(r.name)+' ('+r.savedAt.slice(0,10)+')</option>'; }); h+='</optgroup>'; });
+    sel.innerHTML=h;
+  }
+  function renderSavedList(){ var box=document.getElementById('savedBox'); if(!box) return;
+    var a=loadSamples();
+    if(!a.length){ box.innerHTML='<p class="legend">저장된 표본이 없습니다. <b>분석 생성기</b>에서 매장을 분석한 뒤 "표본 저장"으로 추가하세요.</p>'; return; }
+    var by={}; a.forEach(function(r){ (by[r.brand]=by[r.brand]||[]).push(r); });
+    var h='<b style="font-size:14px">📂 저장된 표본 ('+a.length+'개)</b><div class="savedlist" style="margin-top:6px">';
+    Object.keys(by).sort().forEach(function(b){ by[b].forEach(function(r){
+      h+='<div class="row"><span class="bchip">'+esc(b)+'</span> <b>'+esc(r.name)+'</b> <span style="color:var(--mut);font-size:12px">'+r.savedAt+'</span><button class="del" data-id="'+esc(r.id)+'">삭제</button></div>'; }); });
+    h+='</div>'; box.innerHTML=h;
+    Array.prototype.slice.call(box.querySelectorAll('.del')).forEach(function(btn){ btn.addEventListener('click',function(){
+      if(confirm('이 표본을 삭제할까요?')){ delSample(btn.getAttribute('data-id')); refreshSamples(); } }); });
+  }
+  function refreshSamples(){ fillSelect(document.getElementById('loadRef')); fillSelect(document.getElementById('loadTgt')); renderSavedList(); }
+  window.__refreshSamples=refreshSamples;
+  // 분석 생성기: 표본 저장 버튼
+  var saveBtn=document.getElementById('saveSample');
+  if(saveBtn) saveBtn.addEventListener('click',function(){
+    var st=document.getElementById('saveStatus');
+    if(!computed){ st.innerHTML='<span class="err">먼저 분석을 실행하세요.</span>'; return; }
+    var brand=(document.getElementById('saveBrand').value||'').trim();
+    var name=(document.getElementById('saveName').value||computed.name||'').trim();
+    if(!brand){ st.innerHTML='<span class="err">브랜드명을 입력하세요.</span>'; return; }
+    if(!name){ st.innerHTML='<span class="err">표본매장 이름을 입력하세요.</span>'; return; }
+    if(putSample(brand,name,computed)){ st.innerHTML='<span style="color:var(--g)">✓ 저장됨 — ['+esc(brand)+'] '+esc(name)+'</span>'; refreshSamples(); }
+  });
+
   if(document.getElementById('dzRef')){
-    var refFiles=[], tgtFiles=[], cmpRun=document.getElementById('cmpRun'), cmpStatus=document.getElementById('cmpStatus');
-    function chk(){ cmpRun.disabled=!(refFiles.length&&tgtFiles.length); }
+    var refFiles=[], tgtFiles=[], refSaved=null, tgtSaved=null,
+        cmpRun=document.getElementById('cmpRun'), cmpStatus=document.getElementById('cmpStatus');
+    function chk(){ cmpRun.disabled=!((refFiles.length||refSaved)&&(tgtFiles.length||tgtSaved)); }
     wireZone('dzRef','pickRef','listRef',refFiles,chk);
     wireZone('dzTgt','pickTgt','listTgt',tgtFiles,chk);
+    document.getElementById('loadRef').addEventListener('change',function(){ refSaved=pickSample(this.value);
+      if(refSaved) document.getElementById('nameRef').value=refSaved.name; chk(); });
+    document.getElementById('loadTgt').addEventListener('change',function(){ tgtSaved=pickSample(this.value);
+      if(tgtSaved) document.getElementById('nameTgt').value=tgtSaved.name; chk(); });
+    function getComp(saved,files,nameId,def){
+      var nm=(document.getElementById(nameId).value||'').trim();
+      if(saved){ var c=Object.assign({},saved.comp); if(nm) c.name=nm; return Promise.resolve(c); }
+      return buildComputed(files, nm||def);
+    }
     cmpRun.addEventListener('click',function(){
       cmpStatus.textContent='비교 분석 중…';
-      Promise.all([
-        buildComputed(refFiles, document.getElementById('nameRef').value||'기준매장'),
-        buildComputed(tgtFiles, document.getElementById('nameTgt').value||'선택매장')
-      ]).then(function(res){
+      Promise.all([ getComp(refSaved,refFiles,'nameRef','기준매장'), getComp(tgtSaved,tgtFiles,'nameTgt','선택매장') ]).then(function(res){
         renderCompare(storeMetrics(res[0]), storeMetrics(res[1]));
         cmpStatus.textContent='완료!';
       }).catch(function(e){ cmpStatus.innerHTML='<span class="err">'+e+'</span>'; });
     });
+    refreshSamples();
   }
 })();
 </script>
@@ -1089,7 +1165,9 @@
     tabs.forEach(function(x){x.classList.remove('active');});
     Array.prototype.slice.call(document.querySelectorAll('.tab-panel')).forEach(function(p){p.classList.remove('active');});
     t.classList.add('active');
-    var el=document.getElementById('tab-'+t.getAttribute('data-tab')); if(el) el.classList.add('active');
+    var tab=t.getAttribute('data-tab');
+    var el=document.getElementById('tab-'+tab); if(el) el.classList.add('active');
+    if(tab==='compare' && window.__refreshSamples) window.__refreshSamples();
     window.scrollTo(0,0);
   }); });
 })();
