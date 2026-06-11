@@ -161,7 +161,7 @@
     <h2>월별 비교</h2>
     <table id="montable"></table>
     <h2>🔎 변경 → 매출효과 도출</h2>
-    <p class="legend">각 변경 직전/직후를 <b>동일 길이·동일 요일구성(주 단위, 최대 2주)</b> 창으로 비교해 그 변경이 매출에 준 효과를 도출합니다. 변경은 <b>카테고리별 하루 1건(그날 순변화)</b>으로 합쳐, 운영시간은 <b>그날 실제 운영시간</b>·입찰은 <b>그날 순입찰변동</b>·할인은 <b>그날 순시작/종료</b>만 셉니다. 변화 없음·측정 불가(전·후 1주 미확보)는 제외합니다. <span style="color:var(--mut)">※ 변경이 잦은 구간은 창 안에 다른 변경이 섞일 수 있어, 단독 인과가 아닌 참고치입니다.</span></p>
+    <p class="legend">각 변경 직전/직후를 <b>동일 길이·동일 요일구성(주 단위, 최대 2주)</b> 창으로 비교해 그 변경이 매출에 준 효과를 도출합니다. 변경은 <b>카테고리별 하루 1건(그날 순변화)</b>으로 합쳐, 운영시간은 <b>그날 실제 운영시간</b>·클릭비는 <b>그날 순클릭비변동</b>·할인은 <b>그날 순시작/종료</b>만 셉니다. 변화 없음·측정 불가(전·후 1주 미확보)는 제외합니다. <span style="color:var(--mut)">※ 변경이 잦은 구간은 창 안에 다른 변경이 섞일 수 있어, 단독 인과가 아닌 참고치입니다.</span></p>
     <div id="details"></div>
   </div>
 
@@ -433,7 +433,7 @@
     SHOP_REST_HOUR_MODIFY: '휴게시간 변경', SHOP_CONTENTS_MODIFY: '가게소개/콘텐츠',
     SHOP_TELEPHONE_INFO_MODIFY: '전화번호 변경', SHOP_MENU_INFO_MODIFY: '메뉴 정보', SHOP_BASE_INFO_MODIFY: '기본 정보',
   };
-  const AD_TYPES = { LISTING_INVENTORY_DISPLAY_PAUSE: '노출 ON/OFF', CPC_BUDGET: '입찰·예산' };
+  const AD_TYPES = { LISTING_INVENTORY_DISPLAY_PAUSE: '노출 ON/OFF', CPC_BUDGET: '클릭비·예산' };
   function shopLabel(ci, sub) { return SHOP_LABELS[ci] || ci || sub || '기타'; }
   function adTypeLabel(t) { return AD_TYPES[t] || t || ''; }
   function fmtAd(v) {
@@ -442,7 +442,7 @@
     if (s.charAt(0) === '{') {
       try {
         const o = JSON.parse(s), cpc = o.cpc || o, p = [];
-        if ('bid' in cpc) p.push('입찰 ' + Number(cpc.bid).toLocaleString() + '원');
+        if ('bid' in cpc) p.push('클릭비 ' + Number(cpc.bid).toLocaleString() + '원');
         if ('autoBidding' in cpc) p.push(cpc.autoBidding ? '자동입찰' : '수동입찰');
         // 예산(월예산·최대입찰)은 매출영향 분석에 불필요 → 표시 제외
         return p.length ? p.join(', ') : s;
@@ -460,7 +460,7 @@
   }
 
   // ---------- 분석 ----------
-  function bidOf(s) { const m = String(s).match(/입찰\s*([\d,]+)\s*원/); return m ? +m[1].replace(/,/g, '') : null; }
+  function bidOf(s) { const m = String(s).match(/(?:입찰|클릭비)\s*([\d,]+)\s*원/); return m ? +m[1].replace(/,/g, '') : null; }
   function categorize(changes) {
     const by = {};
     function ensure(d) { if (!by[d]) by[d] = { 운영시간: [], 할인: [], 우리가게클릭: [] }; return by[d]; }
@@ -469,7 +469,7 @@
       else if (c.gubun === '즉시할인') ensure(c.date).할인.push(c.item);
       else if (c.gubun === '광고' && String(c.item).indexOf('우리가게클릭') === 0) {
         const ba = bidOf(c.before), aa = bidOf(c.after);
-        if (ba != null && aa != null) { const ar = aa > ba ? '▲인상' : (aa < ba ? '▼인하' : '유지'); ensure(c.date).우리가게클릭.push('입찰 ' + ba + '→' + aa + '원 (' + ar + ')'); }
+        if (ba != null && aa != null) { const ar = aa > ba ? '▲인상' : (aa < ba ? '▼인하' : '유지'); ensure(c.date).우리가게클릭.push('클릭비 ' + ba + '→' + aa + '원 (' + ar + ')'); }
         else ensure(c.date).우리가게클릭.push(c.after || c.item);
       }
     });
@@ -589,12 +589,12 @@
       return {label:label,n:o.n,wow:o.v,net:net,c:v.c,verdict:v.ic+' '+v.t,note:note||''}; }
     return [ row('운영시간 변경',a.op), row('즉시할인 시작',a.dStart),
       row('즉시할인 종료',a.dEnd,'⚠ 종료일↑은 역인과 가능'),
-      row('우리가게클릭 입찰 인상',a.bidUp), row('우리가게클릭 입찰 인하',a.bidDn) ]; }
+      row('우리가게클릭 클릭비 인상',a.bidUp), row('우리가게클릭 클릭비 인하',a.bidDn) ]; }
 
   // ===== 변경 건별 상세 (직전 구간 vs 직후 구간 = 다음 같은유형 변경 전까지) =====
   var CATCOL={운영시간:'#1971c2',즉시할인:'#e8590c',우리가게클릭:'#e03131'};
   function fmtWon(v){ return v==null?'-':Math.round(v).toLocaleString()+'원'; }
-  function bidNum(s){ var m=String(s).match(/입찰\s*([\d,]+)\s*원/); return m?+m[1].replace(/,/g,''):null; }
+  function bidNum(s){ var m=String(s).match(/(?:입찰|클릭비)\s*([\d,]+)\s*원/); return m?+m[1].replace(/,/g,''):null; }
   function opHours(s){ if(!s) return null; var re=/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/g,m,tot=0,d=0;
     while((m=re.exec(s))){ var o=+m[1]*60+ +m[2], c=+m[3]*60+ +m[4]; if(c<o)c+=1440; tot+=c-o; d++; } return d?{min:tot,days:d}:null; }
   function segAvg(daily,s,e){ var sum=0,n=0; for(var k in daily){ if(k>=s&&k<=e){ sum+=daily[k].sales; n++; } } return {avg:n?sum/n:null,n:n}; }
@@ -639,7 +639,7 @@
       .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:x.ts>y.ts?1:0;});
     var bd={}; bl.forEach(function(e){ if(!bd[e.date]) bd[e.date]={b:e.b,a:e.a}; else bd[e.date].a=e.a; });
     Object.keys(bd).sort().forEach(function(d){ var o=bd[d]; if(o.b===o.a) return;
-      ev.우리가게클릭.push({date:d,content:'입찰 '+o.b.toLocaleString()+'→'+o.a.toLocaleString()+'원',change:o.a>o.b?'인상':'인하',kind:o.a>o.b?'인상':'인하'}); });
+      ev.우리가게클릭.push({date:d,content:'클릭비 '+o.b.toLocaleString()+'→'+o.a.toLocaleString()+'원',change:o.a>o.b?'인상':'인하',kind:o.a>o.b?'인상':'인하'}); });
     return ev;
   }
   function detailRows(comp){
@@ -678,18 +678,18 @@
     var rows=detailRows(computed), cats=[['운영시간','#1971c2'],['즉시할인','#e8590c'],['우리가게클릭','#e03131']], html='';
     // ① 변경 '유형(방향)별' 가장 극대화된 1건만 도식화
     html+='<h3 style="margin:6px 0 4px;font-size:16px">🏆 변경 유형별 가장 큰 효과 <span style="color:var(--mut);font-weight:400;font-size:13px">(유형당 1건)</span></h3>';
-    html+='<p class="legend" style="margin-top:0">운영시간 <b>연장/축소</b>, 할인 <b>시작/종료</b>, 입찰 <b>인상/인하</b>로 나눠 각 유형에서 <b>매출을 가장 크게 움직인 단일 변경 1건</b>만 보여줍니다. (여러 건의 평균이 아니라 <b>가장 극대화된 한 건</b>입니다. 막대 높이는 그 변경 전/후 14일간 일평균 매출.)</p>';
+    html+='<p class="legend" style="margin-top:0">유형을 <b>증가 레버</b>(운영시간 연장·할인 시작·클릭비 인상)와 <b>감소 레버</b>(운영시간 축소·할인 종료·클릭비 인하)로 나눠, <b>증가 레버는 매출이 가장 많이 오른 1건</b>, <b>감소 레버는 가장 많이 내린 1건</b>을 보여줍니다. (여러 건의 평균이 아닌 단일 변경. 막대 높이는 그 변경 전/후 14일간 일평균 매출.)</p>';
     var subTypes=[
-      {cat:'운영시간',label:'운영시간 — 연장',col:'#1971c2',match:function(r){return r.kind==='연장'||r.kind==='신규';}},
-      {cat:'운영시간',label:'운영시간 — 축소',col:'#1971c2',match:function(r){return r.kind==='감소';}},
-      {cat:'즉시할인',label:'즉시할인 — 시작(추가)',col:'#e8590c',match:function(r){return r.kind==='시작';}},
-      {cat:'즉시할인',label:'즉시할인 — 종료(해제)',col:'#e8590c',match:function(r){return r.kind==='종료';}},
-      {cat:'우리가게클릭',label:'우리가게클릭 — 입찰 인상',col:'#e03131',match:function(r){return r.kind==='인상';}},
-      {cat:'우리가게클릭',label:'우리가게클릭 — 입찰 인하',col:'#e03131',match:function(r){return r.kind==='인하';}}
+      {cat:'운영시간',label:'운영시간 — 연장(증가)',col:'#1971c2',dir:'up',match:function(r){return r.kind==='연장'||r.kind==='신규';}},
+      {cat:'운영시간',label:'운영시간 — 축소(감소)',col:'#1971c2',dir:'down',match:function(r){return r.kind==='감소';}},
+      {cat:'즉시할인',label:'즉시할인 — 시작(증가)',col:'#e8590c',dir:'up',match:function(r){return r.kind==='시작';}},
+      {cat:'즉시할인',label:'즉시할인 — 종료(감소)',col:'#e8590c',dir:'down',match:function(r){return r.kind==='종료';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 클릭비 — 인상(증가)',col:'#e03131',dir:'up',match:function(r){return r.kind==='인상';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 클릭비 — 인하(감소)',col:'#e03131',dir:'down',match:function(r){return r.kind==='인하';}}
     ];
     subTypes.forEach(function(st){
       var rs=rows.filter(function(r){return r.cat===st.cat&&r.measurable&&st.match(r);});
-      var best=null; rs.forEach(function(r){ if(!best||Math.abs(r.pct)>Math.abs(best.pct)) best=r; });
+      var best=null; rs.forEach(function(r){ if(!best||(st.dir==='down'?r.pct<best.pct:r.pct>best.pct)) best=r; });
       html+='<div class="fxcat" style="color:'+st.col+'">'+st.label+'</div>';
       html+=best?effectDiagram(best,st.col):'<p style="color:var(--mut);font-size:12.5px;margin:2px 0 8px">측정 가능한 변경이 없습니다.</p>';
     });
@@ -761,7 +761,7 @@
       +'<div class="charttip"></div></div>'
       +'<div style="font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span>━ <b style="color:#1c7ed6">일매출</b></span>'
-      +'<span>● 주요 변경시점 — <span style="color:#1971c2;font-weight:700">운영</span> · <span style="color:#e8590c;font-weight:700">할인</span> · <span style="color:#e03131;font-weight:700">입찰</span></span>'
+      +'<span>● 주요 변경시점 — <span style="color:#1971c2;font-weight:700">운영</span> · <span style="color:#e8590c;font-weight:700">할인</span> · <span style="color:#e03131;font-weight:700">클릭비</span></span>'
       +'<span style="color:var(--mut)">점에 커서를 올리면 상세 정보가 보입니다 ('+majors.length+'건)</span></div>';
   }
   function wireChartTips(root){
@@ -829,7 +829,7 @@
     a4.push([''],
       ['※ 순효과 = 그날 매출(전주대비) − 기준선. 변경만의 영향에 가깝게 본 값.'],
       ['※ ＋면 매출 견인, －면 매출 하락. (±3%p 미만은 영향 미미)'],
-      ['※ 우리가게클릭은 입찰가 변화만 반영합니다(예산 제외).'],
+      ['※ 우리가게클릭은 클릭비(입찰가) 변화만 반영합니다(예산 제외).'],
       ['※ "즉시할인 종료일"이 높게 나오면 역인과(잘 팔리던 흐름 + 행사 종료)일 수 있습니다.']);
     var wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석 보드');
@@ -913,7 +913,7 @@
       +'<div style="font-size:12px;color:var(--mut);margin-top:6px"><span style="color:#1971c2">━ 기준 '+esc(R.name)+'</span> &nbsp; <span style="color:#e8590c">━ 선택 '+esc(S.name)+'</span> &nbsp; <span>▼ 변경 시점(파랑=기준·주황=선택)</span> &nbsp;(각 매장 시작=100 지수 · 7일 이동평균)</div>';
   }
   function buildSolution(R,S){
-    var levers=[['운영시간 변경','op'],['즉시할인 시작','dStart'],['즉시할인 종료','dEnd'],['우리가게클릭 입찰 인상','bidUp'],['우리가게클릭 입찰 인하','bidDn']];
+    var levers=[['운영시간 변경','op'],['즉시할인 시작','dStart'],['즉시할인 종료','dEnd'],['우리가게클릭 클릭비 인상','bidUp'],['우리가게클릭 클릭비 인하','bidDn']];
     var ranked=levers.map(function(l){ return {k:l[0], key:l[1], Rnet:netOf(R.board[l[1]],R.board.base), Snet:netOf(S.board[l[1]],S.board.base), Rn:R.board[l[1]].n, Sn:S.board[l[1]].n }; })
       .sort(function(a,b){ return (b.Rnet==null?-999:b.Rnet)-(a.Rnet==null?-999:a.Rnet); });
     // 등급: 기준매장(표본)에서 '측정된 실제 효과(E)' 기준 — 격차가 아니라 효과로 추천
@@ -942,24 +942,24 @@
         '기준매장이 할인을 더 자주('+R.dStarts+'회) 하지만 효과는 약함('+netStr(Ed)+')',
         '효과 근거 약함 → 참고', 4));
     }
-    // 3) 우가클 입찰: '입찰 인상' 효과가 +면 상향 추천 / 효과가 −면 반대(점검·하향) 조언
+    // 3) 우가클 클릭비: '인상' 효과가 +면 상향 추천 / 효과가 −면 반대(점검·하향) 조언
     var Eup=E('bidUp');
     if(R.bid!=null && S.bid!=null){
       if(Eup!=null && Eup>=3 && R.bid>S.bid*1.05)
-        acts.push(mk('우리가게클릭 입찰 상향', tier(Eup),
-          '기준매장 입찰 '+R.bid.toLocaleString()+'원 · 선택매장 '+S.bid.toLocaleString()+'원',
-          '기준매장에서 입찰 인상일 매출 '+netStr(Eup)+' → 효과 확인됨', 100+(Eup||0)));
+        acts.push(mk('우리가게클릭 클릭비 상향', tier(Eup),
+          '기준매장 클릭비 '+R.bid.toLocaleString()+'원 · 선택매장 '+S.bid.toLocaleString()+'원',
+          '기준매장에서 클릭비 인상일 매출 '+netStr(Eup)+' → 효과 확인됨', 100+(Eup||0)));
       else if(Eup!=null && Eup<=-3 && S.bid>R.bid*1.05)
-        acts.push(mk('우리가게클릭 입찰 점검·하향','주의',
-          '선택매장 입찰('+S.bid.toLocaleString()+'원)이 기준매장('+R.bid.toLocaleString()+'원)보다 높음',
-          '기준매장에서 입찰 인상은 매출 '+netStr(Eup)+'(효과 부정) → 비용 대비 점검', 50+Math.abs(Eup)));
+        acts.push(mk('우리가게클릭 클릭비 점검·하향','주의',
+          '선택매장 클릭비('+S.bid.toLocaleString()+'원)가 기준매장('+R.bid.toLocaleString()+'원)보다 높음',
+          '기준매장에서 클릭비 인상은 매출 '+netStr(Eup)+'(효과 부정) → 비용 대비 점검', 50+Math.abs(Eup)));
       else if(Eup!=null && Eup<=-3 && R.bid>S.bid*1.05)
-        acts.push(mk('입찰 상향은 보류','주의',
-          '기준매장 입찰이 더 높지만, 입찰 인상은 매출에 마이너스',
-          '기준매장에서 입찰 인상일 매출 '+netStr(Eup)+'(효과 부정) → 단순 따라하기 금지', 30));
+        acts.push(mk('클릭비 상향은 보류','주의',
+          '기준매장 클릭비가 더 높지만, 클릭비 인상은 매출에 마이너스',
+          '기준매장에서 클릭비 인상일 매출 '+netStr(Eup)+'(효과 부정) → 단순 따라하기 금지', 30));
     }
     if(!acts.length) acts.push(mk('효과가 확인되는 개선 레버 없음','참고',
-      '운영시간·할인·입찰에서 "기준매장 효과 + 격차"가 동시에 성립하는 항목이 없습니다. 메뉴·리뷰·가게 상세 콘텐츠 등 다른 요인을 검토하세요.','',0));
+      '운영시간·할인·클릭비에서 "기준매장 효과 + 격차"가 동시에 성립하는 항목이 없습니다. 메뉴·리뷰·가게 상세 콘텐츠 등 다른 요인을 검토하세요.','',0));
     acts.sort(function(a,b){return (b.pri||0)-(a.pri||0);});
     return {ranked:ranked, actions:acts};
   }
@@ -974,7 +974,7 @@
       +row('일평균 매출',won(R.avgDaily),won(S.avgDaily))
       +row('현재 운영시간',R.ophrs==null?'-':R.ophrs.toFixed(1)+'h/일',S.ophrs==null?'-':S.ophrs.toFixed(1)+'h/일')
       +row('즉시할인 시작 횟수',R.dStarts+'회',S.dStarts+'회')
-      +row('최신 입찰가',R.bid==null?'-':R.bid.toLocaleString()+'원',S.bid==null?'-':S.bid.toLocaleString()+'원')
+      +row('최신 클릭비',R.bid==null?'-':R.bid.toLocaleString()+'원',S.bid==null?'-':S.bid.toLocaleString()+'원')
       +row('기준선(주간 변동)',pctStr(R.board.base),pctStr(S.board.base))
       +'</table>';
     html+='<h2>📈 매출 추이 비교 (지수 100 기준)</h2>'+compareChart(R,S);
