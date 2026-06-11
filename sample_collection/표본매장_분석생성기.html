@@ -110,6 +110,9 @@
     <div class="warn"><b>해석 주의:</b> "변경한 날 하루" 비교는 사장님 반응(매출 부진 → 광고·할인 ON)이 섞여 역인과일 수 있습니다. 지속적 변경(운영시간 등)과 <b>주차·월 비교 시트</b>를 함께 보세요.</div>
     <h2>월별 비교</h2>
     <table id="montable"></table>
+    <h2>🔎 변경 건별 상세 — 변경 직전·직후 14일 평균매출</h2>
+    <p class="legend">각 변경이 <b>이후 운영일</b> 매출에 준 영향: 변경일 <b>직전 14일</b> vs <b>직후 14일</b>의 일평균 매출 비교. <b style="color:var(--g)">▲상승</b> / <b style="color:var(--r)">▼하락</b>. 변경이 며칠 간격으로 몰린 구간은 직전·직후 구간이 겹쳐 값이 흐려질 수 있습니다.</p>
+    <div id="details"></div>
   </div>
 
   <div class="warn" id="neednet">⚠️ 이 페이지는 엑셀 처리를 위해 인터넷에서 라이브러리(SheetJS)를 한 번 불러옵니다. 인터넷이 연결돼 있어야 합니다.</div>
@@ -512,6 +515,52 @@
       row('즉시할인 종료',a.dEnd,'⚠ 종료일↑은 역인과 가능'),
       row('우리가게클릭 입찰 인상',a.bidUp), row('우리가게클릭 입찰 인하',a.bidDn) ]; }
 
+  // ===== 변경 건별 상세 (직전/직후 14일 평균매출) =====
+  var WIN=14;
+  function fmtWon(v){ return v==null?'-':Math.round(v).toLocaleString()+'원'; }
+  function bidNum(s){ var m=String(s).match(/입찰\s*([\d,]+)\s*원/); return m?+m[1].replace(/,/g,''):null; }
+  function opHours(s){ if(!s) return null; var re=/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/g,m,tot=0,d=0;
+    while((m=re.exec(s))){ var o=+m[1]*60+ +m[2], c=+m[3]*60+ +m[4]; if(c<o)c+=1440; tot+=c-o; d++; } return d?{min:tot,days:d}:null; }
+  function winAvg(daily,s,e){ var sum=0,n=0; for(var k in daily){ if(k>=s&&k<=e){ sum+=daily[k].sales; n++; } } return n?sum/n:null; }
+  function effect(daily,D){ var A=SAMPLE.addDays, bf=winAvg(daily,A(D,-WIN),A(D,-1)), af=winAvg(daily,D,A(D,WIN-1));
+    return {bf:bf, af:af, pct:(bf&&af!=null)?(af-bf)/bf*100:null}; }
+  function detailRows(){
+    var daily=computed.gd.daily, out=[];
+    computed.changes.forEach(function(c){
+      if(c.gubun==='가게' && c.item==='운영시간'){
+        var bo=opHours(c.before), ao=opHours(c.after); if(!ao) return;
+        var bh=bo?bo.min/bo.days/60:null, ah=ao.min/ao.days/60, dlt=(bh!=null)?ah-bh:null;
+        var chg=(dlt==null)?'신규 설정':(dlt>0.01?'연장 +'+dlt.toFixed(1)+'h/일':(dlt<-0.01?'감소 '+dlt.toFixed(1)+'h/일':'동일'));
+        var content=(bh!=null?bh.toFixed(1):'?')+'h → '+ah.toFixed(1)+'h';
+        var e=effect(daily,c.date); out.push({cat:'운영시간',date:c.date,content:content,change:chg,bf:e.bf,af:e.af,pct:e.pct});
+      } else if(c.gubun==='즉시할인'){
+        var gb=c.item.indexOf('[시작]')>=0?'시작':(c.item.indexOf('[종료]')>=0?'종료':'-');
+        var nm=c.item.replace(/\[(시작|종료)\]\s*/,''); var e2=effect(daily,c.date);
+        out.push({cat:'즉시할인',date:c.date,content:nm,change:gb,bf:e2.bf,af:e2.af,pct:e2.pct});
+      } else if(c.gubun==='광고' && c.item.indexOf('우리가게클릭')===0){
+        var ba=bidNum(c.before), aa=bidNum(c.after); if(ba==null||aa==null||ba===aa) return;
+        var e3=effect(daily,c.date);
+        out.push({cat:'우리가게클릭',date:c.date,content:'입찰 '+ba.toLocaleString()+'→'+aa.toLocaleString()+'원',change:aa>ba?'인상':'인하',bf:e3.bf,af:e3.af,pct:e3.pct});
+      }
+    });
+    return out;
+  }
+  function pctCell(pc){ var col=pc==null?'var(--mut)':(pc>0?'var(--g)':(pc<0?'var(--r)':'var(--mut)'));
+    var txt=pc==null?'N/A':(pc>=0?'+':'')+pc.toFixed(1)+'% '+(pc>0?'▲':pc<0?'▼':'–');
+    return '<td class="num" style="color:'+col+';font-weight:700">'+txt+'</td>'; }
+  function renderDetails(){
+    var rows=detailRows(), groups=[['운영시간','시간 변화'],['즉시할인','구분'],['우리가게클릭','입찰']], html='';
+    groups.forEach(function(g){
+      var rs=rows.filter(function(r){return r.cat===g[0];});
+      html+='<h3 style="margin:18px 0 6px;color:var(--b);font-size:15px">'+g[0]+' <span style="color:var(--mut);font-weight:400;font-size:13px">'+rs.length+'건</span></h3>';
+      if(!rs.length){ html+='<p style="color:var(--mut);font-size:13px;margin:0 0 6px">해당 변경 없음</p>'; return; }
+      html+='<table><tr><th>변경일</th><th>내용</th><th>'+g[1]+'</th><th>직전 14일<br>일평균</th><th>직후 14일<br>일평균</th><th>매출 변화</th></tr>';
+      rs.forEach(function(r){ html+='<tr><td>'+r.date+'</td><td>'+r.content+'</td><td>'+r.change+'</td><td class="num">'+fmtWon(r.bf)+'</td><td class="num">'+fmtWon(r.af)+'</td>'+pctCell(r.pct)+'</tr>'; });
+      html+='</table>';
+    });
+    document.getElementById('details').innerHTML=html;
+  }
+
   function showResult(){
     var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
     var a=SAMPLE.analyze(gd.daily,cats);
@@ -528,6 +577,7 @@
     mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:null; var p=pv?((s-pv)/pv*100):null;
       mh+='<tr><td>'+ym+'</td><td class="num">'+s.toLocaleString()+'</td><td class="num">'+c.toLocaleString()+'</td><td class="num '+cls(p)+'">'+pctStr(p)+'</td></tr>'; });
     document.getElementById('montable').innerHTML=mh;
+    renderDetails();
   }
   function kpi(v,l){ return '<div><b>'+(typeof v==='number'?v.toLocaleString():v)+'</b><span>'+l+'</span></div>'; }
 
@@ -568,6 +618,11 @@
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a1),'일자별 분석');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a2),'주차별 비교');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a3),'월별 비교');
+    var a5=[['변경일','구분','내용','시간/입찰 변화','직전 14일 일평균','직후 14일 일평균','매출 변화(%)']];
+    detailRows().forEach(function(r){ a5.push([r.date, r.cat, r.content, r.change,
+      r.bf==null?'':Math.round(r.bf), r.af==null?'':Math.round(r.af),
+      r.pct==null?'':(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%']); });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a5),'변경 건별 상세');
     return wb;
   }
   function buildMerged(){
