@@ -28,6 +28,18 @@
   .err{color:var(--r);font-weight:700;} .hide{display:none;}
   .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;} .kpi div{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;} .kpi b{display:block;font-size:20px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
   .foot{margin-top:34px;color:var(--mut);font-size:12px;text-align:center;}
+  .guide h3{font-size:15px;margin:16px 0 6px;color:var(--b);}
+  .gstep{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px;}
+  .gstep:last-child{border-bottom:none;}
+  .gnum{flex:0 0 26px;height:26px;border-radius:50%;background:var(--b);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .codebox{position:relative;margin:10px 0;}
+  .codebox pre{background:#1e2128;color:#e6e6e6;padding:16px;border-radius:10px;overflow:auto;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-height:240px;margin:0;white-space:pre-wrap;word-break:break-all;}
+  .copybtn{position:absolute;top:8px;right:8px;background:var(--g);color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+  .copybtn.done{background:var(--b);}
+  kbd{background:#fff;border:1px solid #adb5bd;border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:11px;}
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13px;}
+  .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;}
+  .arrow{color:var(--mut);font-weight:700;}
 </style>
 </head>
 <body>
@@ -64,6 +76,32 @@
   </div>
 
   <div class="warn" id="neednet">⚠️ 이 페이지는 엑셀 처리를 위해 인터넷에서 라이브러리(SheetJS)를 한 번 불러옵니다. 인터넷이 연결돼 있어야 합니다.</div>
+  <div class="guide">
+  <h2>📌 프로세스 가이드</h2>
+  <div class="card">
+    <div class="flow">
+      <span class="pill">① 배민 변경이력(콘솔)</span><span class="arrow">→</span>
+      <span class="pill">② matetech 매출 엑셀</span><span class="arrow">→</span>
+      <span class="pill">③ 위 박스에 끌어다 놓기</span><span class="arrow">→</span>
+      <span class="pill">④ 분석 다운로드</span>
+    </div>
+
+    <h3>STEP 1 · 배민 변경이력 받기 (콘솔)</h3>
+    <div class="gstep"><div class="gnum">1</div><div>크롬에서 <b>self.baemin.com</b> 로그인 → 왼쪽 <b>변경이력</b> 화면</div></div>
+    <div class="gstep"><div class="gnum">2</div><div><kbd>F12</kbd> → <b>Console</b> 탭. 아래 코드를 <b>먼저</b> 붙여넣고 <kbd>Enter</kbd> (막히면 <code>allow pasting</code> 입력)</div></div>
+    <div class="gstep"><div class="gnum">3</div><div><b>가게</b> 탭 → <b>조회</b> → <code>__scrollAll()</code> &nbsp;/&nbsp; <b>즉시할인</b> → 조회 → <code>__scrollAll()</code> &nbsp;/&nbsp; <b>광고·서비스</b> → (캠페인 선택) 조회 → <code>__scrollAll()</code></div></div>
+    <div class="gstep"><div class="gnum">4</div><div>콘솔에 <code>__save()</code> → <b>baemin_변경이력_매장번호.json</b> 다운로드</div></div>
+    <div class="codebox"><button class="copybtn" onclick="copySnippet(this)">📋 복사</button><pre id="snipview"></pre></div>
+
+    <h3>STEP 2 · matetech 매출 받기 (월별)</h3>
+    <div class="gstep"><div class="gnum">1</div><div><b>매출분석 → 주문경로별</b>(배민/쿠팡 분리)·<b>시간대별</b>을 <b>월 단위</b>로 조회 → 엑셀 다운로드 (6개월이면 각 6개)</div></div>
+    <div class="gstep"><div class="gnum">2</div><div>주문경로별이 없으면 시간대별만 있어도 됩니다(매출은 '배달' 합산으로 표시).</div></div>
+
+    <h3>STEP 3 · 이 페이지에 올리기</h3>
+    <div class="gstep"><div class="gnum">1</div><div>받은 <b>JSON + 매출 엑셀</b>을 맨 위 박스에 끌어다 놓고 <b>분석 만들기 ▶</b> → <b>분석.xlsx / 통합본.xlsx</b> 다운로드</div></div>
+  </div>
+  </div>
+
   <p class="foot">표본매장 분석 생성기 · 모든 처리는 브라우저 내에서 수행되어 데이터가 외부로 전송되지 않습니다.</p>
 </div>
 
@@ -372,6 +410,105 @@
   document.getElementById('dlAnalysis').addEventListener('click',function(){ XLSX.writeFile(buildAnalysis(), computed.name+'_분석.xlsx'); });
   document.getElementById('dlMerged').addEventListener('click',function(){ XLSX.writeFile(buildMerged(), computed.name+'_통합본.xlsx'); });
 })();
+</script>
+<script type="text/plain" id="bmsnippet">
+// 배민 변경이력 콘솔 수집 스니펫 (응답 가로채기 방식)
+// ─────────────────────────────────────────────────────────────
+// 핵심: 우리가 요청을 새로 만들지 않고, 앱이 스스로 부르는 응답을 가로채서 모은다.
+//       → 토큰/CORS/403 문제가 원천적으로 없음.
+//
+// 사용법:
+//  1) self.baemin.com 로그인 → '변경이력' 화면.
+//  2) F12 → Console 에 이 코드를 먼저 붙여넣고 Enter. ('allow pasting' 요구 시 입력)
+//  3) '가게' 탭 → '조회' → 목록 끝까지 스크롤(다 불러오면 멈춤). __scrollAll() 쓰면 자동.
+//  4) '즉시할인' 탭 → '조회' → 스크롤(또는 __scrollAll()).
+//  5) '광고·서비스' 탭 → (캠페인/변경항목 골라가며) '조회' → 스크롤.
+//  6) 콘솔에 __save() 입력 → JSON 파일 다운로드.
+//  (수집 중 콘솔에 누적 건수가 계속 찍힙니다.)
+// ─────────────────────────────────────────────────────────────
+(() => {
+  if (window.__bmReady) { console.log('이미 설치됨. 탭 조회/스크롤 후 __save() 하세요.'); return; }
+  const origFetch = window.fetch.bind(window);
+  const store = { shopNumber: null, owner: null, shop: [], instantDiscount: [], ad: [], promotion: [] };
+  const seen = new Set();
+
+  function push(arr, rows, key) {
+    if (!Array.isArray(rows)) return 0;
+    let added = 0;
+    for (const r of rows) {
+      const id = key(r);
+      if (seen.has(id)) continue;
+      seen.add(id); arr.push(r); added++;
+    }
+    return added;
+  }
+
+  function absorb(url, text) {
+    if (!url || url.indexOf('self-api.baemin.com') < 0 || !text) return;
+    let m = url.match(/shopNumber=(\d+)/); if (m) store.shopNumber = m[1];
+    m = url.match(/shop-owners\/(\d+)\//); if (m) store.owner = m[1];
+    let data; try { data = JSON.parse(text); } catch (e) { return; }
+    const content = (data && data.content) || (data && data.data && data.data.content);
+    let added = 0, label = '';
+    if (url.indexOf('modify-history/shop') >= 0) { added = push(store.shop, content, r => 'S' + r.id); label = '가게'; }
+    else if (url.indexOf('modify-history/instant-discount') >= 0) { added = push(store.instantDiscount, content, r => 'D' + r.id); label = '즉시할인'; }
+    else if (url.indexOf('modify-history/ad-campaign') >= 0) { added = push(store.ad, content, r => 'A' + (r.id || (r.adCampaignId + r.historyType + r.createdAt + r.beforeValue + r.afterValue))); label = '광고'; }
+    else if (url.indexOf('promotions/history') >= 0) { added = push(store.promotion, content, r => 'P' + (r.id || JSON.stringify(r).slice(0, 40))); label = '메뉴할인'; }
+    else return;
+    if (added) console.log('  +' + added + ' ' + label + '  (누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length + ')');
+  }
+
+  // fetch 응답 가로채기
+  window.fetch = function (input, init) {
+    const url = (typeof input === 'string') ? input : (input && input.url);
+    return origFetch.apply(this, arguments).then(res => {
+      try { if (url && url.indexOf('self-api.baemin.com') >= 0) res.clone().text().then(t => absorb(url, t)).catch(() => {}); } catch (e) {}
+      return res;
+    });
+  };
+
+  // XHR 응답 가로채기 (배민은 XHR을 쓸 수 있음)
+  const oOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) { this.__u = url; return oOpen.apply(this, arguments); };
+  const oSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function () {
+    this.addEventListener('load', () => {
+      try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0) absorb(this.__u, this.responseText); } catch (e) {}
+    });
+    return oSend.apply(this, arguments);
+  };
+
+  // 현재 탭 목록을 끝까지 자동 스크롤해서 모두 불러온다
+  window.__scrollAll = async function () {
+    let last = -1, same = 0;
+    for (let i = 0; i < 300 && same < 5; i++) {
+      window.scrollTo(0, document.body.scrollHeight);
+      const sc = document.scrollingElement || document.documentElement;
+      if (sc) sc.scrollTop = sc.scrollHeight;
+      await new Promise(r => setTimeout(r, 600));
+      const h = (sc ? sc.scrollHeight : document.body.scrollHeight);
+      if (h === last) same++; else { same = 0; last = h; }
+    }
+    console.log('%c스크롤 완료. 누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length, 'color:#1971c2');
+  };
+
+  window.__save = function () {
+    const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'baemin_변경이력_' + (store.shopNumber || 'shop') + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    console.log('%c✓ 저장 완료! 총 ' + (store.shop.length + store.instantDiscount.length + store.ad.length + store.promotion.length) + '건', 'color:green;font-weight:bold;font-size:14px');
+  };
+
+  window.__bmStore = store;
+  window.__bmReady = true;
+  console.log('%c[설치완료] 이제 탭마다 "조회" 후 __scrollAll() 로 끝까지 불러오고, 마지막에 __save() 하세요.', 'color:#e8590c;font-weight:bold;font-size:14px');
+})();
+
+</script>
+<script>
+(function(){var el=document.getElementById("bmsnippet");if(!el)return;var raw=el.textContent.trim();var v=document.getElementById("snipview");if(v)v.textContent=raw;window.copySnippet=function(b){navigator.clipboard.writeText(raw).then(function(){b.textContent="✓ 복사됨";b.classList.add("done");setTimeout(function(){b.textContent="📋 복사";b.classList.remove("done");},1600);});};})();
 </script>
 </body>
 </html>
