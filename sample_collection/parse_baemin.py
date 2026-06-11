@@ -154,6 +154,14 @@ _SHOP_LABELS = {
     "SHOP_ORIGIN_INFO_MODIFY": "원산지 정보",
     "SHOP_MENU_INFO_MODIFY": "메뉴 정보",
     "SHOP_BASE_INFO_MODIFY": "기본 정보",
+    "SHOP_REST_HOUR_MODIFY": "휴게시간 변경",
+    "SHOP_CONTENTS_MODIFY": "가게소개/콘텐츠",
+    "SHOP_TELEPHONE_INFO_MODIFY": "전화번호 변경",
+    "SHOP_CI_MODIFY": "가게 상표",
+    "SHOP_THUMBNAIL_MODIFY": "가게 로고",
+    "SHOP_BANNER_MODIFY": "가게 배너",
+    "SHOP_PATH_MODIFY": "찾아가는길",
+    "SHOP_CONVENIENCE_INFO_MODIFY": "편의정보",
 }
 
 

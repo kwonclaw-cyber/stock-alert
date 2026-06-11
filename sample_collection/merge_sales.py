@@ -35,12 +35,37 @@ def dow(dstr):
         return ""
 
 
-def is_ju(f):  # 주문경로별
-    return os.path.basename(f).startswith("#Uc8fc") or "주문경로별" in os.path.basename(f)
+def detect_type(f):
+    """엑셀 헤더(2행)로 종류 판별: 'ju'(주문경로별) / 'si'(시간대별) / None.
+
+    파일명에 의존하지 않아 이름이 바뀌어도 동작한다.
+    """
+    name = os.path.basename(f)
+    if "주문경로별" in name or name.startswith("#Uc8fc"):
+        return "ju"
+    if "시간대별" in name or name.startswith("#Uc2dc"):
+        return "si"
+    try:
+        ws = openpyxl.load_workbook(f, data_only=True, read_only=True).active
+        hdr = []
+        for i, row in enumerate(ws.iter_rows(min_row=1, max_row=3, values_only=True), 1):
+            hdr += [str(c) for c in row if c]
+        text = " ".join(hdr)
+        if "주문채널" in text:
+            return "ju"
+        if "시간대" in text:
+            return "si"
+    except Exception:
+        pass
+    return None
 
 
-def is_si(f):  # 시간대별
-    return os.path.basename(f).startswith("#Uc2dc") or "시간대별" in os.path.basename(f)
+def is_ju(f):
+    return detect_type(f) == "ju"
+
+
+def is_si(f):
+    return detect_type(f) == "si"
 
 
 def parse_channel_daily(files):
@@ -85,6 +110,15 @@ def parse_hourly(files):
             rows.append((cur_date, str(slot), dlv_cnt, dlv_amt, tot_cnt, tot_amt))
     rows.sort(key=lambda x: (x[0], x[1]))
     return rows
+
+
+def daily_from_hourly(hourly):
+    """시간대별 행 → {date: {배달:[cnt,amt], 총:[cnt,amt]}} (주문경로별 없을 때 대체)."""
+    d = defaultdict(lambda: {"배달": [0, 0], "총": [0, 0]})
+    for (dt, slot, dc, da, tc, ta) in hourly:
+        d[dt]["배달"][0] += dc; d[dt]["배달"][1] += da
+        d[dt]["총"][0] += tc; d[dt]["총"][1] += ta
+    return d
 
 
 def change_summary_by_date(chg_rows):
@@ -132,22 +166,33 @@ def build(sales_dir, bundle, out):
 
     wb = openpyxl.Workbook()
 
-    # 시트1: 일자별 타임라인
+    # 시트1: 일자별 타임라인 (주문경로별 있으면 배민/쿠팡 분리, 없으면 시간대별→일자합산의 배달)
+    from openpyxl.utils import get_column_letter
     ws1 = wb.active; ws1.title = "일자별 타임라인"
-    cols1 = ["날짜", "요일", "배민매출", "배민건수", "쿠팡매출", "쿠팡건수", "총매출", "총건수", "그날 운영변경(배민)"]
-    ws1.append(cols1)
-    for d in sorted(daily):
-        v = daily[d]
-        ws1.append([d, dow(d), v["배민"][1], v["배민"][0], v["쿠팡"][1], v["쿠팡"][0],
-                    v["총"][1], v["총"][0], summary.get(d, "")])
+    if ju:
+        cols1 = ["날짜", "요일", "배민매출", "배민건수", "쿠팡매출", "쿠팡건수", "총매출", "총건수", "그날 운영변경(배민)"]
+        ws1.append(cols1)
+        for d in sorted(daily):
+            v = daily[d]
+            ws1.append([d, dow(d), v["배민"][1], v["배민"][0], v["쿠팡"][1], v["쿠팡"][0],
+                        v["총"][1], v["총"][0], summary.get(d, "")])
+        widths1, num_to, sumcol = [12, 6, 13, 9, 13, 9, 13, 9, 70], 8, 8
+    else:
+        dfh = daily_from_hourly(hourly)
+        cols1 = ["날짜", "요일", "배달매출", "배달건수", "총매출", "총건수", "그날 운영변경(배민)"]
+        ws1.append(cols1)
+        for d in sorted(dfh):
+            v = dfh[d]
+            ws1.append([d, dow(d), v["배달"][1], v["배달"][0], v["총"][1], v["총"][0], summary.get(d, "")])
+        widths1, num_to, sumcol = [12, 6, 13, 9, 13, 9, 70], 6, 6
     style_header(ws1, len(cols1))
-    for col, w in zip("ABCDEFGHI", [12, 6, 13, 9, 13, 9, 13, 9, 70]):
-        ws1.column_dimensions[col].width = w
+    for i, w in enumerate(widths1, 1):
+        ws1.column_dimensions[get_column_letter(i)].width = w
     for r in ws1.iter_rows(min_row=2):
-        for c in r[2:8]:
+        for c in r[2:num_to]:
             c.number_format = "#,##0"
-        r[8].alignment = Alignment(wrap_text=True, vertical="top")
-        if r[8].value:  # 변경 있는 날 강조
+        r[sumcol].alignment = Alignment(wrap_text=True, vertical="top")
+        if r[sumcol].value:  # 변경 있는 날 강조
             for c in r:
                 c.fill = PatternFill("solid", fgColor="FFF3BF")
 
