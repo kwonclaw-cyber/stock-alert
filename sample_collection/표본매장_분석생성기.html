@@ -676,16 +676,23 @@
   }
   function renderDetails(){
     var rows=detailRows(computed), cats=[['운영시간','#1971c2'],['즉시할인','#e8590c'],['우리가게클릭','#e03131']], html='';
-    // ① 카테고리별 가장 효과적인 변경(상승 1건) 도식화
-    html+='<h3 style="margin:6px 0 4px;font-size:16px">🏆 카테고리별 핵심 성공 변경</h3>';
-    html+='<p class="legend" style="margin-top:0">각 변경 직전/직후를 <b>동일 기간·동일 요일구성</b>으로 비교해 매출 효과를 도출하고, 카테고리별 <b>가장 효과가 큰 변경 1건</b>만 뽑았습니다.</p>';
-    var any=false;
-    cats.forEach(function(g){
-      var rs=rows.filter(function(r){return r.cat===g[0]&&r.measurable&&r.pct>0;});
-      var best=null; rs.forEach(function(r){ if(!best||r.pct>best.pct) best=r; });
-      if(best){ any=true; html+='<div class="fxcat" style="color:'+g[1]+'">'+g[0]+'</div>'+effectDiagram(best,g[1]); }
+    // ① 변경 '유형(방향)별' 가장 극대화된 1건만 도식화
+    html+='<h3 style="margin:6px 0 4px;font-size:16px">🏆 변경 유형별 가장 큰 효과 <span style="color:var(--mut);font-weight:400;font-size:13px">(유형당 1건)</span></h3>';
+    html+='<p class="legend" style="margin-top:0">운영시간 <b>연장/축소</b>, 할인 <b>시작/종료</b>, 입찰 <b>인상/인하</b>로 나눠 각 유형에서 <b>매출을 가장 크게 움직인 단일 변경 1건</b>만 보여줍니다. (여러 건의 평균이 아니라 <b>가장 극대화된 한 건</b>입니다. 막대 높이는 그 변경 전/후 14일간 일평균 매출.)</p>';
+    var subTypes=[
+      {cat:'운영시간',label:'운영시간 — 연장',col:'#1971c2',match:function(r){return r.kind==='연장'||r.kind==='신규';}},
+      {cat:'운영시간',label:'운영시간 — 축소',col:'#1971c2',match:function(r){return r.kind==='감소';}},
+      {cat:'즉시할인',label:'즉시할인 — 시작(추가)',col:'#e8590c',match:function(r){return r.kind==='시작';}},
+      {cat:'즉시할인',label:'즉시할인 — 종료(해제)',col:'#e8590c',match:function(r){return r.kind==='종료';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 — 입찰 인상',col:'#e03131',match:function(r){return r.kind==='인상';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 — 입찰 인하',col:'#e03131',match:function(r){return r.kind==='인하';}}
+    ];
+    subTypes.forEach(function(st){
+      var rs=rows.filter(function(r){return r.cat===st.cat&&r.measurable&&st.match(r);});
+      var best=null; rs.forEach(function(r){ if(!best||Math.abs(r.pct)>Math.abs(best.pct)) best=r; });
+      html+='<div class="fxcat" style="color:'+st.col+'">'+st.label+'</div>';
+      html+=best?effectDiagram(best,st.col):'<p style="color:var(--mut);font-size:12.5px;margin:2px 0 8px">측정 가능한 변경이 없습니다.</p>';
     });
-    if(!any) html+='<p style="color:var(--mut);font-size:13px">측정 가능한(전·후 최소 1주 확보) 매출 상승 변경이 없습니다.</p>';
     // ② 효과가 있었던 변경만 표 (변화 없음·측정불가 제외)
     html+='<h3 style="margin:22px 0 4px;font-size:16px">📋 매출에 영향을 준 변경 목록</h3>';
     html+='<p class="legend" style="margin-top:0">매출 변화 ±'+MINEFFECT+'% 이상만 표시(변화 없음·측정 불가 제외). <b style="color:var(--g)">▲상승</b> / <b style="color:var(--r)">▼하락</b>.</p>';
