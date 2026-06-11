@@ -153,9 +153,9 @@
       </div>
     </div>
     <h2>📊 분석 보드 — 변경이 매출에 준 직접 영향</h2>
-    <p class="legend">각 카드의 큰 숫자 = <b>순효과(%p)</b> = 그날 매출(전주 동일요일 대비) − 기준선. 변경만의 영향에 가깝게 보정한 값입니다. <b style="color:var(--g)">＋면 매출 견인</b>, <b style="color:var(--r)">－면 매출 하락.</b></p>
+    <p class="legend">각 카드의 큰 숫자 = 그 변경 <b>전/후 같은 기간·같은 요일구성(최대 14일)</b>으로 비교한 <b>매출 변화의 평균</b>입니다(아래 그래프·도식과 같은 방식, 도식은 그 중 "가장 큰 1건"). <b style="color:var(--g)">＋면 매출 상승</b>, <b style="color:var(--r)">－면 하락.</b></p>
     <div class="board" id="board"></div>
-    <div class="warn"><b>해석 주의:</b> "변경한 날 하루" 비교는 사장님 반응(매출 부진 → 광고·할인 ON)이 섞여 역인과일 수 있습니다. 지속적 변경(운영시간 등)과 <b>아래 추이 그래프·구간 비교</b>를 함께 보세요.</div>
+    <div class="warn"><b>해석 주의:</b> 변경이 잦은 구간은 비교 창(전·후 14일)에 다른 변경이 섞여 단독 효과가 아닐 수 있습니다. <b>아래 추이 그래프·핵심 도식</b>과 함께 보세요.</div>
     <h2>📈 매출 추이 &amp; 변경 시점</h2>
     <p class="legend"><b>일매출선</b> 위에 <b>매출을 크게 움직인 주요 변경시점</b>만 점으로 표시합니다(모든 변경이 아님). <b>점에 커서를 올리면</b> 날짜·변경 내용·매출 변화가 상세히 보입니다.</p>
     <div id="chart"></div>
@@ -585,24 +585,23 @@
   function verdictOf(net){ if(net==null) return {t:'데이터 없음',c:'neu',ic:'–'};
     if(net>=3) return {t:'매출 상승',c:'pos',ic:'▲'}; if(net<=-3) return {t:'매출 하락',c:'neg',ic:'▼'};
     return {t:'영향 미미',c:'neu',ic:'–'}; }
-  // 보드: 변경 방향별(증가/감소)로 나눠 각 해당일들의 '평균 순효과(전주대비−기준선)'
+  // 보드: 변경 방향별(증가/감소)로 나눠, 각 변경 '전/후 14일 비교' 매출변화의 평균 (그래프와 동일 측정)
   function buildBoard(comp){
-    var daily=comp.gd.daily, A=SAMPLE.addDays;
-    function wow(dt){ var p=daily[A(dt,-7)]; if(!p||!p.sales) return null; return (daily[dt].sales-p.sales)/p.sales*100; }
+    var daily=comp.gd.daily, days=Object.keys(daily).sort();
     function avg(xs){ xs=xs.filter(function(x){return x!=null;}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; }
-    var base=avg(Object.keys(daily).map(wow)), ev=changeEvents(comp);
-    function dset(list,pred){ var s={}; list.forEach(function(e){ if(pred(e)) s[e.date]=1; }); return Object.keys(s); }
+    var avgDaily=avg(days.map(function(d){return daily[d].sales;})), rows0=detailRows(comp);
+    function grp(cat,pred){ var es=rows0.filter(function(r){return r.cat===cat&&r.measurable&&pred(r);}); return {n:es.length, v:avg(es.map(function(r){return r.pct;}))}; }
     var defs=[
-      ['운영시간 증가', ev.운영시간, function(e){return e.kind==='연장'||e.kind==='신규';}, ''],
-      ['운영시간 감소', ev.운영시간, function(e){return e.kind==='감소';}, ''],
-      ['즉시할인 증가', ev.즉시할인, function(e){return e.kind==='시작';}, ''],
-      ['즉시할인 감소', ev.즉시할인, function(e){return e.kind==='종료';}, '⚠ 종료일↑은 역인과 가능'],
-      ['우리가게클릭 클릭비 인상', ev.우리가게클릭, function(e){return e.kind==='인상';}, ''],
-      ['우리가게클릭 클릭비 인하', ev.우리가게클릭, function(e){return e.kind==='인하';}, '']
+      ['운영시간 증가','운영시간',function(r){return r.kind==='연장'||r.kind==='신규';},''],
+      ['운영시간 감소','운영시간',function(r){return r.kind==='감소';},''],
+      ['즉시할인 증가','즉시할인',function(r){return r.kind==='시작';},''],
+      ['즉시할인 감소','즉시할인',function(r){return r.kind==='종료';},'⚠ 종료일↑은 역인과 가능'],
+      ['우리가게클릭 클릭비 인상','우리가게클릭',function(r){return r.kind==='인상';},''],
+      ['우리가게클릭 클릭비 인하','우리가게클릭',function(r){return r.kind==='인하';},'']
     ];
-    var rows=defs.map(function(d){ var days=dset(d[1],d[2]), v=avg(days.map(wow)), net=(v==null||base==null)?null:v-base, vd=verdictOf(net);
-      return {label:d[0],n:days.length,wow:v,net:net,c:vd.c,verdict:vd.ic+' '+vd.t,note:d[3]}; });
-    return {base:base, rows:rows};
+    var rows=defs.map(function(d){ var g=grp(d[1],d[2]), vd=verdictOf(g.v);
+      return {label:d[0],n:g.n,v:g.v,c:vd.c,verdict:vd.ic+' '+vd.t,note:d[3]}; });
+    return {avgDaily:avgDaily, days:days.length, span:days.length?days[0]+' ~ '+days[days.length-1]:'', rows:rows};
   }
 
   // ===== 변경 건별 상세 (직전 구간 vs 직후 구간 = 다음 같은유형 변경 전까지) =====
@@ -799,8 +798,8 @@
       kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
       kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
     var bd=buildBoard(computed);
-    var bh='<div class="bcard base"><div class="blabel">기준선 · 평소 주간 변동</div><div class="bnet">'+pctStr(bd.base)+'</div><div class="bsub">이 값보다 높을수록 그 변경이 매출에 ＋효과 (아래 순효과의 기준)</div></div>';
-    bd.rows.forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+netStr(r.net)+'</div><div class="bsub">적용 '+r.n+'일 · 그날매출 '+pctStr(r.wow)+'</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
+    var bh='<div class="bcard base"><div class="blabel">전체 일평균 매출</div><div class="bnet">'+fmtWon(bd.avgDaily)+'</div><div class="bsub">'+bd.span+' · '+bd.days+'일</div></div>';
+    bd.rows.forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+pctStr(r.v)+'</div><div class="bsub">적용 '+r.n+'건 · 전·후 14일 비교</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
     document.getElementById('board').innerHTML=bh;
     // 월별
     var mo=SAMPLE.monthly(gd.daily), mk=Object.keys(mo).sort();
@@ -836,15 +835,15 @@
       var cs=catRange(cats,days.filter(function(dt){return dt.slice(0,7)===ym;}));
       a3.push([ym,s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
     var bd=buildBoard(computed);
-    var a4=[['[ 분석 보드 ] 변경이 매출에 준 직접 영향'],[''],
-      ['기준선(평소 주간 변동, 전주 동일요일 대비 평균)', pctStr(bd.base)],[''],
-      ['변경 유형','적용일수','그날 매출(전주대비)','기준선 대비 순효과','판정']];
-    bd.rows.forEach(function(r){ a4.push([r.label, r.n, pctStr(r.wow), netStr(r.net), r.verdict]); });
+    var a4=[['[ 분석 보드 ] 변경 전/후 14일 비교 매출변화 평균'],[''],
+      ['전체 일평균 매출', fmtWon(bd.avgDaily)],['분석기간', bd.span+' ('+bd.days+'일)'],[''],
+      ['변경 유형','적용건수','평균 매출변화(전·후 14일)','판정']];
+    bd.rows.forEach(function(r){ a4.push([r.label, r.n, pctStr(r.v), r.verdict]); });
     a4.push([''],
-      ['※ 순효과 = 그날 매출(전주대비) − 기준선. 변경만의 영향에 가깝게 본 값.'],
-      ['※ ＋면 매출 견인, －면 매출 하락. (±3%p 미만은 영향 미미)'],
+      ['※ 각 값 = 그 변경 전/후 같은 길이(최대 14일)·같은 요일구성 일평균 매출의 변화율 평균.'],
+      ['※ ＋면 매출 상승, －면 하락. (±3% 미만은 영향 미미)'],
       ['※ 우리가게클릭은 클릭비(입찰가) 변화만 반영합니다(예산 제외).'],
-      ['※ "즉시할인 종료일"이 높게 나오면 역인과(잘 팔리던 흐름 + 행사 종료)일 수 있습니다.']);
+      ['※ 변경이 잦은 구간은 비교 창에 다른 변경이 섞일 수 있어 참고치입니다.']);
     var wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석 보드');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a1),'일자별 분석');
