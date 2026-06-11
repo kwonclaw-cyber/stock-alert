@@ -62,6 +62,10 @@
       <button class="go" id="run" disabled>빅데이터 분석 ▶</button>
       <span id="status" style="margin-left:10px;font-size:13px;color:var(--mut);"></span>
     </div>
+    <div id="cachebar" class="hide" style="margin-top:12px;padding:9px 13px;background:#e6fcf5;border:1px solid #96f2d7;border-radius:9px;font-size:13px;">
+      💾 <b>저장된 데이터로 보는 중</b> <span id="cacheinfo" style="color:var(--mut)"></span> · 새 파일을 올리면 교체됩니다.
+      <button id="clearCache" style="margin-left:8px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 9px;cursor:pointer;font-size:12px;color:var(--r);">저장 데이터 지우기</button>
+    </div>
   </div>
 
   <div id="result" class="hide">
@@ -139,25 +143,58 @@
         dates[d]=1; if(d<minD)minD=d; if(d>maxD)maxD=d; rowN++;
       }
     }
-    var names=Object.keys(stores); if(!names.length) throw '유효한 매장 데이터가 없습니다.';
-    var nDays=Object.keys(dates).length, months=Math.max(nDays/30.4,0.5);
-    // 매장별 파생값
+    if(!Object.keys(stores).length) throw '유효한 매장 데이터가 없습니다.';
+    var nDays=Object.keys(dates).length;
+    saveCache(stores, nDays, [minD,maxD], rowN);
+    document.getElementById('cachebar').classList.add('hide');
+    finalize(stores, nDays, [minD,maxD], rowN, false);
+  }
+
+  // 파싱된 매장집계 → 파생값·등급 계산 후 렌더 (업로드/캐시 공용)
+  function finalize(stores, nDays, span, rowN, fromCache){
+    var names=Object.keys(stores), months=Math.max(nDays/30.4,0.5);
     names.forEach(function(n){ var s=stores[n];
-      s.monthly=s.total/months; s.activeDays=Object.keys(s.days).length;
+      s.monthly=s.total/months;
       s.peak=0; for(var i=0;i<24;i++) if(s.hour[i]>s.hour[s.peak]) s.peak=i;
-      // 핵심 영업창(누적 2.5~97.5%) + 심야(0~5시) 비중
       var t=s.total||1, c=0; s.lo=null; s.hi=null;
       for(var j=0;j<24;j++){ if(s.hour[j]<=0) continue; c+=s.hour[j]; if(s.lo==null&&c>=t*0.025)s.lo=j; if(c<=t*0.975)s.hi=j; }
       var night=0; for(var k=0;k<=5;k++) night+=s.hour[k]; s.nightPct=night/t*100;
     });
-    // 규모 등급(월매출 3분위)
     var sorted=names.slice().sort(function(a,b){return stores[b].monthly-stores[a].monthly;});
     var t1=Math.floor(sorted.length/3), t2=Math.floor(sorted.length*2/3);
     sorted.forEach(function(n,i){ stores[n].tier=i<t1?'대':(i<t2?'중':'소'); });
-    DATA={stores:stores, names:names, nDays:nDays, months:months, span:[minD,maxD], rowN:rowN};
-    statusEl.textContent='완료! ('+names.length+'개 매장 · '+rowN.toLocaleString()+'행)';
+    DATA={stores:stores, names:names, nDays:nDays, months:months, span:span, rowN:rowN};
+    statusEl.textContent=(fromCache?'💾 저장된 데이터':'완료!')+' ('+names.length+'개 매장 · '+rowN.toLocaleString()+'행)';
     render();
   }
+
+  // ── 브라우저 저장(localStorage): 집계 결과만 압축 저장 → 다음에 자동 불러오기 ──
+  var CKEY='bigdata_cache_v1';
+  function saveCache(stores, nDays, span, rowN){
+    try{ var c={nDays:nDays, span:span, rowN:rowN, stores:{}};
+      Object.keys(stores).forEach(function(n){ var s=stores[n]; c.stores[n]={hour:s.hour, wday:s.wday, total:s.total}; });
+      localStorage.setItem(CKEY, JSON.stringify(c));
+    }catch(e){ /* 용량 초과 등은 조용히 무시 */ }
+  }
+  function loadCache(){
+    try{ var c=JSON.parse(localStorage.getItem(CKEY)); if(!c||!c.stores) return null;
+      var stores={}; Object.keys(c.stores).forEach(function(n){ var s=c.stores[n]; stores[n]={hour:s.hour, wday:s.wday, total:s.total, daily:{}, days:{}}; });
+      return {stores:stores, nDays:c.nDays, span:c.span, rowN:c.rowN};
+    }catch(e){ return null; }
+  }
+  function clearCache(){ try{ localStorage.removeItem(CKEY); }catch(e){} }
+
+  document.getElementById('clearCache').addEventListener('click',function(){
+    clearCache(); location.reload();
+  });
+
+  // 페이지 열 때 저장된 데이터가 있으면 자동 복원
+  (function autoload(){
+    var c=loadCache(); if(!c) return;
+    var bar=document.getElementById('cachebar'); bar.classList.remove('hide');
+    document.getElementById('cacheinfo').textContent='('+Object.keys(c.stores).length+'개 매장 · '+(c.span?c.span[0].slice(2)+'~'+c.span[1].slice(5):'')+')';
+    finalize(c.stores, c.nDays, c.span, c.rowN, true);
+  })();
   function fmtD(v){ if(v==null)return null;
     if(v instanceof Date){ return v.getFullYear()+'-'+p2(v.getMonth()+1)+'-'+p2(v.getDate()); }
     var s=String(v).trim(); var m=s.match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/); if(m) return m[1]+'-'+p2(m[2])+'-'+p2(m[3]); return s.slice(0,10); }
