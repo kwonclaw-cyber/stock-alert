@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표본매장 분석 생성기</title>
+<style>
+  :root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--y:#fff3bf;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
+  *{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.6;margin:0;background:#f8f9fa;}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 70px;}
+  h1{font-size:26px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 22px;}
+  h2{font-size:18px;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  #drop{border:2.5px dashed var(--b);border-radius:14px;padding:34px 20px;text-align:center;background:var(--b2);cursor:pointer;transition:.15s;}
+  #drop.over{border-color:var(--g);background:#d3f9d8;}
+  #drop b{font-size:17px;color:var(--b);} #drop p{margin:6px 0 0;color:var(--mut);font-size:13px;}
+  .files{list-style:none;padding:0;margin:12px 0 0;} .files li{font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line);}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;margin-right:6px;}
+  .t-j{background:#fff3bf;color:#e8590c;} .t-s{background:#e7f5ff;color:#1971c2;} .t-x{background:#ffe3e3;color:#e03131;}
+  input[type=text]{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;width:240px;}
+  button.go{background:var(--g);color:#fff;border:none;padding:12px 26px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
+  button.go:disabled{background:#adb5bd;cursor:default;}
+  button.dl{background:var(--b);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin:6px 8px 0 0;}
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;} th{background:#f1f3f5;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;} .up{color:var(--r);font-weight:700;} .dn{color:var(--b);font-weight:700;}
+  .warn{background:#fff9db;border-left:4px solid var(--o);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}
+  .tip{background:var(--b2);border-left:4px solid var(--b);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}
+  .err{color:var(--r);font-weight:700;} .hide{display:none;}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;} .kpi div{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;} .kpi b{display:block;font-size:20px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
+  .foot{margin-top:34px;color:var(--mut);font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 표본매장 분석 생성기</h1>
+  <p class="sub">배민 변경이력 JSON + matetech 매출 엑셀을 끌어다 놓으면 → 분석 엑셀이 만들어집니다. (설치·업로드 불필요, 전부 이 브라우저 안에서 처리)</p>
+
+  <div class="card">
+    <div id="drop">
+      <b>📁 여기로 파일을 끌어다 놓으세요</b>
+      <p>또는 클릭해서 선택 · <code>baemin_변경이력_*.json</code> 1개 + matetech <code>주문경로별/시간대별 .xlsx</code> 여러 개</p>
+      <input type="file" id="picker" multiple accept=".json,.xlsx" class="hide">
+    </div>
+    <ul class="files" id="filelist"></ul>
+    <div style="margin-top:14px;">
+      매장 이름(선택): <input type="text" id="storename" placeholder="예: 밥구정로데오">
+      <br><button class="go" id="run" disabled>분석 만들기 ▶</button>
+      <span id="status" style="margin-left:10px;font-size:13px;color:var(--mut);"></span>
+    </div>
+  </div>
+
+  <div id="result" class="hide">
+    <h2>결과</h2>
+    <div class="kpi" id="kpi"></div>
+    <div style="margin:10px 0;">
+      <button class="dl" id="dlAnalysis">⬇ 분석.xlsx</button>
+      <button class="dl" id="dlMerged">⬇ 통합본.xlsx</button>
+    </div>
+    <h2>분석요약 — 전주 동일요일 대비(평균)</h2>
+    <table id="sumtable"></table>
+    <div class="warn"><b>해석 주의:</b> "변경한 날 하루" 비교는 사장님 반응(매출 부진 → 광고·할인 ON)이 섞여 역인과일 수 있습니다. 지속적 변경(운영시간 등)과 <b>주차·월 비교 시트</b>를 함께 보세요.</div>
+    <h2>월별 비교</h2>
+    <table id="montable"></table>
+  </div>
+
+  <div class="warn" id="neednet">⚠️ 이 페이지는 엑셀 처리를 위해 인터넷에서 라이브러리(SheetJS)를 한 번 불러옵니다. 인터넷이 연결돼 있어야 합니다.</div>
+  <p class="foot">표본매장 분석 생성기 · 모든 처리는 브라우저 내에서 수행되어 데이터가 외부로 전송되지 않습니다.</p>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+/* ===== 핵심 로직 (core.js) ===== */
+// 표본매장 분석 코어 로직 (브라우저/노드 공용). merge_sales.py + analyze.py 의 JS 포팅.
+(function (root) {
+  // ---------- 공통 ----------
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(v) {
+    if (v == null) return null;
+    if (v instanceof Date) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+    return String(v).slice(0, 10);
+  }
+  function addDays(dt, n) { const d = new Date(dt + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function wdayMon(dt) { const w = new Date(dt + 'T00:00:00').getDay(); return (w + 6) % 7; } // 0=월
+  const WEEK = ['월', '화', '수', '목', '금', '토', '일'];
+
+  // ---------- matetech 파싱 ----------
+  function detectType(rows) {
+    const hdr = rows.slice(0, 3).map(r => (r || []).map(x => x == null ? '' : String(x)).join(' ')).join(' ');
+    if (hdr.indexOf('주문채널') >= 0) return 'ju';
+    if (hdr.indexOf('시간대') >= 0) return 'si';
+    return null;
+  }
+  function parseJu(rowsList) {
+    const daily = {};
+    rowsList.forEach(rows => {
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const dd = r[0], ch = r[2];
+        if (!dd || dd === '합계' || !ch) continue;
+        const dt = fmtDate(dd), cnt = +r[4] || 0, amt = +r[6] || 0;
+        if (!daily[dt]) daily[dt] = { baemin: [0, 0], coupang: [0, 0], total: [0, 0] };
+        daily[dt].total[0] += cnt; daily[dt].total[1] += amt;
+        if (ch === '배달의민족') { daily[dt].baemin[0] += cnt; daily[dt].baemin[1] += amt; }
+        else if (ch === '쿠팡이츠') { daily[dt].coupang[0] += cnt; daily[dt].coupang[1] += amt; }
+      }
+    });
+    return daily;
+  }
+  function parseSi(rowsList) {
+    const hourly = [];
+    rowsList.forEach(rows => {
+      let cur = null;
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const rawd = r[0], slot = r[1];
+        if (rawd && String(rawd) !== '합계') {
+          const m = String(rawd).match(/(\d{1,2})월\s*(\d{1,2})일/);
+          if (m) { const mo = +m[1], dy = +m[2], yr = mo === 12 ? 2025 : 2026; cur = yr + '-' + pad(mo) + '-' + pad(dy); }
+          else { const f = fmtDate(rawd); if (/^\d{4}-/.test(f)) cur = f; }
+        }
+        if (!slot || String(slot) === '합계' || !/^\d/.test(String(slot))) continue;
+        if (!cur) continue;
+        hourly.push({ date: cur, slot: String(slot), dc: +r[8] || 0, da: +r[9] || 0, tc: +r[2] || 0, ta: +r[4] || 0 });
+      }
+    });
+    hourly.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.slot < b.slot ? -1 : 1));
+    return hourly;
+  }
+  function dailyFromHourly(hourly) {
+    const d = {};
+    hourly.forEach(h => { if (!d[h.date]) d[h.date] = { delivery: [0, 0], total: [0, 0] }; d[h.date].delivery[0] += h.dc; d[h.date].delivery[1] += h.da; d[h.date].total[0] += h.tc; d[h.date].total[1] += h.ta; });
+    return d;
+  }
+
+  // ---------- 변경이력 번들 파싱 ----------
+  const SHOP_LABELS = {
+    SHOP_OPERATION_HOUR_MODIFY: '운영시간', SHOP_MENU_INFO_MENU_INTRO_MODIFY: '주문안내',
+    SHOP_DELIVERY_RULES_MODIFY: '주문금액·배달팁', SHOP_DELIVERY_RULES_RESERVATION_MODIFY: '주문금액·배달팁(예약)',
+    SHOP_REGION_DELIVERY_FEE_MODIFY: '지역 할증 배달팁', SHOP_DAY_OFF_MODIFY: '휴무일 변경',
+    TEMPORARY_STOP_MODIFY: '임시중지', SHOP_TEMPORARY_STOP_MODIFY: '임시중지', SHOP_STATUS_MODIFY: '가게 상태',
+    SHOP_REST_HOUR_MODIFY: '휴게시간 변경', SHOP_CONTENTS_MODIFY: '가게소개/콘텐츠',
+    SHOP_TELEPHONE_INFO_MODIFY: '전화번호 변경', SHOP_MENU_INFO_MODIFY: '메뉴 정보', SHOP_BASE_INFO_MODIFY: '기본 정보',
+  };
+  const AD_TYPES = { LISTING_INVENTORY_DISPLAY_PAUSE: '노출 ON/OFF', CPC_BUDGET: '입찰·예산' };
+  function shopLabel(ci, sub) { return SHOP_LABELS[ci] || ci || sub || '기타'; }
+  function adTypeLabel(t) { return AD_TYPES[t] || t || ''; }
+  function fmtAd(v) {
+    if (v == null) return '';
+    let s = String(v);
+    if (s.charAt(0) === '{') {
+      try {
+        const o = JSON.parse(s), cpc = o.cpc || o, p = [];
+        if ('bid' in cpc) p.push('입찰 ' + Number(cpc.bid).toLocaleString() + '원');
+        if ('maxBid' in cpc) p.push('최대입찰 ' + Number(cpc.maxBid).toLocaleString() + '원');
+        if ('monthlyBudget' in cpc) p.push('월예산 ' + Number(cpc.monthlyBudget).toLocaleString() + '원');
+        if ('autoBidding' in cpc) p.push(cpc.autoBidding ? '자동입찰' : '수동입찰');
+        return p.length ? p.join(', ') : s;
+      } catch (e) { return s; }
+    }
+    return s;
+  }
+  function parseBundle(b) {
+    const rows = [];
+    (b.shop || []).forEach(r => rows.push({ date: String(r.modified || r.createdAt || '').slice(0, 10), gubun: '가게', item: shopLabel(r.changedItem, r.subDivision), before: (r.beforeState || '').trim(), after: (r.afterState || '').trim() }));
+    (b.instantDiscount || []).forEach(r => rows.push({ date: String(r.modifiedAt || '').slice(0, 10), gubun: '즉시할인', item: r.name || r.type || '', before: '', after: (r.description || '').trim() }));
+    (b.ad || []).forEach(r => rows.push({ date: String(r.createdAt || '').slice(0, 10), gubun: '광고', item: (r.adKindTitle || '') + ' (' + adTypeLabel(r.historyType) + ')', before: fmtAd(r.beforeValue), after: fmtAd(r.afterValue) }));
+    rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return rows;
+  }
+
+  // ---------- 분석 ----------
+  function bidOf(s) { const m = String(s).match(/입찰\s*([\d,]+)\s*원/); return m ? +m[1].replace(/,/g, '') : null; }
+  function categorize(changes) {
+    const by = {};
+    function ensure(d) { if (!by[d]) by[d] = { 운영시간: [], 할인: [], 우리가게클릭: [] }; return by[d]; }
+    changes.forEach(c => {
+      if (c.gubun === '가게' && c.item === '운영시간') ensure(c.date).운영시간.push(c.after.replace(/\n/g, ' / '));
+      else if (c.gubun === '즉시할인') ensure(c.date).할인.push(c.item);
+      else if (c.gubun === '광고' && String(c.item).indexOf('우리가게클릭') === 0) {
+        const ba = bidOf(c.before), aa = bidOf(c.after);
+        if (ba != null && aa != null) { const ar = aa > ba ? '▲인상' : (aa < ba ? '▼인하' : '유지'); ensure(c.date).우리가게클릭.push('입찰 ' + ba + '→' + aa + '원 (' + ar + ')'); }
+        else ensure(c.date).우리가게클릭.push(c.after || c.item);
+      }
+    });
+    return by;
+  }
+  function getDaily(workbookData) {
+    // workbookData: {ju:{...}|null, hourly:[...]}
+    if (workbookData.ju && Object.keys(workbookData.ju).length) {
+      const d = {}; for (const k in workbookData.ju) d[k] = { sales: workbookData.ju[k].baemin[1], cnt: workbookData.ju[k].baemin[0], total: workbookData.ju[k].total[1] };
+      return { daily: d, salesName: '배민매출', hasChannel: true, ju: workbookData.ju };
+    }
+    const dfh = dailyFromHourly(workbookData.hourly); const d = {};
+    for (const k in dfh) d[k] = { sales: dfh[k].delivery[1], cnt: dfh[k].delivery[0], total: dfh[k].total[1] };
+    return { daily: d, salesName: '배달매출', hasChannel: false };
+  }
+  function avg(xs) { xs = xs.filter(x => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
+  function analyze(daily, cats) {
+    const days = Object.keys(daily).sort();
+    function wow(dt) { const p = daily[addDays(dt, -7)]; if (!p || !p.sales) return null; return (daily[dt].sales - p.sales) / p.sales * 100; }
+    const has = (dt, k, pred) => (cats[dt] && cats[dt][k] || []).some(pred || (() => true));
+    const opDays = days.filter(dt => cats[dt] && cats[dt].운영시간.length);
+    const dStart = days.filter(dt => has(dt, '할인', x => x.indexOf('[시작]') >= 0));
+    const dEnd = days.filter(dt => has(dt, '할인', x => x.indexOf('[종료]') >= 0));
+    const bidUp = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▲인상') >= 0));
+    const bidDn = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▼인하') >= 0));
+    const base = avg(days.map(wow));
+    const m = arr => avg(arr.map(wow));
+    return {
+      base: base, op: { n: opDays.length, v: m(opDays) }, dStart: { n: dStart.length, v: m(dStart) },
+      dEnd: { n: dEnd.length, v: m(dEnd) }, bidUp: { n: bidUp.length, v: m(bidUp) }, bidDn: { n: bidDn.length, v: m(bidDn) },
+    };
+  }
+  function weekly(daily) {
+    const agg = {}; for (const dt in daily) { const mon = addDays(dt, -wdayMon(dt)); if (!agg[mon]) agg[mon] = [0, 0]; agg[mon][0] += daily[dt].sales; agg[mon][1] += daily[dt].cnt; } return agg;
+  }
+  function monthly(daily) { const agg = {}; for (const dt in daily) { const ym = dt.slice(0, 7); if (!agg[ym]) agg[ym] = [0, 0]; agg[ym][0] += daily[dt].sales; agg[ym][1] += daily[dt].cnt; } return agg; }
+
+  const API = { fmtDate, addDays, wdayMon, WEEK, detectType, parseJu, parseSi, dailyFromHourly, parseBundle, categorize, getDaily, analyze, weekly, monthly };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  else root.SAMPLE = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== 앱 ===== */
+(function(){
+  var SAMPLE = window.SAMPLE;
+  var dropped = [];
+  var computed = null;
+  var drop=document.getElementById('drop'), picker=document.getElementById('picker'),
+      filelist=document.getElementById('filelist'), runBtn=document.getElementById('run'),
+      statusEl=document.getElementById('status');
+
+  if(window.XLSX) document.getElementById('neednet').style.display='none';
+
+  drop.addEventListener('click',function(){picker.click();});
+  ['dragover','dragenter'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('over');});});
+  ['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('over');});});
+  drop.addEventListener('drop',function(ev){addFiles(ev.dataTransfer.files);});
+  picker.addEventListener('change',function(ev){addFiles(ev.target.files);});
+
+  function addFiles(list){
+    for(var i=0;i<list.length;i++){
+      var f=list[i], n=f.name.toLowerCase();
+      if(n.endsWith('.json')||n.endsWith('.xlsx')) dropped.push(f);
+    }
+    render();
+  }
+  function render(){
+    filelist.innerHTML='';
+    dropped.forEach(function(f){
+      var n=f.name.toLowerCase(), tag='<span class="tag t-x">기타</span>';
+      if(n.endsWith('.json')) tag='<span class="tag t-j">변경이력</span>';
+      else if(n.endsWith('.xlsx')) tag='<span class="tag t-s">매출</span>';
+      var li=document.createElement('li'); li.innerHTML=tag+f.name; filelist.appendChild(li);
+    });
+    runBtn.disabled = dropped.length===0;
+  }
+
+  runBtn.addEventListener('click',function(){ run().catch(function(e){ statusEl.innerHTML='<span class="err">'+e+'</span>'; }); });
+
+  async function run(){
+    if(!window.XLSX) throw '엑셀 라이브러리를 불러오지 못했습니다(인터넷 확인).';
+    statusEl.textContent='처리 중…';
+    var bundle=null, ju=[], si=[];
+    for(var i=0;i<dropped.length;i++){
+      var f=dropped[i], n=f.name.toLowerCase();
+      if(n.endsWith('.json')){ bundle=JSON.parse(await f.text()); }
+      else if(n.endsWith('.xlsx')){
+        var buf=await f.arrayBuffer(); var wb=XLSX.read(buf,{type:'array'});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+        var t=SAMPLE.detectType(rows);
+        if(t==='ju') ju.push(rows); else if(t==='si') si.push(rows);
+      }
+    }
+    if(!bundle) throw '배민 변경이력 JSON(baemin_변경이력_*.json)이 필요합니다.';
+    if(!ju.length && !si.length) throw 'matetech 매출 엑셀(주문경로별/시간대별)이 필요합니다.';
+
+    var juDaily=SAMPLE.parseJu(ju), hourly=SAMPLE.parseSi(si);
+    var gd=SAMPLE.getDaily({ju:juDaily,hourly:hourly});
+    var changes=SAMPLE.parseBundle(bundle);
+    var cats=SAMPLE.categorize(changes);
+    var name=(document.getElementById('storename').value||('매장_'+(bundle.shopNumber||''))).trim();
+    computed={gd:gd,hourly:hourly,changes:changes,cats:cats,name:name};
+    showResult();
+    statusEl.textContent='완료!';
+  }
+
+  function pctStr(p){ return p==null?'N/A':(p>=0?'+':'')+p.toFixed(1)+'%'; }
+  function cls(p){ return p==null?'':(p>0?'up':(p<0?'dn':'')); }
+
+  function showResult(){
+    var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
+    var a=SAMPLE.analyze(gd.daily,cats);
+    document.getElementById('result').classList.remove('hide');
+    document.getElementById('kpi').innerHTML=
+      kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
+      kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
+    var rows=[['구분','일수','전주동일요일 대비(평균)']];
+    var R=[['전체 일평균(기준선)','',a.base],['운영시간 변경일',a.op.n,a.op.v],
+      ['즉시할인 시작일',a.dStart.n,a.dStart.v],['즉시할인 종료일',a.dEnd.n,a.dEnd.v],
+      ['우리가게클릭 입찰▲인상',a.bidUp.n,a.bidUp.v],['우리가게클릭 입찰▼인하',a.bidDn.n,a.bidDn.v]];
+    var html='<tr><th>구분</th><th>일수</th><th>전주 동일요일 대비(평균)</th></tr>';
+    R.forEach(function(x){ html+='<tr><td>'+x[0]+'</td><td class="num">'+(x[1]===''?'-':x[1])+'</td><td class="num '+cls(x[2])+'">'+pctStr(x[2])+'</td></tr>'; });
+    document.getElementById('sumtable').innerHTML=html;
+    // 월별
+    var mo=SAMPLE.monthly(gd.daily), mk=Object.keys(mo).sort();
+    var mh='<tr><th>월</th><th>'+gd.salesName+'</th><th>건수</th><th>전월 대비</th></tr>';
+    mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:null; var p=pv?((s-pv)/pv*100):null;
+      mh+='<tr><td>'+ym+'</td><td class="num">'+s.toLocaleString()+'</td><td class="num">'+c.toLocaleString()+'</td><td class="num '+cls(p)+'">'+pctStr(p)+'</td></tr>'; });
+    document.getElementById('montable').innerHTML=mh;
+  }
+  function kpi(v,l){ return '<div><b>'+(typeof v==='number'?v.toLocaleString():v)+'</b><span>'+l+'</span></div>'; }
+
+  // ===== 엑셀 빌드 =====
+  function catRange(cats,dates){ var o={운영시간:[],할인:[],우리가게클릭:[]};
+    dates.forEach(function(dt){ var c=cats[dt]; if(!c)return; ['운영시간','할인','우리가게클릭'].forEach(function(k){ o[k]=o[k].concat(c[k]); }); });
+    var r={}; ['운영시간','할인','우리가게클릭'].forEach(function(k){ r[k]=Array.from(new Set(o[k])).join(' ; '); }); return r; }
+
+  function buildAnalysis(){
+    var gd=computed.gd, cats=computed.cats, daily=gd.daily, days=Object.keys(daily).sort();
+    var addDays=SAMPLE.addDays, WEEK=SAMPLE.WEEK, wd=SAMPLE.wdayMon;
+    var a1=[['날짜','요일',gd.salesName,'건수','운영시간 변경','할인 변경','우리가게클릭 변경','전주동일요일 매출','차이(원)','차이(%)']];
+    days.forEach(function(dt){ var v=daily[dt], c=cats[dt]||{운영시간:[],할인:[],우리가게클릭:[]}, p=daily[addDays(dt,-7)], pv=p?p.sales:'';
+      var diff=(pv!=='')?v.sales-pv:'', pc=(pv!==''&&pv)?((v.sales-pv)/pv*100):null;
+      a1.push([dt,WEEK[wd(dt)],v.sales,v.cnt,c.운영시간.join(' ; '),c.할인.join(' ; '),c.우리가게클릭.join(' ; '),pv,diff,pctStr(pc)]); });
+    var wk=SAMPLE.weekly(daily), wkeys=Object.keys(wk).sort();
+    var a2=[['주차(월~일)',gd.salesName,'건수','전주차 매출','차이(원)','차이(%)','운영시간','할인','우리가게클릭']];
+    wkeys.forEach(function(mon){ var s=wk[mon][0],c=wk[mon][1],prev=wk[addDays(mon,-7)],pv=prev?prev[0]:'';
+      var cs=catRange(cats,days.filter(function(dt){return dt>=mon&&dt<=addDays(mon,6);}));
+      a2.push([mon+' ~ '+addDays(mon,6).slice(5),s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
+    var mo=SAMPLE.monthly(daily), mk=Object.keys(mo).sort();
+    var a3=[['월',gd.salesName,'건수','전월 매출','차이(원)','차이(%)','운영시간','할인','우리가게클릭']];
+    mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:'';
+      var cs=catRange(cats,days.filter(function(dt){return dt.slice(0,7)===ym;}));
+      a3.push([ym,s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
+    var an=SAMPLE.analyze(daily,cats);
+    var a4=[['변경요인별 매출영향 (전주 동일요일 대비 평균)'],[''],
+      ['전체 일평균(기준선)', pctStr(an.base)],
+      ['운영시간 변경일('+an.op.n+'일)', pctStr(an.op.v)],
+      ['즉시할인 시작일('+an.dStart.n+'일)', pctStr(an.dStart.v)],
+      ['즉시할인 종료일('+an.dEnd.n+'일)', pctStr(an.dEnd.v)],
+      ['우리가게클릭 입찰▲인상('+an.bidUp.n+'일)', pctStr(an.bidUp.v)],
+      ['우리가게클릭 입찰▼인하('+an.bidDn.n+'일)', pctStr(an.bidDn.v)],[''],
+      ['해석: 기준선보다 높으면 그 변경일 매출이 평소보다 좋았다는 뜻. 단 같은날 여러변경/역인과 가능 → 주차·월 비교와 함께 보세요.']];
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a1),'일자별 분석');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a2),'주차별 비교');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a3),'월별 비교');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석요약');
+    return wb;
+  }
+  function buildMerged(){
+    var gd=computed.gd, cats=computed.cats, hourly=computed.hourly, changes=computed.changes;
+    var daily=gd.daily, days=Object.keys(daily).sort(), WEEK=SAMPLE.WEEK, wd=SAMPLE.wdayMon;
+    var t1; if(gd.hasChannel){ t1=[['날짜','요일','배민매출','배민건수','쿠팡매출','쿠팡건수','총매출','그날 운영변경']];
+      days.forEach(function(dt){ var ju=gd.ju[dt],c=cats[dt]; var sm=c?[c.운영시간.join(' '),c.할인.join(' '),c.우리가게클릭.join(' ')].filter(Boolean).join(' | '):'';
+        t1.push([dt,WEEK[wd(dt)],ju.baemin[1],ju.baemin[0],ju.coupang[1],ju.coupang[0],ju.total[1],sm]); }); }
+    else { t1=[['날짜','요일','배달매출','배달건수','총매출','그날 운영변경']];
+      days.forEach(function(dt){ var v=daily[dt],c=cats[dt]; var sm=c?[c.운영시간.join(' '),c.할인.join(' '),c.우리가게클릭.join(' ')].filter(Boolean).join(' | '):'';
+        t1.push([dt,WEEK[wd(dt)],v.sales,v.cnt,v.total,sm]); }); }
+    var t2=[['날짜','요일','시간대','배달건수','배달매출','총건수','총매출']];
+    hourly.forEach(function(h){ t2.push([h.date,WEEK[wd(h.date)],h.slot,h.dc,h.da,h.tc,h.ta]); });
+    var t3=[['변경일','구분','항목','변경전','변경후']];
+    changes.forEach(function(c){ t3.push([c.date,c.gubun,c.item,c.before,c.after]); });
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t1),'일자별 타임라인');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t2),'시간대별');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t3),'배민 변경이력');
+    return wb;
+  }
+  document.getElementById('dlAnalysis').addEventListener('click',function(){ XLSX.writeFile(buildAnalysis(), computed.name+'_분석.xlsx'); });
+  document.getElementById('dlMerged').addEventListener('click',function(){ XLSX.writeFile(buildMerged(), computed.name+'_통합본.xlsx'); });
+})();
+</script>
+</body>
+</html>
