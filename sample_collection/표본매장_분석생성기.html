@@ -80,6 +80,13 @@
   .fxval{width:96px;flex:none;font-size:12.5px;font-weight:700;text-align:right;}
   .fxbadge{display:inline-block;margin-top:9px;padding:3px 13px;border-radius:20px;color:#fff;font-weight:700;font-size:13px;}
   .fxnote{font-size:11px;color:var(--mut);margin-left:8px;}
+  /* 복합 변경 케이스 */
+  .combo{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:8px 0;background:#fff;}
+  .combohead{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .combopct{margin-left:auto;font-size:15px;}
+  .combochips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;}
+  .cchip{border:1.5px solid;border-radius:20px;padding:2px 11px;font-size:12.5px;font-weight:700;background:#fff;}
+  .combonote{font-size:12px;color:var(--mut);margin-top:3px;}
   /* 매출 그래프 점·툴팁 */
   .mk{cursor:pointer;transition:r .12s;}
   .mk:hover{r:8.5;}
@@ -603,6 +610,54 @@
       return {label:d[0],n:g.n,v:g.v,c:vd.c,verdict:vd.ic+' '+vd.t,note:d[3]}; });
     return {avgDaily:avgDaily, days:days.length, span:days.length?days[0]+' ~ '+days[days.length-1]:'', rows:rows};
   }
+  // 복합 변경 분석: 여러 요인이 며칠 내 함께 '순변화'한 실제 케이스를 찾아 그때 매출변화를 도출
+  function comboAnalysis(comp){
+    var daily=comp.gd.daily, days=Object.keys(daily).sort(); if(days.length<2) return {cases:[]};
+    var first=days[0], last=days[days.length-1], ch=comp.changes, GAP=3;
+    // 운영시간 실효 타임라인
+    var opRaw=ch.filter(function(c){return c.gubun==='가게'&&c.item==='운영시간';})
+      .map(function(c){ var ao=opHours(c.after); return ao?{date:c.date,ts:c.ts||c.date,h:ao.min/ao.days/60}:null; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:1;});
+    var opEff={}; opRaw.forEach(function(e){ opEff[e.date]=e.h; }); var opDates=Object.keys(opEff).sort();
+    // 클릭비(입찰) 종가 타임라인
+    var bl=ch.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;})
+      .map(function(c){ var x=bidNum(c.before),y=bidNum(c.after); return (x==null||y==null)?null:{date:c.date,ts:c.ts||c.date,a:y}; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:1;});
+    var bidEnd={}; bl.forEach(function(e){ bidEnd[e.date]=e.a; }); var bidDates=Object.keys(bidEnd).sort();
+    // 할인 시작/종료 카운트
+    var ds={}; ch.filter(function(c){return c.gubun==='즉시할인';}).forEach(function(c){
+      var mk=c.item.indexOf('[시작]')>=0?'s':(c.item.indexOf('[종료]')>=0?'e':null); if(!mk) return;
+      if(!ds[c.date]) ds[c.date]={s:0,e:0}; ds[c.date][mk]++; });
+    var allDates=Object.keys(opEff).concat(Object.keys(ds)).concat(bidDates).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+    if(!allDates.length) return {cases:[]};
+    // 인접 변경일 클러스터(gap 이내)
+    var cl=[],cur=null; allDates.forEach(function(d){ if(cur&&dBetween(cur.end,d)<=GAP){cur.end=d;} else {cur={start:d,end:d}; cl.push(cur);} });
+    function lastBefore(map,keys,d){ var v=null; for(var i=0;i<keys.length;i++){ if(keys[i]<d) v=map[keys[i]]; else break; } return v; }
+    function lastAt(map,keys,d){ var v=null; for(var i=0;i<keys.length;i++){ if(keys[i]<=d) v=map[keys[i]]; else break; } return v; }
+    function segAvg2(s,e){ var sum=0,n=0; for(var k in daily){ if(k>=s&&k<=e){sum+=daily[k].sales;n++;} } return n?sum/n:null; }
+    function measure(d0,d1){ var A=SAMPLE.addDays, W=Math.min(dBetween(first,d0),dBetween(d1,last)+1,14); W=Math.floor(W/7)*7;
+      if(W<7) return null; var bf=segAvg2(A(d0,-W),A(d0,-1)), af=segAvg2(d1,A(d1,W-1)); return bf?{W:W,pct:(af-bf)/bf*100}:null; }
+    var bd=buildBoard(comp), solo={};
+    var solomap={'운영시간 증가':'운영↑','운영시간 감소':'운영↓','즉시할인 증가':'할인↑','즉시할인 감소':'할인↓','우리가게클릭 클릭비 인상':'클릭비↑','우리가게클릭 클릭비 인하':'클릭비↓'};
+    bd.rows.forEach(function(r){ if(solomap[r.label]!=null) solo[solomap[r.label]]=r.v; });
+    var cases=[];
+    cl.forEach(function(c){ var fs=[];
+      var ob=lastBefore(opEff,opDates,c.start), oe=lastAt(opEff,opDates,c.end);
+      if(ob!=null&&oe!=null&&Math.abs(oe-ob)>=0.1) fs.push({cat:'운영시간',dir:oe>ob?'↑':'↓',key:oe>ob?'운영↑':'운영↓',col:'#1971c2',detail:ob.toFixed(1)+'→'+oe.toFixed(1)+'h'});
+      var s=0,e=0; for(var d in ds){ if(d>=c.start&&d<=c.end){ s+=ds[d].s; e+=ds[d].e; } }
+      if(s-e>0) fs.push({cat:'즉시할인',dir:'↑',key:'할인↑',col:'#e8590c',detail:'시작 '+(s-e)+'건'}); else if(s-e<0) fs.push({cat:'즉시할인',dir:'↓',key:'할인↓',col:'#e8590c',detail:'종료 '+(e-s)+'건'});
+      var bb=lastBefore(bidEnd,bidDates,c.start), be=lastAt(bidEnd,bidDates,c.end);
+      if(bb!=null&&be!=null&&bb!==be) fs.push({cat:'클릭비',dir:be>bb?'↑':'↓',key:be>bb?'클릭비↑':'클릭비↓',col:'#e03131',detail:bb.toLocaleString()+'→'+be.toLocaleString()+'원'});
+      if(fs.length<2) return;
+      var m=measure(c.start,c.end); if(!m) return;
+      var main=null, match=null; fs.forEach(function(f){ f.solo=solo[f.key]; if(f.solo==null) return;
+        if(main==null||Math.abs(f.solo)>Math.abs(main.solo)) main=f;
+        if((m.pct>=0)===(f.solo>=0) && (match==null||Math.abs(f.solo)>Math.abs(match.solo))) match=f; });
+      cases.push({start:c.start,end:c.end,span:c.start+(c.start!==c.end?' ~ '+c.end:''),factors:fs,pct:m.pct,W:m.W,main:match||main});
+    });
+    cases.sort(function(a,b){return b.pct-a.pct;});
+    return {cases:cases};
+  }
 
   // ===== 변경 건별 상세 (직전 구간 vs 직후 구간 = 다음 같은유형 변경 전까지) =====
   var CATCOL={운영시간:'#1971c2',즉시할인:'#e8590c',우리가게클릭:'#e03131'};
@@ -723,6 +778,24 @@
     });
     if(!shown) html+='<p style="color:var(--mut);font-size:13px">±'+MINEFFECT+'% 이상 매출 변화를 준 변경이 없습니다.</p>';
     if(excluded) html+='<p class="legend" style="margin-top:8px">· 변화 없음/측정 불가로 제외된 변경: '+excluded+'건</p>';
+    // ③ 복합 변경 분석 (여러 요인이 겹친 실제 케이스)
+    html+='<h3 style="margin:22px 0 4px;font-size:16px">🧩 복합 변경 분석 <span style="color:var(--mut);font-weight:400;font-size:13px">(여러 요인이 겹친 실제 케이스)</span></h3>';
+    html+='<p class="legend" style="margin-top:0">며칠 안에 <b>2개 이상 요인이 함께 순변화</b>한 실제 구간을 찾아, 그때 매출이 어떻게 됐는지 도출합니다. <b>주요인 후보</b>(★)는 그 요인을 <b>단독으로 바꿨을 때 평균 효과</b>가 가장 컸던 항목입니다(추정).</p>';
+    var combo=comboAnalysis(computed), cc=combo.cases;
+    if(!cc.length){ html+='<p style="color:var(--mut);font-size:13px">2개 이상 요인이 동시에(순변화 기준) 겹친 측정 가능한 케이스가 없습니다. (변경이 너무 잦아 단일 요인으로 정리되거나, 전·후 1주가 확보되지 않은 경우)</p>'; }
+    else {
+      var up=cc[0], dn=cc[cc.length-1];
+      if(up.pct>0) html+='<div class="tip" style="margin-top:0">📈 가장 매출이 오른 조합: <b>'+up.factors.map(function(f){return f.cat+f.dir;}).join(' + ')+'</b> → <b style="color:var(--g)">+'+up.pct.toFixed(1)+'%</b> ('+up.span+')</div>';
+      if(dn.pct<0) html+='<div class="warn" style="margin-top:6px">📉 가장 매출이 내린 조합: <b>'+dn.factors.map(function(f){return f.cat+f.dir;}).join(' + ')+'</b> → <b style="color:var(--r)">'+dn.pct.toFixed(1)+'%</b> ('+dn.span+')</div>';
+      cc.forEach(function(c){
+        var pcol=c.pct>=0?'var(--g)':'var(--r)';
+        html+='<div class="combo"><div class="combohead">'+c.span+' <span style="color:var(--mut);font-size:12px">· 전·후 '+c.W+'일 비교</span><span class="combopct" style="color:'+pcol+'">'+(c.pct>=0?'▲ +':'▼ ')+c.pct.toFixed(1)+'%</span></div>'
+          +'<div class="combochips">'+c.factors.map(function(f){ var isMain=c.main&&f.key===c.main.key;
+            return '<span class="cchip" style="border-color:'+f.col+';color:'+f.col+'">'+(isMain?'★ ':'')+f.cat+' '+f.dir+' <span style="opacity:.65;font-weight:400">'+f.detail+'</span></span>'; }).join('')+'</div>'
+          +(c.main?'<div class="combonote">주요인 후보 ★ <b style="color:'+c.main.col+'">'+c.main.cat+c.main.dir+'</b> (단독 평균효과 '+pctStr(c.main.solo)+')</div>':'')
+          +'</div>';
+      });
+    }
     document.getElementById('details').innerHTML=html;
   }
 
