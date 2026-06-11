@@ -584,12 +584,25 @@
   function verdictOf(net){ if(net==null) return {t:'데이터 없음',c:'neu',ic:'–'};
     if(net>=3) return {t:'매출 상승',c:'pos',ic:'▲'}; if(net<=-3) return {t:'매출 하락',c:'neg',ic:'▼'};
     return {t:'영향 미미',c:'neu',ic:'–'}; }
-  function boardData(a){ var b=a.base;
-    function row(label,o,note){ var net=(o.v==null||b==null)?null:o.v-b; var v=verdictOf(net);
-      return {label:label,n:o.n,wow:o.v,net:net,c:v.c,verdict:v.ic+' '+v.t,note:note||''}; }
-    return [ row('운영시간 변경',a.op), row('즉시할인 시작',a.dStart),
-      row('즉시할인 종료',a.dEnd,'⚠ 종료일↑은 역인과 가능'),
-      row('우리가게클릭 클릭비 인상',a.bidUp), row('우리가게클릭 클릭비 인하',a.bidDn) ]; }
+  // 보드: 변경 방향별(증가/감소)로 나눠 각 해당일들의 '평균 순효과(전주대비−기준선)'
+  function buildBoard(comp){
+    var daily=comp.gd.daily, A=SAMPLE.addDays;
+    function wow(dt){ var p=daily[A(dt,-7)]; if(!p||!p.sales) return null; return (daily[dt].sales-p.sales)/p.sales*100; }
+    function avg(xs){ xs=xs.filter(function(x){return x!=null;}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; }
+    var base=avg(Object.keys(daily).map(wow)), ev=changeEvents(comp);
+    function dset(list,pred){ var s={}; list.forEach(function(e){ if(pred(e)) s[e.date]=1; }); return Object.keys(s); }
+    var defs=[
+      ['운영시간 증가', ev.운영시간, function(e){return e.kind==='연장'||e.kind==='신규';}, ''],
+      ['운영시간 감소', ev.운영시간, function(e){return e.kind==='감소';}, ''],
+      ['즉시할인 증가', ev.즉시할인, function(e){return e.kind==='시작';}, ''],
+      ['즉시할인 감소', ev.즉시할인, function(e){return e.kind==='종료';}, '⚠ 종료일↑은 역인과 가능'],
+      ['우리가게클릭 클릭비 인상', ev.우리가게클릭, function(e){return e.kind==='인상';}, ''],
+      ['우리가게클릭 클릭비 인하', ev.우리가게클릭, function(e){return e.kind==='인하';}, '']
+    ];
+    var rows=defs.map(function(d){ var days=dset(d[1],d[2]), v=avg(days.map(wow)), net=(v==null||base==null)?null:v-base, vd=verdictOf(net);
+      return {label:d[0],n:days.length,wow:v,net:net,c:vd.c,verdict:vd.ic+' '+vd.t,note:d[3]}; });
+    return {base:base, rows:rows};
+  }
 
   // ===== 변경 건별 상세 (직전 구간 vs 직후 구간 = 다음 같은유형 변경 전까지) =====
   var CATCOL={운영시간:'#1971c2',즉시할인:'#e8590c',우리가게클릭:'#e03131'};
@@ -778,15 +791,15 @@
 
   function showResult(){
     var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
-    var a=SAMPLE.analyze(gd.daily,cats);
     document.getElementById('result').classList.remove('hide');
     var snEl=document.getElementById('saveName'); if(snEl && !snEl.value) snEl.value=computed.name;
     document.getElementById('saveStatus').textContent='';
     document.getElementById('kpi').innerHTML=
       kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
       kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
-    var bh='<div class="bcard base"><div class="blabel">기준선 · 평소 주간 변동</div><div class="bnet">'+pctStr(a.base)+'</div><div class="bsub">이 값보다 높을수록 그 변경이 매출에 ＋효과 (아래 순효과의 기준)</div></div>';
-    boardData(a).forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+netStr(r.net)+'</div><div class="bsub">적용 '+r.n+'일 · 그날매출 '+pctStr(r.wow)+'</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
+    var bd=buildBoard(computed);
+    var bh='<div class="bcard base"><div class="blabel">기준선 · 평소 주간 변동</div><div class="bnet">'+pctStr(bd.base)+'</div><div class="bsub">이 값보다 높을수록 그 변경이 매출에 ＋효과 (아래 순효과의 기준)</div></div>';
+    bd.rows.forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+netStr(r.net)+'</div><div class="bsub">적용 '+r.n+'일 · 그날매출 '+pctStr(r.wow)+'</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
     document.getElementById('board').innerHTML=bh;
     // 월별
     var mo=SAMPLE.monthly(gd.daily), mk=Object.keys(mo).sort();
@@ -821,11 +834,11 @@
     mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:'';
       var cs=catRange(cats,days.filter(function(dt){return dt.slice(0,7)===ym;}));
       a3.push([ym,s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
-    var an=SAMPLE.analyze(daily,cats);
+    var bd=buildBoard(computed);
     var a4=[['[ 분석 보드 ] 변경이 매출에 준 직접 영향'],[''],
-      ['기준선(평소 주간 변동, 전주 동일요일 대비 평균)', pctStr(an.base)],[''],
+      ['기준선(평소 주간 변동, 전주 동일요일 대비 평균)', pctStr(bd.base)],[''],
       ['변경 유형','적용일수','그날 매출(전주대비)','기준선 대비 순효과','판정']];
-    boardData(an).forEach(function(r){ a4.push([r.label, r.n, pctStr(r.wow), netStr(r.net), r.verdict]); });
+    bd.rows.forEach(function(r){ a4.push([r.label, r.n, pctStr(r.wow), netStr(r.net), r.verdict]); });
     a4.push([''],
       ['※ 순효과 = 그날 매출(전주대비) − 기준선. 변경만의 영향에 가깝게 본 값.'],
       ['※ ＋면 매출 견인, －면 매출 하락. (±3%p 미만은 영향 미미)'],
