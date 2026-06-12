@@ -169,9 +169,22 @@
     }
     return null;
   }
+  // 캠페인 드롭다운 찾기: placeholder('캠페인')에 의존하지 않고 상태값으로도 식별
+  function findCampSel() {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) {
+      if (optionsOf(sels[i]).some(function (o) { return o.text.indexOf('캠페인') >= 0; })) return sels[i];
+    }
+    for (var k = 0; k < sels.length; k++) {
+      var texts = optionsOf(sels[k]).map(function (o) { return o.text; });
+      if (texts.some(function (t) { return t.indexOf('음식배달') >= 0; })) continue;  // 가게 선택 제외
+      if (texts.some(function (t) { return /진행중|진행종료|종료|대기|진행예정/.test(t); })) return sels[k];
+    }
+    return null;
+  }
   // 광고탭: 캠페인 → (변경항목)을 하나씩 골라가며 조회+스크롤 (전부 자동 순회)
   async function collectAd() {
-    var campSel = findSelect('캠페인 선택');
+    var campSel = findCampSel();
     if (!campSel) { console.warn('  ⚠ 캠페인 드롭다운 못찾음 → 직접 골라 조회/스크롤 하세요.'); await clickQuery(); await wait(1600); await window.__scrollAll(); return; }
     var camps = realOpts(campSel);
     console.log('  광고 캠페인 ' + camps.length + '개 자동 순회');
