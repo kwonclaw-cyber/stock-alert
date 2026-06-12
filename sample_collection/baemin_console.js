@@ -11,6 +11,9 @@
 //  5) '광고·서비스' 탭 → '조회' → __scrollAll()
 //  6) __save() → JSON 다운로드. (매장명을 묻는 창이 뜨면 매출 파일과 똑같이 입력)
 //
+//  ⚡ 자동: 붙여넣은 뒤 __auto() 한 줄이면 3~5단계를 자동으로 돌고 __save()까지 합니다.
+//     (탭/조회 버튼을 글자로 찾아 누름. 광고 캠페인 선택이 필요하면 그 탭만 수동으로)
+//
 //  ★ 200개 매장은 반드시 '매장별로 따로' __save() 하세요. (한 세션에 여러 매장을 쌓으면 섞입니다)
 //  ★ 매장이 바뀐 게 감지되면 자동으로 초기화합니다. 수동 초기화는 __reset().
 //  ★ 매장명을 미리 지정하려면 __setName('육식사관학교 강동천호점').
@@ -113,6 +116,49 @@
   // 현재 누적분을 비우고 새 매장 수집 시작
   window.__reset = function () { resetStore(); store.shopNumber = null; store.shopName = null; store.owner = null; console.log('%c초기화 완료. 새 매장 수집을 시작하세요.', 'color:#e8590c;font-weight:bold'); };
 
+  // ── 자동 수집(__auto): 탭 이동 → 조회 → 스크롤을 자동으로 반복 ──
+  function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function isVisible(el) {
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    var s = getComputedStyle(el);
+    return s.visibility !== 'hidden' && s.display !== 'none';
+  }
+  // 화면에서 글자가 text를 포함하는 '가장 작은(잎)' 클릭요소를 찾는다
+  function findClickable(text) {
+    var els = document.querySelectorAll("button,a,li,span,div,[role='tab'],[role='button']");
+    var best = null, bestLen = 1e9;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], t = (el.textContent || '').trim();
+      if (!t || t.indexOf(text) < 0) continue;
+      if (!isVisible(el)) continue;
+      if (t.length < bestLen) { best = el; bestLen = t.length; }
+    }
+    return best;
+  }
+  window.__click = function (text) { var el = findClickable(text); if (el) { el.click(); console.log('클릭:', text); return true; } console.warn('못찾음:', text); return false; };
+
+  window.__auto = async function (opts) {
+    opts = opts || {};
+    var tabs = opts.tabs || ['가게', '즉시할인', '광고'];   // 탭 라벨(부분일치)
+    var queryText = opts.query || '조회';                    // 조회 버튼 글자
+    var doSave = opts.save !== false;                        // 기본: 끝나면 __save()
+    console.log('%c▶ __auto 시작 (탭: ' + tabs.join(', ') + ')', 'color:#1971c2;font-weight:bold;font-size:13px');
+    for (var i = 0; i < tabs.length; i++) {
+      var tab = tabs[i];
+      console.log('%c— [' + (i + 1) + '/' + tabs.length + '] 탭 이동: ' + tab, 'color:#495057');
+      var tabEl = findClickable(tab);
+      if (!tabEl) { console.warn('  ⚠ 탭을 못찾음: "' + tab + '" → 직접 누르고 __scrollAll() 하세요. 건너뜀.'); continue; }
+      tabEl.click(); await wait(1300);
+      var qEl = findClickable(queryText);
+      if (qEl) { qEl.click(); console.log('  조회 클릭'); } else { console.warn('  ⚠ "' + queryText + '" 버튼 못찾음 → 직접 눌러주세요.'); }
+      await wait(1600);
+      await window.__scrollAll();
+    }
+    console.log('%c✓ 자동 수집 완료. 누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length, 'color:#2f9e44;font-weight:bold;font-size:13px');
+    if (doSave) window.__save(); else console.log('저장하려면 __save()');
+  };
+
   window.__save = function () {
     if (!store.shopName) {
       const g = window.prompt('이 매장의 매장명을 매출 파일과 똑같이 입력하세요.\n(예: 육식사관학교 강동천호점)', '');
@@ -129,5 +175,5 @@
 
   window.__bmStore = store;
   window.__bmReady = true;
-  console.log('%c[설치완료] 탭마다 "조회" 후 __scrollAll(), 마지막에 __save(). 매장명은 저장 시 묻거나 __setName(\'...\')으로 지정.', 'color:#e8590c;font-weight:bold;font-size:14px');
+  console.log('%c[설치완료] ⚡ __auto() 하면 자동으로 다 모으고 저장합니다. (수동: 탭 조회 → __scrollAll() → __save())', 'color:#e8590c;font-weight:bold;font-size:14px');
 })();
