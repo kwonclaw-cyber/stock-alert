@@ -295,10 +295,49 @@
   }
   window.__click = function (text) { var el = findClickable(text); if (el) { el.click(); console.log('클릭:', text); return true; } console.warn('못찾음:', text); return false; };
 
+  // 네이티브 <select> 값을 React가 인식하도록 변경
+  function setSelectValue(sel, value) {
+    try {
+      var d = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+      if (d && d.set) d.set.call(sel, value); else sel.value = value;
+    } catch (e) { sel.value = value; }
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function optionsOf(sel) { return Array.prototype.slice.call(sel.options); }
+  function realOpts(sel) { return optionsOf(sel).filter(function (o) { return o.text && o.text.indexOf('선택') < 0; }); }
+  function findSelect(kw) {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) { if (optionsOf(sels[i]).some(function (o) { return o.text.indexOf(kw) >= 0; })) return sels[i]; }
+    return null;
+  }
+  async function clickQuery() { var q = findClickable('조회'); if (q) { q.click(); return true; } console.warn('  ⚠ 조회 버튼 못찾음'); return false; }
+
+  // 광고탭: 캠페인(있으면 대분류)을 하나씩 골라가며 조회+스크롤 (전부 자동 순회)
+  async function collectAd() {
+    var campSel = findSelect('캠페인 선택');
+    if (!campSel) { console.warn('  ⚠ 캠페인 드롭다운 못찾음 → 직접 골라 조회/스크롤 하세요.'); await clickQuery(); await wait(1600); await window.__scrollAll(); return; }
+    var camps = realOpts(campSel);
+    console.log('  광고 캠페인 ' + camps.length + '개 자동 순회');
+    for (var i = 0; i < camps.length; i++) {
+      console.log('    · 캠페인 [' + (i + 1) + '/' + camps.length + '] ' + camps[i].text.trim());
+      setSelectValue(campSel, camps[i].value); await wait(1100);
+      var catSel = findSelect('대분류');
+      var cats = catSel ? realOpts(catSel) : [];
+      if (cats.length) {
+        for (var j = 0; j < cats.length; j++) {
+          setSelectValue(catSel, cats[j].value); await wait(800);
+          await clickQuery(); await wait(1400); await window.__scrollAll();
+        }
+      } else {
+        await clickQuery(); await wait(1400); await window.__scrollAll();
+      }
+    }
+  }
+
   window.__auto = async function (opts) {
     opts = opts || {};
     var tabs = opts.tabs || ['가게', '즉시할인', '광고'];   // 탭 라벨(부분일치)
-    var queryText = opts.query || '조회';                    // 조회 버튼 글자
     var doSave = opts.save !== false;                        // 기본: 끝나면 __save()
     console.log('%c▶ __auto 시작 (탭: ' + tabs.join(', ') + ')', 'color:#1971c2;font-weight:bold;font-size:13px');
     for (var i = 0; i < tabs.length; i++) {
@@ -307,10 +346,11 @@
       var tabEl = findClickable(tab);
       if (!tabEl) { console.warn('  ⚠ 탭을 못찾음: "' + tab + '" → 직접 누르고 __scrollAll() 하세요. 건너뜀.'); continue; }
       tabEl.click(); await wait(1300);
-      var qEl = findClickable(queryText);
-      if (qEl) { qEl.click(); console.log('  조회 클릭'); } else { console.warn('  ⚠ "' + queryText + '" 버튼 못찾음 → 직접 눌러주세요.'); }
-      await wait(1600);
-      await window.__scrollAll();
+      if (tab.indexOf('광고') >= 0) {
+        await collectAd();
+      } else {
+        await clickQuery(); await wait(1600); await window.__scrollAll();
+      }
     }
     console.log('%c✓ 자동 수집 완료. 누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length, 'color:#2f9e44;font-weight:bold;font-size:13px');
     if (doSave) window.__save(); else console.log('저장하려면 __save()');
