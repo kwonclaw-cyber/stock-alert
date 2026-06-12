@@ -88,11 +88,13 @@
     </div></div>
     <div class="step"><div class="num">5</div><div class="t">
       <span class="badge">광고·서비스 탭</span><br>
-      <b>광고·서비스</b> 탭 → (캠페인/변경항목 골라가며) <b>조회</b> → <code>__scrollAll()</code> (캠페인 여러 개면 바꿔가며 반복)
+      <b>광고·서비스</b> 탭은 <b>3단 선택</b>입니다: <b>가게 → 캠페인 → 변경항목</b> 을 고른 뒤 <b>조회</b> → <code>__scrollAll()</code>.<br>
+      <span style="font-size:13px; color:var(--mut);">캠페인(예: 우리가게클릭·가게배달·픽업)이 여러 개이고, 캠페인을 고르면 그 아래 <b>변경항목</b>(예: “우리가게클릭 광고 금액 변경”)을 또 골라야 합니다. <b>모든 캠페인 × 변경항목</b>을 바꿔가며 반복해야 빠짐없이 모입니다.</span><br>
+      <span class="hl" style="font-size:13px;">→ <code>__auto()</code>를 쓰면 이 캠페인·변경항목을 <b>전부 자동으로 순회</b>합니다(수동 반복 불필요).</span>
     </div></div>
     <div class="step"><div class="num">6</div><div class="t">
       <span class="badge">저장</span><br>
-      콘솔에 <code>__save()</code> 입력 → <b>baemin_변경이력_매장번호.json</b> 파일 다운로드 ✅
+      콘솔에 <code>__save()</code> 입력 → 매장명을 묻는 창에 <b>매출 파일과 똑같이</b> 입력 → <b>baemin_변경이력_매장번호_매장명.json</b> 다운로드 ✅
     </div></div>
   </div>
 
@@ -104,9 +106,10 @@
     <button class="cmdbtn" onclick="copyCmd(this,'__reset()')">📋 __reset()</button>
   </div>
 
-  <div class="tip"><b>⚡ 자동으로 한 방에:</b> 코드를 붙여넣은 뒤 <code>__auto()</code> 만 입력하면 <b>가게→즉시할인→광고</b> 탭을 자동으로 돌며 조회·스크롤하고 <b>__save()까지</b> 합니다. (광고 캠페인 선택이 필요한 매장은 그 탭만 수동으로) · 아래 3~6단계는 자동이 안 될 때의 수동 방법입니다.</div>
+  <div class="tip"><b>⚡ 자동으로 한 방에:</b> 코드를 붙여넣은 뒤 <code>__auto()</code> 만 입력하면 <b>가게→즉시할인→광고</b> 탭을 자동으로 돌며 조회·스크롤하고 <b>__save()까지</b> 합니다. <b>광고탭의 캠페인·변경항목도 전부 자동으로 골라가며 순회</b>합니다(번호·이름은 매장마다 달라도 그때그때 읽어 처리). · 아래 3~6단계는 자동이 안 될 때의 수동 방법입니다.</div>
+  <div class="warn" style="font-size:13px;"><b>한 계정에 매장이 여러 개</b>인 경우(가게 드롭다운에 2곳 이상): 매장을 바꾸면 <b>자동으로 초기화</b>되니, <b>매장 하나 고르고 → <code>__auto()</code> → 저장</b>, 그다음 매장 바꿔 반복하세요. 매장마다 파일이 따로 나옵니다.</div>
   <div class="tip"><b>핵심 순서:</b> 반드시 <b>코드 붙여넣기 → 그다음 조회</b>. 조회를 먼저 하면 데이터를 못 잡습니다.</div>
-  <div class="warn"><b>여러 매장:</b> 가게 드롭다운만 바꿔 <b>조회 → __scrollAll() → __save()</b> 하면 매장마다 파일이 따로 나옵니다. 다른 계정이면 그 계정으로 로그인 후 동일하게.</div>
+  <div class="warn"><b>다른 계정의 매장:</b> 그 계정으로 <b>새로 로그인(새로고침)</b> → 코드 붙여넣기 → <code>__auto()</code> → 저장. 매장마다 파일이 따로 나옵니다.</div>
 
   <h3>📋 붙여넣을 콘솔 코드 <span style="font-weight:400; font-size:13px; color:var(--mut);">(복사 버튼 사용)</span></h3>
   <div class="codebox">
