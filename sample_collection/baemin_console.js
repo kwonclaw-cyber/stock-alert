@@ -156,7 +156,20 @@
   }
   async function clickQuery() { var q = findClickable('조회'); if (q) { q.click(); return true; } console.warn('  ⚠ 조회 버튼 못찾음'); return false; }
 
-  // 광고탭: 캠페인(있으면 대분류)을 하나씩 골라가며 조회+스크롤 (전부 자동 순회)
+  // 광고탭 '변경항목(대분류)' select 찾기: 가게/네비/캠페인이 아닌 '남는' select
+  function findCatSel(campSel) {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) {
+      var s = sels[i]; if (s === campSel) continue;
+      var texts = optionsOf(s).map(function (o) { return o.text; });
+      if (texts.some(function (t) { return t.indexOf('음식배달') >= 0; })) continue;       // 가게 선택
+      if (texts.some(function (t) { return t.indexOf('배민셀프서비스') >= 0; })) continue;  // 상단 네비
+      if (texts.some(function (t) { return t.indexOf('캠페인 선택') >= 0; })) continue;     // 캠페인
+      return s;  // 남는 것 = 변경항목(대분류)
+    }
+    return null;
+  }
+  // 광고탭: 캠페인 → (변경항목)을 하나씩 골라가며 조회+스크롤 (전부 자동 순회)
   async function collectAd() {
     var campSel = findSelect('캠페인 선택');
     if (!campSel) { console.warn('  ⚠ 캠페인 드롭다운 못찾음 → 직접 골라 조회/스크롤 하세요.'); await clickQuery(); await wait(1600); await window.__scrollAll(); return; }
@@ -164,15 +177,17 @@
     console.log('  광고 캠페인 ' + camps.length + '개 자동 순회');
     for (var i = 0; i < camps.length; i++) {
       console.log('    · 캠페인 [' + (i + 1) + '/' + camps.length + '] ' + camps[i].text.trim());
-      setSelectValue(campSel, camps[i].value); await wait(1100);
-      var catSel = findSelect('대분류');
+      setSelectValue(campSel, camps[i].value); await wait(1200);
+      var catSel = findCatSel(campSel);
       var cats = catSel ? realOpts(catSel) : [];
       if (cats.length) {
+        console.log('      변경항목 ' + cats.length + '개 순회');
         for (var j = 0; j < cats.length; j++) {
           setSelectValue(catSel, cats[j].value); await wait(800);
           await clickQuery(); await wait(1400); await window.__scrollAll();
         }
       } else {
+        console.warn('      ⚠ 변경항목 옵션 없음 → 캠페인만으로 조회 (변경항목 선택이 필수면 광고는 수동 권장)');
         await clickQuery(); await wait(1400); await window.__scrollAll();
       }
     }
