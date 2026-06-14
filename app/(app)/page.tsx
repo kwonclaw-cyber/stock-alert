@@ -1,0 +1,116 @@
+"use client";
+
+import { useStore } from "../components/StoreProvider";
+import { CellInput, Btn } from "../components/fields";
+import Loading from "../components/Loading";
+
+export default function MembersPage() {
+  const { data, update } = useStore();
+  if (!data) return <Loading />;
+
+  return (
+    <div>
+      <p className="mb-4 text-sm text-white/50">
+        길드별 멤버 명단을 관리합니다. 여기서 입력한 이름·직업은 내실현황판에도 함께 반영돼요.
+      </p>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {data.guilds.map((guild, gi) => (
+          <section key={guild.id} className="rounded-xl border border-white/10 bg-[#1a1d24] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-bold">{guild.name} 길드</h2>
+              <span className="text-xs text-white/40">{guild.members.length}명</span>
+            </div>
+
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-[11px] text-white/50">
+                  <th className="w-8 border border-white/10 bg-[#2b2f38] py-1">#</th>
+                  <th className="border border-white/10 bg-[#2b2f38] py-1">이름</th>
+                  <th className="border border-white/10 bg-[#2b2f38] py-1">직업</th>
+                  <th className="w-8 border border-white/10 bg-[#2b2f38] py-1"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {guild.members.map((m, mi) => (
+                  <tr key={mi}>
+                    <td className="border border-white/10 bg-[#23262e] text-center text-[11px] text-white/40">
+                      {mi === 0 ? "★" : mi + 1}
+                    </td>
+                    <td className="border border-white/10 bg-white px-1 py-0.5">
+                      <CellInput
+                        value={m.name}
+                        placeholder={mi === 0 ? "길드장" : "이름"}
+                        onChange={(v) =>
+                          update((d) => {
+                            d.guilds[gi].members[mi].name = v;
+                          })
+                        }
+                      />
+                    </td>
+                    <td className="border border-white/10 bg-white px-1 py-0.5">
+                      <CellInput
+                        value={m.job}
+                        placeholder="직업"
+                        onChange={(v) =>
+                          update((d) => {
+                            d.guilds[gi].members[mi].job = v;
+                          })
+                        }
+                      />
+                    </td>
+                    <td className="border border-white/10 bg-[#23262e] text-center">
+                      {mi !== 0 && (
+                        <button
+                          onClick={() =>
+                            update((d) => {
+                              d.guilds[gi].members.splice(mi, 1);
+                            })
+                          }
+                          className="px-1 text-red-300/70 hover:text-red-300"
+                          title="삭제"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-2">
+              <Btn
+                variant="ghost"
+                onClick={() =>
+                  update((d) => {
+                    d.guilds[gi].members.push({
+                      name: "",
+                      job: "",
+                      weapon: "",
+                      attack: "",
+                      internal: "",
+                      health: "",
+                      evasion: "",
+                      atkSpeed: "",
+                      sum: "",
+                      helmet: "",
+                      armor: "",
+                      belt: "",
+                      shoes: "",
+                      acc1: "",
+                      acc2: "",
+                      mount: "",
+                    });
+                  })
+                }
+              >
+                + 멤버 추가
+              </Btn>
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
