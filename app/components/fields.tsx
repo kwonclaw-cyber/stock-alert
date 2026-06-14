@@ -20,7 +20,7 @@ export function CellInput({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full bg-transparent text-center text-gray-800 outline-none placeholder:text-gray-300 focus:bg-emerald-50 ${className}`}
+      className={`w-full rounded bg-transparent px-1 py-1 text-center text-white/85 outline-none transition placeholder:text-white/20 focus:bg-white/10 ${className}`}
     />
   );
 }

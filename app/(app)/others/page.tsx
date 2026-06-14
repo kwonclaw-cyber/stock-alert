@@ -25,9 +25,9 @@ export default function OthersPage() {
                     d.guilds[gi].members[mi][key] = value;
                   })
                 }
-                onPickaxe={(v) =>
+                onPickaxe={(star, v) =>
                   update((d) => {
-                    d.guilds[gi].pickaxe5 = v;
+                    d.guilds[gi].pickaxes[star] = v;
                   })
                 }
               />

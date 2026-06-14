@@ -16,7 +16,7 @@ export default function MembersPage() {
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data.guilds.map((guild, gi) => (
-          <section key={guild.id} className="rounded-xl border border-white/10 bg-[#1a1d24] p-4">
+          <section key={guild.id} className="rounded-xl border border-white/10 bg-[#15171c] p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-bold">{guild.name} 길드</h2>
               <span className="text-xs text-white/40">{guild.members.length}명</span>
@@ -24,23 +24,24 @@ export default function MembersPage() {
 
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="text-[11px] text-white/50">
-                  <th className="w-8 border border-white/10 bg-[#2b2f38] py-1">#</th>
-                  <th className="border border-white/10 bg-[#2b2f38] py-1">이름</th>
-                  <th className="border border-white/10 bg-[#2b2f38] py-1">직업</th>
-                  <th className="w-8 border border-white/10 bg-[#2b2f38] py-1"></th>
+                <tr className="text-[11px] font-medium text-white/45">
+                  <th className="w-8 border-b border-white/10 py-1.5 text-center">#</th>
+                  <th className="border-b border-white/10 py-1.5 text-left">이름</th>
+                  <th className="border-b border-white/10 py-1.5 text-left">직업</th>
+                  <th className="w-8 border-b border-white/10 py-1.5"></th>
                 </tr>
               </thead>
               <tbody>
                 {guild.members.map((m, mi) => (
-                  <tr key={mi}>
-                    <td className="border border-white/10 bg-[#23262e] text-center text-[11px] text-white/40">
+                  <tr key={mi} className="border-t border-white/5 transition hover:bg-white/[0.025]">
+                    <td className="py-0.5 text-center text-[11px] text-white/35">
                       {mi === 0 ? "★" : mi + 1}
                     </td>
-                    <td className="border border-white/10 bg-white px-1 py-0.5">
+                    <td className="px-1 py-0.5">
                       <CellInput
                         value={m.name}
                         placeholder={mi === 0 ? "길드장" : "이름"}
+                        className="!text-left"
                         onChange={(v) =>
                           update((d) => {
                             d.guilds[gi].members[mi].name = v;
@@ -48,10 +49,11 @@ export default function MembersPage() {
                         }
                       />
                     </td>
-                    <td className="border border-white/10 bg-white px-1 py-0.5">
+                    <td className="px-1 py-0.5">
                       <CellInput
                         value={m.job}
                         placeholder="직업"
+                        className="!text-left"
                         onChange={(v) =>
                           update((d) => {
                             d.guilds[gi].members[mi].job = v;
@@ -59,7 +61,7 @@ export default function MembersPage() {
                         }
                       />
                     </td>
-                    <td className="border border-white/10 bg-[#23262e] text-center">
+                    <td className="text-center">
                       {mi !== 0 && (
                         <button
                           onClick={() =>
@@ -67,7 +69,7 @@ export default function MembersPage() {
                               d.guilds[gi].members.splice(mi, 1);
                             })
                           }
-                          className="px-1 text-red-300/70 hover:text-red-300"
+                          className="px-1 text-red-300/50 hover:text-red-300"
                           title="삭제"
                         >
                           ×

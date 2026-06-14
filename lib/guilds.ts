@@ -36,7 +36,7 @@ export type Guild = {
   name: string; // 길드장(길드) 이름
   logo?: string; // 로고 이미지 경로 (선택)
   members: MemberStats[]; // 길드장 포함 최대 10명
-  pickaxe5: number; // 5성곡괭이 수
+  pickaxes: number[]; // 곡괭이 개수 [1성, 2성, 3성, 4성, 5성]
 };
 
 /** 멤버 stat 키 (이름 제외) 순서 정의 */
@@ -123,12 +123,12 @@ function emptyRoster(leaderName: string, slots = 10): MemberStats[] {
  * 값은 운영진이 채워 넣으면 된다.
  */
 export const GUILDS: Guild[] = [
-  { id: "baksajang", name: "박사장", members: emptyRoster("박사장"), pickaxe5: 0 },
-  { id: "kimseongtae", name: "킴성태", members: emptyRoster("킴성태"), pickaxe5: 0 },
-  { id: "kangmansik", name: "강만식", members: emptyRoster("강만식"), pickaxe5: 0 },
-  { id: "oya", name: "오야", members: emptyRoster("오야"), pickaxe5: 0 },
-  { id: "dohyeon", name: "도현", members: emptyRoster("도현"), pickaxe5: 0 },
-  { id: "supi", name: "수피", members: emptyRoster("수피"), pickaxe5: 0 },
+  { id: "baksajang", name: "박사장", members: emptyRoster("박사장"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "kimseongtae", name: "킴성태", members: emptyRoster("킴성태"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "kangmansik", name: "강만식", members: emptyRoster("강만식"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "oya", name: "오야", members: emptyRoster("오야"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "dohyeon", name: "도현", members: emptyRoster("도현"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "supi", name: "수피", members: emptyRoster("수피"), pickaxes: [0, 0, 0, 0, 0] },
 ];
 
 /** 메인 길드 id */

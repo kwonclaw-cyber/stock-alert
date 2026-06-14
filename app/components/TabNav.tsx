@@ -8,6 +8,8 @@ const TABS = [
   { href: "/baksajang", label: "박사장길드 내실현황판" },
   { href: "/others", label: "타길드 내실현황" },
   { href: "/boss", label: "보스타이머" },
+  { href: "/iron", label: "철타이머" },
+  { href: "/daily", label: "일숙" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
 ];
