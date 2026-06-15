@@ -21,8 +21,8 @@ type StoreContext = {
 
 const Ctx = createContext<StoreContext | null>(null);
 
-const SAVE_DEBOUNCE = 600; // ms
-const POLL_INTERVAL = 2000; // ms (라이브 동기화 주기)
+const SAVE_DEBOUNCE = 250; // ms (변경을 빠르게 서버로 반영)
+const POLL_INTERVAL = 1000; // ms (탭이 보일 때 라이브 동기화 주기)
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
@@ -33,6 +33,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const savedAt = useRef(0); // 마지막으로 저장 완료된 dirty 값
   const lastVersion = useRef(0); // 마지막으로 알고 있는 서버 버전
   const latest = useRef<AppData | null>(null); // 최신 로컬 데이터(저장용)
+  const syncing = useRef(false); // 동기화 재진입 방지
 
   const isIdle = () => dirty.current === savedAt.current;
 
@@ -56,31 +57,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 라이브 동기화: 버전이 바뀌고 편집 중이 아니면 최신 데이터를 받아 반영
-  useEffect(() => {
-    let alive = true;
-    const id = setInterval(async () => {
-      if (!alive || !isIdle()) return;
-      try {
-        const r = await fetch("/api/version", { cache: "no-store" });
-        const { version } = (await r.json()) as { version: number };
-        if (!alive || version === lastVersion.current || !isIdle()) return;
-        const dr = await fetch("/api/data", { cache: "no-store" });
-        const dv = Number(dr.headers.get("x-data-version")) || version;
-        const fresh = (await dr.json()) as AppData;
-        if (!alive || !isIdle()) return; // 받는 사이 편집 시작했으면 버림
-        lastVersion.current = dv;
-        latest.current = fresh;
-        setData(fresh);
-      } catch {
-        // 네트워크 일시 오류 무시
-      }
-    }, POLL_INTERVAL);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
+  // 변경 감지 후 최신 데이터 반영(편집 중이 아닐 때만)
+  const syncNow = useCallback(async () => {
+    if (!isIdle() || syncing.current) return;
+    syncing.current = true;
+    try {
+      const r = await fetch("/api/version", { cache: "no-store" });
+      const { version } = (await r.json()) as { version: number };
+      if (version === lastVersion.current || !isIdle()) return;
+      const dr = await fetch("/api/data", { cache: "no-store" });
+      const dv = Number(dr.headers.get("x-data-version")) || version;
+      const fresh = (await dr.json()) as AppData;
+      if (!isIdle()) return; // 받는 사이 편집을 시작했으면 버림
+      lastVersion.current = dv;
+      latest.current = fresh;
+      setData(fresh);
+    } catch {
+      // 네트워크 일시 오류 무시
+    } finally {
+      syncing.current = false;
+    }
   }, []);
+
+  // 라이브 동기화: 탭이 보일 때만 빠르게 폴링, 복귀/포커스 시 즉시 동기화
+  useEffect(() => {
+    let id: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      if (!id) id = setInterval(syncNow, POLL_INTERVAL);
+    };
+    const stop = () => {
+      if (id) {
+        clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        syncNow();
+        start();
+      }
+    };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", syncNow);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", syncNow);
+    };
+  }, [syncNow]);
 
   const scheduleSave = useCallback(() => {
     setSaveState("saving");
