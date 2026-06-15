@@ -11,8 +11,17 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     <main className="mx-auto max-w-[1700px] px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            박사장 문파를 강하게 Make CeoPark Great Again <span className="text-white/50">by 킹카콜라</span>
+          <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
+            <span>박사장 문파를 강하게 Make CeoPark Great Again <span className="text-white/50">by 킹카콜라</span></span>
+            <a
+              href="https://open.kakao.com/o/sT8dlFzi"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-1.5 text-sm font-bold text-[#3C1E1E] transition hover:brightness-95"
+              title="카카오톡 오픈채팅으로 문의하기"
+            >
+              💬 문의하기
+            </a>
           </h1>
           <p className="mt-0.5 text-xs text-white/45">
             숲(SOOP) 방송인 마인크래프트 내수서버 길드 운영
@@ -30,15 +39,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             {usingKv ? "공유 저장 ON" : "로컬 저장"}
           </span>
           <SaveStatus />
-          <a
-            href="https://open.kakao.com/o/sT8dlFzi"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-1.5 text-sm font-bold text-[#3C1E1E] transition hover:brightness-95"
-            title="카카오톡 오픈채팅으로 문의하기"
-          >
-            💬 문의하기
-          </a>
           <RefreshButton />
           <LogoutButton />
         </div>

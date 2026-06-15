@@ -43,12 +43,15 @@ export type EventItem = {
   color: string; // 분류 색 (emerald/sky/amber/fuchsia/red)
 };
 
-/** 무인의 거처 정보 카드 (600x400 캡처 이미지) */
+/** 무인의 거처 정보 카드 (캡처 이미지) */
 export type DwellingCard = {
   id: string;
   title: string;
   image: string; // 캡처 이미지(data URL)
   memo: string;
+  cx: string; // 게임 좌표 X
+  cy: string; // 게임 좌표 Y(높이)
+  cz: string; // 게임 좌표 Z
 };
 
 /** 수동 추가 문파원 (멤버현황에 없는 인원) */
@@ -69,8 +72,11 @@ export type Mine = {
   name: string; // 광산1 ...
   cooldownMin: number; // 쿨타임(분)
   lastDoneAt: string | null; // 마지막 완료(ISO)
-  x: number | null; // 지도상 위치 X (0~100%)
-  y: number | null; // 지도상 위치 Y (0~100%)
+  x: number | null; // 지도(이미지)상 위치 X (0~100%)
+  y: number | null; // 지도(이미지)상 위치 Y (0~100%)
+  cx: string; // 게임 좌표 X
+  cy: string; // 게임 좌표 Y(높이)
+  cz: string; // 게임 좌표 Z
   target: boolean; // 동선 목표로 선택됨
 };
 
@@ -197,6 +203,9 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       lastDoneAt: m.lastDoneAt ?? null,
       x: typeof m.x === "number" ? m.x : null,
       y: typeof m.y === "number" ? m.y : null,
+      cx: m.cx ?? "",
+      cy: m.cy ?? "",
+      cz: m.cz ?? "",
       target: Boolean(m.target),
     })),
     defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
@@ -227,7 +236,15 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     hiddenConclusion: input.hiddenConclusion ?? "",
     infos: input.infos ?? base.infos,
     events: input.events ?? [],
-    dwellings: input.dwellings ?? [],
+    dwellings: (input.dwellings ?? []).map((c) => ({
+      id: c.id || uid(),
+      title: c.title ?? "",
+      image: c.image ?? "",
+      memo: c.memo ?? "",
+      cx: c.cx ?? "",
+      cy: c.cy ?? "",
+      cz: c.cz ?? "",
+    })),
     discordWebhook: input.discordWebhook ?? "",
   };
 }

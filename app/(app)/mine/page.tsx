@@ -22,6 +22,12 @@ function remain(lastDoneAt: string | null, cooldownMin: number, now: number) {
 
 const label = (m: Mine, idx: number) => m.name.match(/\d+/)?.[0] ?? String(idx + 1);
 const clamp = (v: number) => Math.min(100, Math.max(0, v));
+const numOr = (s: string): number | null => {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+};
+const hasCoords = (m: Mine) => numOr(m.cx) != null && numOr(m.cz) != null;
+const hasMarker = (m: Mine) => m.x != null && m.y != null;
 
 export default function MinePage() {
   const { data, update } = useStore();
@@ -46,14 +52,19 @@ export default function MinePage() {
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = mine.mines.filter((m) => m.x != null).length;
 
-  // 동선: 목표로 선택한 광산이 있으면 그 광산들만, 없으면 전체 광산(마커 있는 것) 기준으로
+  // 동선: 좌표(게임 X/Z)가 2곳 이상 있으면 좌표 기준, 아니면 지도 마커 기준으로
   // 가장 임박한 곳에서 출발해 가까운 순서로 잇는 추천 순회 경로(최근접 이웃, 시간 고려).
-  const markered = sorted.filter((s) => s.m.x != null && s.m.y != null);
-  const targetStops = markered.filter((s) => s.m.target);
-  const usingTargets = targetStops.length > 0;
-  const route = planRoute(usingTargets ? targetStops : markered);
-  const routeCoords = route.map((c) => ({ x: c.m.x as number, y: c.m.y as number }));
+  // 목표가 선택돼 있으면 그 광산들만, 없으면 전체 기준.
   const targetCount = sorted.filter((s) => s.m.target).length;
+  const usingTargets = targetCount > 0;
+  const set = usingTargets ? sorted.filter((s) => s.m.target) : sorted;
+  const coordCands = set.filter((s) => hasCoords(s.m));
+  const useCoords = coordCands.length >= 2;
+  const route = useCoords
+    ? nnRoute(coordCands, (d) => ({ x: numOr(d.m.cx)!, y: numOr(d.m.cz)! }))
+    : nnRoute(set.filter((s) => hasMarker(s.m)), (d) => ({ x: d.m.x as number, y: d.m.y as number }));
+  const imgLine = route.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }));
+  const coordRouteIds = useCoords ? route.map((s) => s.m.id) : [];
 
   async function setMap(files: FileList | File[]) {
     const f = Array.from(files).find((x) => x.type.startsWith("image/"));
@@ -64,7 +75,7 @@ export default function MinePage() {
   function generate() {
     update((d) => {
       d.mine.mines = Array.from({ length: Math.max(1, genCount) }, (_, i) => ({
-        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, target: false,
+        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", target: false,
       }));
     });
   }
@@ -81,8 +92,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b>완료</b>를 누르면 그 광산이 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간 적은 순</b>으로 정렬돼요.
-        각 광산의 <b>📍</b>로 지도에 마커를 올리고(마커 편집에서 드래그), 평소엔 마커 <b>클릭=완료</b>. 광산의 <b>목표</b>를 누르면(여러 개 가능) 그 광산들만 동선에 반영되고, 목표가 없으면 <b>전체 광산</b> 기준으로 추천 동선을 그려줘요.
+        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>목표</b>(여러 개)를 누르면 그 광산만, 없으면 전체 기준으로 동선을 그려줘요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -97,7 +107,7 @@ export default function MinePage() {
           개 생성
         </label>
         <Btn onClick={generate}>광산 일괄 생성</Btn>
-        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, target: false }); })}>
+        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", target: false }); })}>
           + 광산 추가
         </Btn>
         <div className="ml-auto rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-sm">
@@ -121,6 +131,12 @@ export default function MinePage() {
                 <label className="flex items-center gap-1 text-xs text-white/45">
                   쿨<TextInput type="number" value={m.cooldownMin} onChange={(v) => update((d) => { d.mine.mines[gi].cooldownMin = Number(v) || 0; })} className="w-14" />분
                 </label>
+                <div className="flex items-center gap-1 text-xs text-white/40">
+                  <span className="text-amber-300/70">좌표</span>
+                  <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
+                  <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
+                  <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+                </div>
                 <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? "text-emerald-400" : "text-white"}`}>{r.text}</span>
                 <button
                   onClick={() => toggleTarget(m.id)}
@@ -159,10 +175,15 @@ export default function MinePage() {
             onZoom={() => setZoom(true)}
             onRemove={() => update((d) => { d.mine.mapImage = null; })}
           >
-            {showRoute && <RouteLayer coords={routeCoords} />}
+            {showRoute && <RouteLayer coords={imgLine} />}
             <MarkerLayer mines={sorted} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
           </MapPanel>
           {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
+
+          {/* 좌표 미니맵 (지도 이미지 없어도 좌표로 위치/동선 표시) */}
+          <div className="mt-3">
+            <CoordMap mines={sorted} routeIds={coordRouteIds} />
+          </div>
 
           {/* 네비게이션 / 추천 동선 */}
           <div className="mt-3 rounded-xl border border-white/10 bg-[#15171c] p-3">
@@ -172,6 +193,7 @@ export default function MinePage() {
                 <span className={`text-xs font-medium ${usingTargets ? "text-amber-300" : "text-white/35"}`}>
                   {usingTargets ? `목표 ${targetCount}곳` : `전체 ${route.length}곳`}
                 </span>
+                <span className="ml-1 text-[10px] text-white/30">· {useCoords ? "좌표 기준" : "지도 기준"}</span>
               </span>
               <div className="flex items-center gap-2 text-xs text-white/45">
                 {usingTargets && (
@@ -218,7 +240,7 @@ export default function MinePage() {
           <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={mine.mapImage} alt="광산 지도" className="max-h-[88vh] max-w-full rounded-lg" />
-            {showRoute && <RouteLayer coords={routeCoords} />}
+            {showRoute && <RouteLayer coords={imgLine} />}
             <MarkerLayer mines={sorted} now={now} editMode={false} onMove={moveMarker} onComplete={complete} large />
             <button onClick={() => setZoom(false)} className="absolute right-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">닫기 ✕</button>
           </div>
@@ -230,11 +252,69 @@ export default function MinePage() {
 
 type Decorated = { m: Mine; idx: number; r: { ready: boolean; ms: number; text: string } };
 
-/** 가장 임박한 광산에서 출발해 최근접 이웃으로 잇는 추천 순회 경로 */
-function planRoute(items: Decorated[]): Decorated[] {
+/** 좌표(게임 X·Z) 기반 미니맵. 지도 이미지가 없어도 좌표로 위치/동선을 표시한다. */
+function CoordMap({ mines, routeIds }: { mines: Decorated[]; routeIds: string[] }) {
+  const pts = mines.filter((s) => hasCoords(s.m)).map((s) => ({ s, gx: numOr(s.m.cx)!, gz: numOr(s.m.cz)! }));
+  if (pts.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-white/15 bg-[#15171c] p-4 text-center text-xs text-white/35">
+        광산에 <b className="text-amber-300/80">좌표(X·Z)</b>를 입력하면 지도 이미지가 없어도 여기 <b>좌표 미니맵</b>에 위치·동선이 표시돼요.
+      </div>
+    );
+  }
+  const xs = pts.map((p) => p.gx);
+  const zs = pts.map((p) => p.gz);
+  let minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const padX = (maxX - minX) * 0.12 || 16;
+  const padZ = (maxZ - minZ) * 0.12 || 16;
+  minX -= padX; maxX += padX; minZ -= padZ; maxZ += padZ;
+  const toX = (gx: number) => ((gx - minX) / (maxX - minX || 1)) * 100;
+  const toY = (gz: number) => ((gz - minZ) / (maxZ - minZ || 1)) * 100;
+  const lookup = new Map(pts.map((p) => [p.s.m.id, p]));
+  const lineP = routeIds
+    .map((id) => lookup.get(id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .map((p) => `${toX(p.gx)},${toY(p.gz)}`)
+    .join(" ");
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#15171c] p-2">
+      <div className="mb-1 flex items-center justify-between px-1 text-xs">
+        <span className="font-semibold text-white/70">🧭 좌표 미니맵</span>
+        <span className="text-white/30">X {Math.round(minX)}~{Math.round(maxX)} · Z {Math.round(minZ)}~{Math.round(maxZ)}</span>
+      </div>
+      <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-white/10 bg-[#0e1014]">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+          {[25, 50, 75].map((g) => (
+            <g key={g} stroke="#ffffff14" strokeWidth="0.4">
+              <line x1={g} y1="0" x2={g} y2="100" />
+              <line x1="0" y1={g} x2="100" y2={g} />
+            </g>
+          ))}
+          {lineP && (
+            <polyline points={lineP} fill="none" stroke="#34d399" strokeOpacity="0.9" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeDasharray="6 4" />
+          )}
+        </svg>
+        {pts.map(({ s, gx, gz }) => (
+          <div
+            key={s.m.id}
+            style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%` }}
+            title={`${s.m.name} (X ${gx} · Z ${gz}) · ${s.r.text}`}
+            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.r.ready ? "bg-emerald-500 border-emerald-200 text-black" : "bg-amber-500/90 border-amber-200 text-black"} ${s.m.target ? "ring-2 ring-amber-300" : ""} ${s.r.ready ? "animate-pulse" : ""}`}
+          >
+            {label(s.m, s.idx)}
+          </div>
+        ))}
+        <span className="absolute bottom-1 right-1 text-[9px] text-white/30">X→ · Z↓</span>
+      </div>
+    </div>
+  );
+}
+
+/** 가장 임박한 광산에서 출발해 최근접 이웃으로 잇는 추천 순회 경로 (위치는 pos로 지정) */
+function nnRoute(items: Decorated[], pos: (d: Decorated) => { x: number; y: number }): Decorated[] {
   const remaining = items.slice();
   if (remaining.length === 0) return [];
-  // 출발: 가장 임박(ms 최소)한 곳
   let startIdx = 0;
   for (let i = 1; i < remaining.length; i++) {
     if (remaining[i].r.ms < remaining[startIdx].r.ms) startIdx = i;
@@ -244,14 +324,11 @@ function planRoute(items: Decorated[]): Decorated[] {
   while (remaining.length) {
     let best = 0;
     let bestD = Infinity;
+    const cp = pos(cur);
     for (let j = 0; j < remaining.length; j++) {
-      const dx = (remaining[j].m.x as number) - (cur.m.x as number);
-      const dy = (remaining[j].m.y as number) - (cur.m.y as number);
-      const d = dx * dx + dy * dy;
-      if (d < bestD) {
-        bestD = d;
-        best = j;
-      }
+      const p = pos(remaining[j]);
+      const d = (p.x - cp.x) ** 2 + (p.y - cp.y) ** 2;
+      if (d < bestD) { bestD = d; best = j; }
     }
     cur = remaining.splice(best, 1)[0];
     route.push(cur);

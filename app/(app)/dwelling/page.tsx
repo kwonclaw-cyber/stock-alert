@@ -18,19 +18,19 @@ export default function DwellingPage() {
   async function setImage(id: string, files: FileList | File[]) {
     const f = Array.from(files).find((x) => x.type.startsWith("image/"));
     if (!f) return;
-    const url = await fileToDataUrl(f, 600);
+    const url = await fileToDataUrl(f, 1600);
     update((d) => { const c = d.dwellings.find((x) => x.id === id); if (c) c.image = url; });
   }
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHelp>
-        <b>무인의 거처</b> 정보를 카드로 모아두는 곳이에요. <b>카드 생성</b>으로 카드를 만들고, 카드 안을 클릭한 뒤 <b>Ctrl+V</b>로 캡처(권장 600×400)를 붙여넣으세요(드래그·파일선택도 가능). 제목·메모를 적고, 이미지를 클릭하면 크게 볼 수 있어요.
+        <b>무인의 거처</b> 정보를 카드로 모아두는 곳이에요. <b>카드 생성</b> 후 카드 안을 클릭하고 <b>Ctrl+V</b>로 캡처를 붙여넣으세요(드래그·파일선택도 가능). 이미지는 카드 크기에 맞춰 비율대로 들어가고, <b>클릭하면 원본 크기</b>로 볼 수 있어요. 제목·메모와 <b>XYZ 좌표</b>도 적어두세요.
       </PageHelp>
 
       <div className="mb-4 flex items-center justify-between">
         <span className="text-sm text-white/50">총 {cards.length}장</span>
-        <Btn variant="primary" onClick={() => update((d) => { d.dwellings.push({ id: uid(), title: "", image: "", memo: "" }); })}>
+        <Btn variant="primary" onClick={() => update((d) => { d.dwellings.push({ id: uid(), title: "", image: "", memo: "", cx: "", cy: "", cz: "" }); })}>
           + 카드 생성
         </Btn>
       </div>
@@ -52,13 +52,26 @@ export default function DwellingPage() {
 
               <CardImage image={card.image} onFiles={(f) => setImage(card.id, f)} onZoom={() => card.image && setZoom(card.image)} onRemove={() => update((d) => { d.dwellings[ci].image = ""; })} />
 
-              <div className="px-3 py-2">
+              <div className="space-y-2 px-3 py-2">
                 <TextArea
                   value={card.memo}
                   onChange={(v) => update((d) => { d.dwellings[ci].memo = v; })}
                   placeholder="메모 (위치, 보상, 조건 등)"
                   rows={2}
                 />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-amber-300/80">좌표</span>
+                  {(["cx", "cy", "cz"] as const).map((axis) => (
+                    <label key={axis} className="flex items-center gap-1 text-xs text-white/45">
+                      {axis[1].toUpperCase()}
+                      <TextInput
+                        value={card[axis]}
+                        onChange={(v) => update((d) => { d.dwellings[ci][axis] = v; })}
+                        className="w-16 !py-1"
+                      />
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           );
@@ -72,9 +85,10 @@ export default function DwellingPage() {
       )}
 
       {zoom && (
-        <div onClick={() => setZoom(null)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6">
+        <div onClick={() => setZoom(null)} className="fixed inset-0 z-50 overflow-auto bg-black/90 p-6">
+          <button onClick={() => setZoom(null)} className="fixed right-4 top-4 z-10 rounded bg-black/60 px-3 py-1.5 text-sm text-white hover:bg-black/80">닫기 ✕</button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={zoom} alt="" className="max-h-full max-w-full rounded-lg" />
+          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()} className="mx-auto rounded-lg" />
         </div>
       )}
     </div>
@@ -105,7 +119,7 @@ function CardImage({
       {image ? (
         <div className="group h-full w-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="" onClick={onZoom} className="h-full w-full cursor-zoom-in object-cover" />
+          <img src={image} alt="" onClick={onZoom} className="h-full w-full cursor-zoom-in object-contain" />
           <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
             <button onClick={onZoom} className="rounded bg-black/60 px-2 py-1 text-xs text-white hover:bg-black/80">크게</button>
             <button onClick={() => inputRef.current?.click()} className="rounded bg-black/60 px-2 py-1 text-xs text-white hover:bg-black/80">교체</button>
