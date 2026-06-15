@@ -135,7 +135,7 @@ export default function DailyPage() {
                       <td key={t.id} className="border-l border-white/5 py-1.5 text-center">
                         <button
                           onClick={() => toggle(m.key, t.id)}
-                          className={`flex h-6 w-6 items-center justify-center rounded-md border transition ${checked ? "border-emerald-400/50 bg-emerald-500/30 text-emerald-200" : "border-white/15 bg-white/5 text-transparent hover:border-white/30"}`}
+                          className={`mx-auto flex h-6 w-6 items-center justify-center rounded-md border transition ${checked ? "border-emerald-400/50 bg-emerald-500/30 text-emerald-200" : "border-white/15 bg-white/5 text-transparent hover:border-white/30"}`}
                           title={checked ? "완료" : "미완료"}
                         >
                           ✓
