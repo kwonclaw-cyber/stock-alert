@@ -3,6 +3,7 @@
 import { useStore } from "../components/StoreProvider";
 import { CellInput, Btn } from "../components/fields";
 import Loading from "../components/Loading";
+import PageHelp from "../components/PageHelp";
 
 export default function MembersPage() {
   const { data, update } = useStore();
@@ -10,9 +11,9 @@ export default function MembersPage() {
 
   return (
     <div>
-      <p className="mb-4 text-sm text-white/50">
-        길드별 멤버 명단을 관리합니다. 여기서 입력한 이름·직업은 내실현황판에도 함께 반영돼요.
-      </p>
+      <PageHelp>
+        길드별 <b>멤버 명단</b>을 관리하는 곳이에요. 이름·직업을 입력하면 내실현황판·철타이머·일숙 등 다른 페이지에 <b>자동으로 연동</b>됩니다. “+ 멤버 추가”로 인원을 늘릴 수 있어요.
+      </PageHelp>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data.guilds.map((guild, gi) => (

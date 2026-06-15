@@ -4,6 +4,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import GuildSelect from "../../components/GuildSelect";
+import PageHelp from "../../components/PageHelp";
 import { resolveMembers } from "../../components/useMembers";
 import { todayKey, uid } from "@/lib/data";
 
@@ -31,6 +32,9 @@ export default function DailyPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
+      <PageHelp>
+        문파원별 <b>일일 숙제 완료</b>를 체크하는 표예요. 상단 항목명(철넣기·보스참여 등)은 자유롭게 추가·수정하고, 칸을 눌러 완료/미완료를 토글하세요. 체크는 <b>날짜별로 자동 분리</b>되고, 모든 항목을 끝내면 행이 초록색으로 표시돼요. (명단은 멤버현황 연동 + 수동 추가)
+      </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={daily.guildId} onChange={(id) => update((d) => { d.daily.guildId = id; })} />
         <div className="text-sm text-white/50">

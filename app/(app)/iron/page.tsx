@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import GuildSelect from "../../components/GuildSelect";
+import PageHelp from "../../components/PageHelp";
 import { resolveMembers } from "../../components/useMembers";
 import { todayKey, uid } from "@/lib/data";
 
@@ -56,6 +57,9 @@ export default function IronPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
+      <PageHelp>
+        문파원별 <b>철넣기 완료</b> 버튼을 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. 명단은 <b>대상 문파</b>의 멤버현황과 자동 연동되며, 없는 인원은 “수동 추가”로 넣으세요. (횟수는 날짜별로 집계)
+      </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={iron.guildId} onChange={(id) => update((d) => { d.iron.guildId = id; })} />
         <label className="flex items-center gap-1.5 text-sm text-white/50">

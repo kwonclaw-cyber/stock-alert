@@ -3,6 +3,7 @@
 import { useStore } from "../../components/StoreProvider";
 import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
+import PageHelp from "../../components/PageHelp";
 import { uid } from "@/lib/data";
 
 export default function InfoPage() {
@@ -13,6 +14,9 @@ export default function InfoPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
+      <PageHelp>
+        서버 <b>공략·꿀팁·공지</b>를 자유롭게 공유하는 게시판이에요. “새 글”로 글을 추가하고 제목·내용·링크·작성자를 적으면 자동 저장돼요. 최신 글이 위로 올라옵니다.
+      </PageHelp>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-white/50">서버 공략·꿀팁·공지 등 자유롭게 공유하세요.</p>
         <Btn

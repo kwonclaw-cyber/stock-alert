@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useStore } from "../../components/StoreProvider";
 import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
+import PageHelp from "../../components/PageHelp";
 import { emptyHidden } from "@/lib/data";
 import type { HiddenStatus } from "@/lib/data";
 
@@ -45,6 +46,9 @@ export default function HiddenPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
+      <PageHelp>
+        히든 콘텐츠 단서를 <b>순서대로</b> 모아 추리하는 보드예요. “단서 추가”로 카드를 만들고 ▲▼로 순서를 바꾸세요. 카드 안을 클릭한 뒤 <b>Ctrl+V</b>로 캡처를 붙여넣을 수 있어요(드래그·파일선택도 가능). 맨 위 <b>결론</b> 칸에 최종 추리를 적어두세요.
+      </PageHelp>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-white/50">
           단서를 위에서부터 <b className="text-white/70">순서대로</b> 쌓아 유추하세요. 카드에 캡처 이미지를 <b className="text-white/70">Ctrl+V</b>로 붙여넣을 수 있어요.

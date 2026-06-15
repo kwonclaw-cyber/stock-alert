@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
+import PageHelp from "../../components/PageHelp";
 import { uid } from "@/lib/data";
 
 /** 남은 시간 계산 */
@@ -85,6 +86,9 @@ export default function BossPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
+      <PageHelp>
+        보스를 잡으면 <b>처치!</b>를 눌러 다음 젠까지 카운트다운을 시작하세요. 목록은 젠이 임박한 순으로 정렬돼요. 각 보스의 <b>🔔</b>을 켜고 “알림 권한 허용”을 누르면 젠 시각에 <b>소리·알림</b>이 옵니다. (탭이 열려 있어야 동작)
+      </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-white/50">“처치!”를 누르면 다음 젠 타이머가 시작돼요. 🔔을 켜면 젠 시각에 소리·알림이 옵니다.</p>
         <div className="flex items-center gap-2">

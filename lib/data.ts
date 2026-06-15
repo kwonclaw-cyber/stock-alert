@@ -44,6 +44,21 @@ export type IronState = {
   records: Record<string, { lastDoneAt: string | null; daily: Record<string, number> }>;
 };
 
+/** 광산 1칸 */
+export type Mine = {
+  id: string;
+  name: string; // 광산1 ...
+  cooldownMin: number; // 쿨타임(분)
+  lastDoneAt: string | null; // 마지막 완료(ISO)
+};
+
+/** 광산타이머 상태 */
+export type MineState = {
+  mines: Mine[];
+  defaultCooldownMin: number; // 새 광산 기본 쿨타임
+  mapImage: string | null; // 광산 지도 (data URL)
+};
+
 /** 일숙(일일 숙제) — 문파원별 숙제 완료 체크 */
 export type DailyState = {
   guildId: string; // 대상 문파 (멤버현황 연동)
@@ -57,6 +72,7 @@ export type DailyState = {
 export type AppData = {
   guilds: Guild[];
   bossTimers: BossTimer[];
+  mine: MineState;
   iron: IronState;
   daily: DailyState;
   hidden: HiddenEntry[];
@@ -97,6 +113,7 @@ export function defaultData(): AppData {
         memo: "",
       },
     ],
+    mine: { mines: [], defaultCooldownMin: 60, mapImage: null },
     iron: { guildId: MAIN_GUILD, cooldownMin: 0, manualMembers: [], records: {} },
     daily: {
       guildId: MAIN_GUILD,
@@ -142,6 +159,17 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     alarm: typeof b.alarm === "boolean" ? b.alarm : false,
   }));
 
+  const mine: MineState = {
+    mines: (input.mine?.mines ?? []).map((m) => ({
+      id: m.id || uid(),
+      name: m.name ?? "",
+      cooldownMin: Number(m.cooldownMin) || 0,
+      lastDoneAt: m.lastDoneAt ?? null,
+    })),
+    defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
+    mapImage: input.mine?.mapImage ?? null,
+  };
+
   const iron: IronState = {
     guildId: input.iron?.guildId ?? base.iron.guildId,
     cooldownMin: Number(input.iron?.cooldownMin) || 0,
@@ -159,6 +187,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
   return {
     guilds,
     bossTimers,
+    mine,
     iron,
     daily,
     hidden,
