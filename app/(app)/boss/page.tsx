@@ -7,6 +7,7 @@ import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { sendDiscord } from "../../components/discord";
 import { startAlarm, primeAudio } from "../../components/alarm";
+import AlarmSoundPicker from "../../components/AlarmSoundPicker";
 import { uid } from "@/lib/data";
 
 /** 남은 시간 계산 */
@@ -85,7 +86,8 @@ export default function BossPage() {
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-white/50">“처치!”를 누르면 다음 젠 타이머가 시작돼요. 🔔을 켜면 젠 시각에 소리·알림이 옵니다.</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <AlarmSoundPicker />
           {perm !== "granted" && (
             <Btn onClick={requestPerm}>🔔 알림 권한 허용</Btn>
           )}
