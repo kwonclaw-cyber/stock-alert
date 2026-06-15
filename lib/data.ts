@@ -8,6 +8,7 @@ export type BossTimer = {
   respawnMin: number; // 리젠 주기(분)
   lastKill: string | null; // 마지막 처치 시각(ISO)
   alarm: boolean; // 젠 알람 사용 여부
+  notifiedKill: string | null; // 디스코드 알림 보낸 lastKill (중복 방지)
   memo: string;
 };
 
@@ -30,6 +31,16 @@ export type InfoPost = {
   link: string;
   author: string;
   updatedAt: string; // ISO
+};
+
+/** 일정/이벤트 (캘린더) */
+export type EventItem = {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM (선택)
+  memo: string;
+  color: string; // 분류 색 (emerald/sky/amber/fuchsia/red)
 };
 
 /** 수동 추가 문파원 (멤버현황에 없는 인원) */
@@ -81,6 +92,8 @@ export type AppData = {
   hidden: HiddenEntry[];
   hiddenConclusion: string; // 종합 유추 결론
   infos: InfoPost[];
+  events: EventItem[];
+  discordWebhook: string; // 디스코드 웹훅 URL
 };
 
 /** 고유 id 생성 */
@@ -113,6 +126,7 @@ export function defaultData(): AppData {
         respawnMin: 60,
         lastKill: null,
         alarm: false,
+        notifiedKill: null,
         memo: "",
       },
     ],
@@ -127,6 +141,8 @@ export function defaultData(): AppData {
     hidden: [emptyHidden(), emptyHidden()],
     hiddenConclusion: "",
     infos: [],
+    events: [],
+    discordWebhook: "",
   };
 }
 
@@ -160,6 +176,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
   const bossTimers = (input.bossTimers ?? base.bossTimers).map((b) => ({
     ...b,
     alarm: typeof b.alarm === "boolean" ? b.alarm : false,
+    notifiedKill: b.notifiedKill ?? null,
   }));
 
   const mine: MineState = {
@@ -199,5 +216,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     hidden,
     hiddenConclusion: input.hiddenConclusion ?? "",
     infos: input.infos ?? base.infos,
+    events: input.events ?? [],
+    discordWebhook: input.discordWebhook ?? "",
   };
 }

@@ -80,11 +80,13 @@ export function Btn({
   onClick,
   variant = "default",
   className = "",
+  title,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   variant?: "default" | "primary" | "danger" | "ghost";
   className?: string;
+  title?: string;
 }) {
   const styles = {
     default: "border border-white/15 text-white/80 hover:border-white/30 hover:text-white",
@@ -95,6 +97,7 @@ export function Btn({
   return (
     <button
       onClick={onClick}
+      title={title}
       className={`rounded-md px-2.5 py-1.5 text-sm transition ${styles} ${className}`}
     >
       {children}
