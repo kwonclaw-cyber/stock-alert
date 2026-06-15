@@ -12,6 +12,7 @@ const TABS = [
   { href: "/iron", label: "철타이머" },
   { href: "/daily", label: "일숙" },
   { href: "/calendar", label: "일정" },
+  { href: "/dwelling", label: "무인의 거처" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
 ];

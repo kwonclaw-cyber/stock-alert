@@ -43,6 +43,14 @@ export type EventItem = {
   color: string; // 분류 색 (emerald/sky/amber/fuchsia/red)
 };
 
+/** 무인의 거처 정보 카드 (600x400 캡처 이미지) */
+export type DwellingCard = {
+  id: string;
+  title: string;
+  image: string; // 캡처 이미지(data URL)
+  memo: string;
+};
+
 /** 수동 추가 문파원 (멤버현황에 없는 인원) */
 export type ManualMember = { id: string; name: string };
 
@@ -93,6 +101,7 @@ export type AppData = {
   hiddenConclusion: string; // 종합 유추 결론
   infos: InfoPost[];
   events: EventItem[];
+  dwellings: DwellingCard[];
   discordWebhook: string; // 디스코드 웹훅 URL
 };
 
@@ -142,6 +151,7 @@ export function defaultData(): AppData {
     hiddenConclusion: "",
     infos: [],
     events: [],
+    dwellings: [],
     discordWebhook: "",
   };
 }
@@ -217,6 +227,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     hiddenConclusion: input.hiddenConclusion ?? "",
     infos: input.infos ?? base.infos,
     events: input.events ?? [],
+    dwellings: input.dwellings ?? [],
     discordWebhook: input.discordWebhook ?? "",
   };
 }
