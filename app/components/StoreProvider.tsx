@@ -25,7 +25,7 @@ type StoreContext = {
 const Ctx = createContext<StoreContext | null>(null);
 
 const SAVE_DEBOUNCE = 250; // ms (변경을 빠르게 서버로 반영)
-const POLL_INTERVAL = 1000; // ms (탭이 보일 때 라이브 동기화 주기)
+const POLL_INTERVAL = 2000; // ms (타이머 페이지 라이브 동기화 주기)
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
@@ -66,7 +66,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!isIdle() || syncing.current) return;
     syncing.current = true;
     try {
-      const r = await fetch("/api/version", { cache: "no-store" });
+      // 버전 신호는 엣지 캐시를 활용(no-store 미사용)해 KV 사용량을 줄인다.
+      const r = await fetch("/api/version");
       const { version } = (await r.json()) as { version: number };
       if (version === lastVersion.current || !isIdle()) return;
       const dr = await fetch("/api/data", { cache: "no-store" });
@@ -83,7 +84,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // 라이브 동기화: 탭이 보일 때만 빠르게 폴링, 복귀/포커스 시 즉시 동기화
+  // 라이브 동기화: 모든 페이지에서 탭이 보일 때 폴링(복귀/포커스 시 즉시).
+  // 버전 신호는 엣지 캐시를 활용해 인원수와 무관하게 KV 사용량을 낮춘다.
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | undefined;
     const start = () => {
@@ -103,7 +105,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         start();
       }
     };
-    if (!document.hidden) start();
+    if (!document.hidden) {
+      syncNow();
+      start();
+    }
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", syncNow);
     return () => {
