@@ -30,6 +30,15 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             {usingKv ? "공유 저장 ON" : "로컬 저장"}
           </span>
           <SaveStatus />
+          <a
+            href="https://open.kakao.com/o/sT8dlFzi"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-1.5 text-sm font-bold text-[#3C1E1E] transition hover:brightness-95"
+            title="카카오톡 오픈채팅으로 문의하기"
+          >
+            💬 문의하기
+          </a>
           <RefreshButton />
           <LogoutButton />
         </div>
