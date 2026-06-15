@@ -1,4 +1,5 @@
 import LogoutButton from "./LogoutButton";
+import RefreshButton from "./RefreshButton";
 import SaveStatus from "./SaveStatus";
 import TabNav from "./TabNav";
 import { usingKv } from "@/lib/store";
@@ -28,6 +29,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             {usingKv ? "공유 저장 ON" : "로컬 저장"}
           </span>
           <SaveStatus />
+          <RefreshButton />
           <LogoutButton />
         </div>
       </header>

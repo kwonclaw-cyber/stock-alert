@@ -17,6 +17,9 @@ type StoreContext = {
   saveState: SaveState;
   /** 초안을 수정한다. mutator로 next 데이터를 직접 변경. */
   update: (mutator: (draft: AppData) => void) => void;
+  /** 수동 최신화: 서버의 최신 데이터를 즉시 받아온다. */
+  refresh: () => void;
+  refreshing: boolean;
 };
 
 const Ctx = createContext<StoreContext | null>(null);
@@ -27,6 +30,7 @@ const POLL_INTERVAL = 1000; // ms (탭이 보일 때 라이브 동기화 주기)
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("loading");
+  const [refreshing, setRefreshing] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(0); // 편집 발생 횟수
@@ -134,6 +138,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, SAVE_DEBOUNCE);
   }, []);
 
+  // 수동 최신화: 서버 최신 데이터를 강제로 받아온다(편집 중이면 저장 우선이라 잠시 후).
+  const refresh = useCallback(async () => {
+    if (!isIdle() || syncing.current) return;
+    syncing.current = true;
+    setRefreshing(true);
+    try {
+      const dr = await fetch("/api/data", { cache: "no-store" });
+      const dv = Number(dr.headers.get("x-data-version")) || lastVersion.current;
+      const fresh = (await dr.json()) as AppData;
+      if (isIdle()) {
+        lastVersion.current = dv;
+        latest.current = fresh;
+        setData(fresh);
+      }
+    } catch {
+      // 무시
+    } finally {
+      syncing.current = false;
+      setRefreshing(false);
+    }
+  }, []);
+
   const update = useCallback(
     (mutator: (draft: AppData) => void) => {
       setData((prev) => {
@@ -149,7 +175,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [scheduleSave],
   );
 
-  return <Ctx.Provider value={{ data, saveState, update }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ data, saveState, update, refresh, refreshing }}>{children}</Ctx.Provider>
+  );
 }
 
 export function useStore(): StoreContext {
