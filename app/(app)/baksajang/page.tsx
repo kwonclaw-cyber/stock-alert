@@ -14,7 +14,7 @@ export default function BaksajangPage() {
   const guild = data.guilds[gi];
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <PageHelp>
         메인 길드(<b>박사장</b>)의 <b>내실 현황판</b>이에요. 각 칸을 클릭해 스텟·잠재·방어구·장신구·탈것을 직접 입력하세요. 맨 아래에서 곡괭이 개수를 1★~5★별로 체크할 수 있어요. (이름·직업은 멤버현황과 연동)
       </PageHelp>

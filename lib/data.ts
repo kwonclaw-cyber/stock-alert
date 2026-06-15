@@ -52,6 +52,7 @@ export type Mine = {
   lastDoneAt: string | null; // 마지막 완료(ISO)
   x: number | null; // 지도상 위치 X (0~100%)
   y: number | null; // 지도상 위치 Y (0~100%)
+  target: boolean; // 동선 목표로 선택됨
 };
 
 /** 광산타이머 상태 */
@@ -169,6 +170,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       lastDoneAt: m.lastDoneAt ?? null,
       x: typeof m.x === "number" ? m.x : null,
       y: typeof m.y === "number" ? m.y : null,
+      target: Boolean(m.target),
     })),
     defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
     mapImage: input.mine?.mapImage ?? null,

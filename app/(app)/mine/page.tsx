@@ -30,7 +30,6 @@ export default function MinePage() {
   const [editMarkers, setEditMarkers] = useState(false);
   const [genCount, setGenCount] = useState(40);
   const [showRoute, setShowRoute] = useState(true);
-  const [routeMin, setRouteMin] = useState(10);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -47,13 +46,14 @@ export default function MinePage() {
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = mine.mines.filter((m) => m.x != null).length;
 
-  // 시간 고려 동선: 마커가 있고 채굴 가능/임박(routeMin분 이내)한 광산을, 가장 임박한 곳에서 출발해
-  // 가까운 순서로 잇는 추천 순회 경로(최근접 이웃).
-  const candidates = sorted.filter(
-    (s) => s.m.x != null && s.m.y != null && s.r.ms <= routeMin * 60_000,
-  );
-  const route = planRoute(candidates);
+  // 동선: 목표로 선택한 광산이 있으면 그 광산들만, 없으면 전체 광산(마커 있는 것) 기준으로
+  // 가장 임박한 곳에서 출발해 가까운 순서로 잇는 추천 순회 경로(최근접 이웃, 시간 고려).
+  const markered = sorted.filter((s) => s.m.x != null && s.m.y != null);
+  const targetStops = markered.filter((s) => s.m.target);
+  const usingTargets = targetStops.length > 0;
+  const route = planRoute(usingTargets ? targetStops : markered);
   const routeCoords = route.map((c) => ({ x: c.m.x as number, y: c.m.y as number }));
+  const targetCount = sorted.filter((s) => s.m.target).length;
 
   async function setMap(files: FileList | File[]) {
     const f = Array.from(files).find((x) => x.type.startsWith("image/"));
@@ -64,11 +64,13 @@ export default function MinePage() {
   function generate() {
     update((d) => {
       d.mine.mines = Array.from({ length: Math.max(1, genCount) }, (_, i) => ({
-        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null,
+        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, target: false,
       }));
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
+  const toggleTarget = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.target = !m.target; });
+  const clearTargets = () => update((d) => { d.mine.mines.forEach((m) => { m.target = false; }); });
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
   const toggleMarker = (id: string) => update((d) => {
     const m = d.mine.mines.find((x) => x.id === id);
@@ -79,8 +81,8 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b>완료</b>를 누르면 그 광산이 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간 적은 순</b>으로 실시간 정렬돼요.
-        우측 지도에 캡처를 붙여넣고, 각 광산의 <b>📍</b>로 지도에 마커를 올린 뒤 <b>마커 편집</b>에서 드래그해 위치를 맞추세요. 평소엔 마커를 <b>클릭하면 바로 완료</b>됩니다.
+        <b>완료</b>를 누르면 그 광산이 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간 적은 순</b>으로 정렬돼요.
+        각 광산의 <b>📍</b>로 지도에 마커를 올리고(마커 편집에서 드래그), 평소엔 마커 <b>클릭=완료</b>. 광산의 <b>목표</b>를 누르면(여러 개 가능) 그 광산들만 동선에 반영되고, 목표가 없으면 <b>전체 광산</b> 기준으로 추천 동선을 그려줘요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -95,7 +97,7 @@ export default function MinePage() {
           개 생성
         </label>
         <Btn onClick={generate}>광산 일괄 생성</Btn>
-        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null }); })}>
+        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, target: false }); })}>
           + 광산 추가
         </Btn>
         <div className="ml-auto rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-sm">
@@ -120,6 +122,13 @@ export default function MinePage() {
                   쿨<TextInput type="number" value={m.cooldownMin} onChange={(v) => update((d) => { d.mine.mines[gi].cooldownMin = Number(v) || 0; })} className="w-14" />분
                 </label>
                 <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? "text-emerald-400" : "text-white"}`}>{r.text}</span>
+                <button
+                  onClick={() => toggleTarget(m.id)}
+                  title={m.target ? "동선 목표 해제" : "동선 목표로 선택"}
+                  className={`rounded-md border px-2 py-1 text-xs transition ${m.target ? "border-amber-400/60 bg-amber-400/15 text-amber-200" : "border-white/15 text-white/50 hover:text-white"}`}
+                >
+                  {m.target ? "★ 목표" : "목표"}
+                </button>
                 <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
                 <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
                 <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
@@ -158,11 +167,18 @@ export default function MinePage() {
           {/* 네비게이션 / 추천 동선 */}
           <div className="mt-3 rounded-xl border border-white/10 bg-[#15171c] p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-white/70">🧭 추천 동선 <span className="text-xs font-normal text-white/35">(시간 고려)</span></span>
+              <span className="text-sm font-semibold text-white/70">
+                🧭 추천 동선{" "}
+                <span className={`text-xs font-medium ${usingTargets ? "text-amber-300" : "text-white/35"}`}>
+                  {usingTargets ? `목표 ${targetCount}곳` : `전체 ${route.length}곳`}
+                </span>
+              </span>
               <div className="flex items-center gap-2 text-xs text-white/45">
-                <label className="flex items-center gap-1">
-                  <TextInput type="number" value={routeMin} onChange={(v) => setRouteMin(Number(v) || 0)} className="w-12 !py-0.5" />분 이내 포함
-                </label>
+                {usingTargets && (
+                  <button onClick={clearTargets} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
+                    목표 해제
+                  </button>
+                )}
                 <button
                   onClick={() => setShowRoute((v) => !v)}
                   className={`rounded-md border px-2 py-1 transition ${showRoute ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
@@ -173,7 +189,7 @@ export default function MinePage() {
             </div>
             {route.length === 0 ? (
               <p className="py-3 text-center text-xs text-white/30">
-                마커가 있고 채굴 가능/임박한 광산이 있으면 가까운 순서로 동선을 추천해요.
+                지도에 마커가 있으면 동선을 추천해요. 광산의 <b className="text-amber-300">목표</b>를 누르면 그 광산들만 동선에 반영돼요.
               </p>
             ) : (
               <ol className="space-y-1">
@@ -314,7 +330,7 @@ function MarkerLayer({
               (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
             }}
             onClick={() => { if (!editMode) onComplete(m.id); }}
-            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing ring-2 ring-white/40" : "cursor-pointer"} ${r.ready ? "animate-pulse" : ""} flex`}
+            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${m.target ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-black/40" : editMode ? "ring-2 ring-white/40" : ""} ${r.ready ? "animate-pulse" : ""} flex`}
           >
             {label(m, idx)}
           </button>
