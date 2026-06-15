@@ -8,6 +8,7 @@ import GuildSelect from "../../components/GuildSelect";
 import PageHelp from "../../components/PageHelp";
 import { resolveMembers } from "../../components/useMembers";
 import { startAlarm, primeAudio, notify, requestNotifyPermission } from "../../components/alarm";
+import AlarmSoundPicker from "../../components/AlarmSoundPicker";
 import { todayKey, uid } from "@/lib/data";
 
 function remainLabel(lastDoneAt: string | null, cooldownMin: number, now: number) {
@@ -120,6 +121,7 @@ export default function IronPage() {
         <span className="rounded-md border border-white/15 px-2.5 py-1.5 text-sm text-white/55" title="이 브라우저에서 알림 켠 문파원 수 (개인 설정)">
           🔔 내 알림 {alarmKeys.size}명
         </span>
+        <AlarmSoundPicker />
         {alarmKeys.size > 0 && (
           <button onClick={clearAlarms} className="text-xs text-white/45 hover:text-white">모두 끄기</button>
         )}
