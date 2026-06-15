@@ -24,12 +24,17 @@ function remainLabel(lastDoneAt: string | null, cooldownMin: number, now: number
 export default function IronPage() {
   const { data, update } = useStore();
   const [now, setNow] = useState(() => Date.now());
-  const [alarmOn, setAlarmOn] = useState(false);
+  const [alarmKeys, setAlarmKeys] = useState<Set<string>>(new Set());
   const [perm, setPerm] = useState<NotificationPermission>("default");
   const fired = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    setAlarmOn(localStorage.getItem("iron-alarm") === "1");
+    try {
+      const saved = JSON.parse(localStorage.getItem("iron-alarm-keys") || "[]");
+      if (Array.isArray(saved)) setAlarmKeys(new Set(saved as string[]));
+    } catch {
+      // 무시
+    }
     if (typeof Notification !== "undefined") setPerm(Notification.permission);
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -38,10 +43,11 @@ export default function IronPage() {
   const iron = data?.iron;
   const members = data && iron ? resolveMembers(data, iron.guildId, iron.manualMembers) : [];
 
-  // 철넣기 다시 가능해지면(0분 전) 1회 알림
+  // 내가 알림 켠 문파원만, 철넣기 다시 가능해지면(0분 전) 1회 알림
   useEffect(() => {
-    if (!alarmOn || !data || !iron || iron.cooldownMin <= 0) return;
+    if (!data || !iron || iron.cooldownMin <= 0 || alarmKeys.size === 0) return;
     for (const m of members) {
+      if (!alarmKeys.has(m.key)) continue;
       const r = iron.records[m.key];
       if (!r?.lastDoneAt) continue;
       const next = new Date(r.lastDoneAt).getTime() + iron.cooldownMin * 60_000;
@@ -52,18 +58,24 @@ export default function IronPage() {
         notify("⛏ 철넣기 가능", `${m.name} 철넣기 가능 시간입니다.`);
       }
     }
-  }, [now, alarmOn, data, iron, members]);
+  }, [now, alarmKeys, data, iron, members]);
 
   if (!data || !iron) return <Loading />;
 
   const today = todayKey();
 
-  function toggleAlarm() {
-    setAlarmOn((v) => {
-      const next = !v;
-      localStorage.setItem("iron-alarm", next ? "1" : "0");
+  function toggleMemberAlarm(memberKey: string) {
+    setAlarmKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberKey)) next.delete(memberKey);
+      else next.add(memberKey);
+      localStorage.setItem("iron-alarm-keys", JSON.stringify([...next]));
       return next;
     });
+  }
+  function clearAlarms() {
+    setAlarmKeys(new Set());
+    localStorage.setItem("iron-alarm-keys", "[]");
   }
   async function askPerm() {
     setPerm(await requestNotifyPermission());
@@ -92,7 +104,7 @@ export default function IronPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        문파원별 <b>철넣기 완료</b> 버튼을 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. <b>🔔 알림</b>을 켜면 다시 가능해질 때(0분 전) 소리·알림이 와요(탭 열려 있어야 함). 명단은 멤버현황과 자동 연동 + 수동 추가. (횟수는 날짜별 집계)
+        문파원별 <b>철넣기 완료</b>를 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. 각 문파원의 <b>🔔</b>을 켜면 <b>그 사람만</b> 다시 가능해질 때(0분 전) 소리·알림이 와요. <b>알림은 개인 설정</b>이라(내 브라우저에만 저장) 본인이 원하는 인원만 골라 켜면 됩니다. (탭 열려 있어야 동작 · 명단은 멤버현황 연동)
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={iron.guildId} onChange={(id) => update((d) => { d.iron.guildId = id; })} />
@@ -101,15 +113,14 @@ export default function IronPage() {
           <TextInput type="number" value={iron.cooldownMin} onChange={(v) => update((d) => { d.iron.cooldownMin = Number(v) || 0; })} className="w-20" />
           분 <span className="text-xs text-white/30">(0=타이머 없음)</span>
         </label>
-        <button
-          onClick={toggleAlarm}
-          title={alarmOn ? "알림 켜짐 (철넣기 가능 시 소리·알림)" : "알림 꺼짐"}
-          className={`rounded-md border px-2.5 py-1.5 text-sm transition ${alarmOn ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
-        >
-          🔔 알림 {alarmOn ? "ON" : "OFF"}
-        </button>
-        {alarmOn && perm !== "granted" && (
+        {alarmKeys.size > 0 && perm !== "granted" && (
           <Btn onClick={askPerm} className="!py-1.5">알림 권한 허용</Btn>
+        )}
+        <span className="rounded-md border border-white/15 px-2.5 py-1.5 text-sm text-white/55" title="이 브라우저에서 알림 켠 문파원 수 (개인 설정)">
+          🔔 내 알림 {alarmKeys.size}명
+        </span>
+        {alarmKeys.size > 0 && (
+          <button onClick={clearAlarms} className="text-xs text-white/45 hover:text-white">모두 끄기</button>
         )}
         <div className="ml-auto rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-sm">
           <span className="text-white/60">오늘 누적 완료</span>{" "}
@@ -122,6 +133,7 @@ export default function IronPage() {
           <thead>
             <tr className="text-[11px] font-medium text-white/45">
               <th className="w-10 border-b border-white/10 py-2 text-center">#</th>
+              <th className="w-12 border-b border-white/10 py-2 text-center" title="내 알림 (개인 설정)">알림</th>
               <th className="border-b border-white/10 py-2 text-left">문파원</th>
               <th className="border-b border-white/10 py-2 text-center">마지막 완료</th>
               {iron.cooldownMin > 0 && <th className="border-b border-white/10 py-2 text-center">다음 가능</th>}
@@ -137,6 +149,15 @@ export default function IronPage() {
               return (
                 <tr key={m.key} className="border-t border-white/5 transition hover:bg-white/[0.025]">
                   <td className="py-1.5 text-center text-[11px] text-white/35">{i + 1}</td>
+                  <td className="py-1.5 text-center">
+                    <button
+                      onClick={() => toggleMemberAlarm(m.key)}
+                      title={alarmKeys.has(m.key) ? "내 알림 켜짐 — 클릭해서 끄기" : "내 알림 끄기 — 클릭해서 켜기"}
+                      className={`text-base transition ${alarmKeys.has(m.key) ? "opacity-100" : "opacity-25 grayscale hover:opacity-60"}`}
+                    >
+                      🔔
+                    </button>
+                  </td>
                   <td className="py-1.5 pl-3 text-left">
                     {m.manual ? (
                       <ManualName
