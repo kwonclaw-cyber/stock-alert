@@ -50,6 +50,8 @@ export type Mine = {
   name: string; // 광산1 ...
   cooldownMin: number; // 쿨타임(분)
   lastDoneAt: string | null; // 마지막 완료(ISO)
+  x: number | null; // 지도상 위치 X (0~100%)
+  y: number | null; // 지도상 위치 Y (0~100%)
 };
 
 /** 광산타이머 상태 */
@@ -165,6 +167,8 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       name: m.name ?? "",
       cooldownMin: Number(m.cooldownMin) || 0,
       lastDoneAt: m.lastDoneAt ?? null,
+      x: typeof m.x === "number" ? m.x : null,
+      y: typeof m.y === "number" ? m.y : null,
     })),
     defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
     mapImage: input.mine?.mapImage ?? null,

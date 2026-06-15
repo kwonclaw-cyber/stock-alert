@@ -13,8 +13,9 @@ import { type AppData, defaultData, normalizeData } from "./data";
  *    (파일 저장은 서버리스 환경에서 영구 보존되지 않음)
  */
 
-const KV_URL = process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+// Vercel KV(=Upstash) 환경변수: 두 가지 명명 규칙 모두 지원
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const KV_KEY = "naesu:appdata";
 
 const FILE_PATH = path.join(process.cwd(), ".data", "store.json");
