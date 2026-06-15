@@ -6,6 +6,7 @@ import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { sendDiscord } from "../../components/discord";
+import { startAlarm, primeAudio } from "../../components/alarm";
 import { uid } from "@/lib/data";
 
 /** 남은 시간 계산 */
@@ -20,28 +21,6 @@ function spawnInfo(lastKill: string | null, respawnMin: number, now: number) {
   const s = totalSec % 60;
   const label = h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초`;
   return { ready: false, label, ms };
-}
-
-/** WebAudio 비프음 */
-function beep() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ac = new Ctx();
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.connect(gain);
-    gain.connect(ac.destination);
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.001, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.6);
-    osc.start();
-    osc.stop(ac.currentTime + 0.6);
-    osc.onended = () => ac.close();
-  } catch {
-    // 무시
-  }
 }
 
 export default function BossPage() {
@@ -65,7 +44,7 @@ export default function BossPage() {
       const next = new Date(b.lastKill).getTime() + b.respawnMin * 60_000;
       if (Date.now() >= next && !fired.current.has(key)) {
         fired.current.add(key);
-        beep();
+        startAlarm(`⚔️ ${b.name} 젠!`);
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           new Notification("⚔️ 보스 젠!", { body: `${b.name} (${b.location || "위치 미지정"}) 젠 시간입니다.` });
         }
@@ -102,7 +81,7 @@ export default function BossPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        보스를 잡으면 <b>처치!</b>를 눌러 다음 젠까지 카운트다운을 시작하세요. 목록은 젠 임박순 정렬. <b>🔔</b>+“알림 권한 허용”이면 젠 시각에 소리·알림. <b>정보공유 탭</b>에 디스코드 웹훅을 등록하면 젠 시각에 <b>디스코드 채널로 자동 푸시</b>돼요(누군가 탭이 켜져 있을 때).
+        보스를 잡으면 <b>처치!</b>를 눌러 다음 젠까지 카운트다운을 시작하세요. 목록은 젠 임박순 정렬. <b>🔔</b>+“알림 권한 허용”이면 젠 시각에 소리가 <b>종료를 누를 때까지</b> 울려요. <b>정보공유 탭</b>에 디스코드 웹훅을 등록하면 젠 시각에 <b>디스코드 채널로 자동 푸시</b>돼요(누군가 탭이 켜져 있을 때).
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-white/50">“처치!”를 누르면 다음 젠 타이머가 시작돼요. 🔔을 켜면 젠 시각에 소리·알림이 옵니다.</p>
@@ -139,7 +118,7 @@ export default function BossPage() {
             >
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={() => update((d) => { d.bossTimers[gi].alarm = !d.bossTimers[gi].alarm; })}
+                  onClick={() => { primeAudio(); update((d) => { d.bossTimers[gi].alarm = !d.bossTimers[gi].alarm; }); }}
                   className={`text-xl transition ${b.alarm ? "opacity-100" : "opacity-30 grayscale"}`}
                   title={b.alarm ? "알람 켜짐" : "알람 꺼짐"}
                 >

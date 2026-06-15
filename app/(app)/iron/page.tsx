@@ -7,7 +7,7 @@ import Loading from "../../components/Loading";
 import GuildSelect from "../../components/GuildSelect";
 import PageHelp from "../../components/PageHelp";
 import { resolveMembers } from "../../components/useMembers";
-import { beep, notify, requestNotifyPermission } from "../../components/alarm";
+import { startAlarm, primeAudio, notify, requestNotifyPermission } from "../../components/alarm";
 import { todayKey, uid } from "@/lib/data";
 
 function remainLabel(lastDoneAt: string | null, cooldownMin: number, now: number) {
@@ -54,7 +54,7 @@ export default function IronPage() {
       const key = `${m.key}:${r.lastDoneAt}`;
       if (Date.now() >= next && !fired.current.has(key)) {
         fired.current.add(key);
-        beep();
+        startAlarm(`⛏ ${m.name} 철넣기 가능!`);
         notify("⛏ 철넣기 가능", `${m.name} 철넣기 가능 시간입니다.`);
       }
     }
@@ -65,6 +65,7 @@ export default function IronPage() {
   const today = todayKey();
 
   function toggleMemberAlarm(memberKey: string) {
+    primeAudio();
     setAlarmKeys((prev) => {
       const next = new Set(prev);
       if (next.has(memberKey)) next.delete(memberKey);
@@ -104,7 +105,7 @@ export default function IronPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        문파원별 <b>철넣기 완료</b>를 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. 각 문파원의 <b>🔔</b>을 켜면 <b>그 사람만</b> 다시 가능해질 때(0분 전) 소리·알림이 와요. <b>알림은 개인 설정</b>이라(내 브라우저에만 저장) 본인이 원하는 인원만 골라 켜면 됩니다. (탭 열려 있어야 동작 · 명단은 멤버현황 연동)
+        문파원별 <b>철넣기 완료</b>를 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. 각 문파원의 <b>🔔</b>을 켜면 <b>그 사람만</b> 다시 가능해질 때(0분 전) 소리가 <b>종료를 누를 때까지</b> 울려요. <b>알림은 개인 설정</b>이라(내 브라우저에만 저장) 본인이 원하는 인원만 골라 켜면 됩니다. (탭 열려 있어야 동작 · 명단은 멤버현황 연동)
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={iron.guildId} onChange={(id) => update((d) => { d.iron.guildId = id; })} />
