@@ -150,8 +150,9 @@ export default function IronPage() {
               const r = rec(m.key);
               const remain = remainLabel(r.lastDoneAt, iron.cooldownMin, now);
               const cnt = todayCount(m.key);
+              const onCooldown = remain ? !remain.ready : false; // 넣어서 시간 도는 중
               return (
-                <tr key={m.key} className="border-t border-white/5 transition hover:bg-white/[0.025]">
+                <tr key={m.key} className={`border-t border-white/5 transition hover:bg-white/[0.04] ${onCooldown ? "" : "bg-red-500/[0.07]"}`}>
                   <td className="py-1.5 text-center text-[11px] text-white/35">{i + 1}</td>
                   <td className="py-1.5 text-center">
                     <button
@@ -188,15 +189,17 @@ export default function IronPage() {
                   </td>
                   <td className="py-1.5 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <Btn
-                        variant="primary"
-                        onClick={() => complete(m.key)}
-                        disabled={remain ? !remain.ready : false}
-                        title={remain && !remain.ready ? `다음 가능까지 대기 (${remain.text})` : "철넣기 완료"}
-                        className="!py-1 !text-xs"
-                      >
-                        {remain && !remain.ready ? "대기중" : "철넣기 완료"}
-                      </Btn>
+                      {onCooldown ? (
+                        <Btn variant="primary" disabled title={`다음 가능까지 대기 (${remain!.text})`} className="!py-1 !text-xs">대기중</Btn>
+                      ) : (
+                        <button
+                          onClick={() => complete(m.key)}
+                          title="철 넣어!!"
+                          className="rounded-md bg-red-500 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-red-400"
+                        >
+                          철넣어!!
+                        </button>
+                      )}
                       <button onClick={() => undo(m.key)} className="px-1 text-white/35 hover:text-white" title="1회 취소(쿨타임 해제)">↺</button>
                     </div>
                   </td>
