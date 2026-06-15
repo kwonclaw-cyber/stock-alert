@@ -175,7 +175,9 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     const pickaxes = Array.isArray(lg.pickaxes)
       ? [0, 0, 0, 0, 0].map((_, i) => Number(lg.pickaxes![i]) || 0)
       : [0, 0, 0, 0, Number(lg.pickaxe5) || 0]; // 구버전 5성곡괭이 → 5성칸으로
-    return { ...g, pickaxes };
+    // 오타 수정: 오야 → 오아
+    const name = g.id === "oya" && g.name === "오야" ? "오아" : g.name;
+    return { ...g, name, pickaxes };
   });
 
   const hidden = (input.hidden ?? base.hidden).map((h) => {

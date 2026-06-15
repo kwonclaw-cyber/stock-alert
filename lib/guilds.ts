@@ -126,7 +126,7 @@ export const GUILDS: Guild[] = [
   { id: "baksajang", name: "박사장", members: emptyRoster("박사장"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "kimseongtae", name: "킴성태", members: emptyRoster("킴성태"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "kangmansik", name: "강만식", members: emptyRoster("강만식"), pickaxes: [0, 0, 0, 0, 0] },
-  { id: "oya", name: "오야", members: emptyRoster("오야"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "oya", name: "오아", members: emptyRoster("오아"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "dohyeon", name: "도현", members: emptyRoster("도현"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "supi", name: "수피", members: emptyRoster("수피"), pickaxes: [0, 0, 0, 0, 0] },
 ];
