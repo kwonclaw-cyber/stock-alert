@@ -2,6 +2,7 @@ import LogoutButton from "./LogoutButton";
 import RefreshButton from "./RefreshButton";
 import SaveStatus from "./SaveStatus";
 import TabNav from "./TabNav";
+import UpdateBanner from "./UpdateBanner";
 import { usingKv } from "@/lib/store";
 
 /** 모든 대시보드 페이지 공통 셸: 제목 + 저장상태 + 로그아웃 + 탭 */
@@ -37,6 +38,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <TabNav />
 
       <div className="mt-6">{children}</div>
+      <UpdateBanner />
     </main>
   );
 }
