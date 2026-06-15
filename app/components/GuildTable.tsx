@@ -71,7 +71,7 @@ export default function GuildTable({ guild, large = false, editable = false, onC
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-[#15171c]">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full min-w-[1180px] border-collapse">
           <thead>
             <tr className={`${headText} font-semibold text-white/55`}>
               <th rowSpan={2} className="min-w-[7rem] whitespace-nowrap border-b border-r border-white/10 px-3 py-2 text-left">
@@ -94,7 +94,7 @@ export default function GuildTable({ guild, large = false, editable = false, onC
               {STAT_COLS.map((col, i) => (
                 <th
                   key={col.key}
-                  className={`border-b border-white/10 px-1.5 py-1.5 text-center ${col.color ?? "text-white/45"} ${i > 0 ? "border-l border-white/5" : ""}`}
+                  className={`border-b border-white/10 px-1.5 py-1.5 text-center ${col.color ?? "text-white/45"} ${i > 0 ? "border-l border-white/5" : ""} ${col.key === "job" ? "min-w-[6.5rem]" : ""}`}
                 >
                   {col.label}
                 </th>
@@ -112,7 +112,7 @@ export default function GuildTable({ guild, large = false, editable = false, onC
                   {idx === 0 ? guild.name : m.name || idx + 1}
                 </th>
                 {STAT_COLS.map((col, i) => (
-                  <td key={col.key} className={`px-0.5 py-0.5 text-center ${i > 0 ? "border-l border-white/5" : ""}`}>
+                  <td key={col.key} className={`px-0.5 py-0.5 text-center ${i > 0 ? "border-l border-white/5" : ""} ${col.key === "job" ? "min-w-[6.5rem]" : ""}`}>
                     {renderCell(idx, col.key)}
                   </td>
                 ))}
