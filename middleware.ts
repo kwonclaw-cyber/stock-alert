@@ -14,7 +14,9 @@ export async function middleware(req: NextRequest) {
     pathname === "/login" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico";
+    pathname === "/favicon.ico" ||
+    // 정적 이미지/에셋(로그인 화면 이미지 등)은 인증 없이 통과
+    /\.(jpe?g|png|svg|webp|gif|ico|txt|xml|woff2?)$/i.test(pathname);
 
   if (isPublic) {
     return NextResponse.next();

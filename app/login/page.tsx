@@ -36,8 +36,15 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl backdrop-blur">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl backdrop-blur sm:p-8">
+        <div className="mb-5 overflow-hidden rounded-xl border border-white/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/thanks.jpg" alt="내수서버 길드원" className="w-full object-cover" />
+        </div>
+        <p className="mb-5 text-center text-lg font-bold tracking-tight text-emerald-300">
+          함께해줘서 감사합니다
+        </p>
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold tracking-tight">내수서버</h1>
           <p className="mt-1 text-sm text-white/50">길드 운영 페이지 · 접속 인증</p>
