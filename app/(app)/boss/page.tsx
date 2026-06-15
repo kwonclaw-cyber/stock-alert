@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { sendDiscord } from "../../components/discord";
 import { uid } from "@/lib/data";
 
 /** 남은 시간 계산 */
@@ -72,7 +73,21 @@ export default function BossPage() {
     }
   }, [now, data]);
 
+  // 디스코드 자동 알림: 웹훅이 설정돼 있으면 젠 시각에 1회 전송(중복 방지 notifiedKill)
+  useEffect(() => {
+    if (!data?.discordWebhook) return;
+    for (const b of data.bossTimers) {
+      if (!b.lastKill) continue;
+      const next = new Date(b.lastKill).getTime() + b.respawnMin * 60_000;
+      if (Date.now() >= next && b.notifiedKill !== b.lastKill) {
+        update((d) => { const bb = d.bossTimers.find((x) => x.id === b.id); if (bb) bb.notifiedKill = bb.lastKill; });
+        sendDiscord(data.discordWebhook, `⚔️ **${b.name}** 젠! (${b.location || "위치 미지정"})`);
+      }
+    }
+  }, [now, data, update]);
+
   if (!data) return <Loading />;
+  const webhook = data.discordWebhook;
 
   async function requestPerm() {
     if (typeof Notification === "undefined") return;
@@ -87,7 +102,7 @@ export default function BossPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        보스를 잡으면 <b>처치!</b>를 눌러 다음 젠까지 카운트다운을 시작하세요. 목록은 젠이 임박한 순으로 정렬돼요. 각 보스의 <b>🔔</b>을 켜고 “알림 권한 허용”을 누르면 젠 시각에 <b>소리·알림</b>이 옵니다. (탭이 열려 있어야 동작)
+        보스를 잡으면 <b>처치!</b>를 눌러 다음 젠까지 카운트다운을 시작하세요. 목록은 젠 임박순 정렬. <b>🔔</b>+“알림 권한 허용”이면 젠 시각에 소리·알림. <b>정보공유 탭</b>에 디스코드 웹훅을 등록하면 젠 시각에 <b>디스코드 채널로 자동 푸시</b>돼요(누군가 탭이 켜져 있을 때).
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-white/50">“처치!”를 누르면 다음 젠 타이머가 시작돼요. 🔔을 켜면 젠 시각에 소리·알림이 옵니다.</p>
@@ -99,7 +114,7 @@ export default function BossPage() {
             variant="primary"
             onClick={() =>
               update((d) => {
-                d.bossTimers.push({ id: uid(), name: "새 보스", location: "", respawnMin: 60, lastKill: null, alarm: false, memo: "" });
+                d.bossTimers.push({ id: uid(), name: "새 보스", location: "", respawnMin: 60, lastKill: null, alarm: false, notifiedKill: null, memo: "" });
               })
             }
           >
@@ -144,6 +159,11 @@ export default function BossPage() {
                   </span>
                   <Btn variant="primary" onClick={() => update((d) => { d.bossTimers[gi].lastKill = new Date().toISOString(); })}>처치!</Btn>
                   <Btn variant="ghost" onClick={() => update((d) => { d.bossTimers[gi].lastKill = null; })}>리셋</Btn>
+                  {webhook && (
+                    <Btn onClick={() => { void sendDiscord(webhook, `⚔️ **${b.name}** ${info.ready && b.lastKill ? "젠!" : "젠 알림"} (${b.location || "위치 미지정"})`); }} className="!text-xs" title="디스코드로 전송">
+                      디스코드
+                    </Btn>
+                  )}
                   <button onClick={() => update((d) => { d.bossTimers.splice(gi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">×</button>
                 </div>
               </div>

@@ -7,6 +7,8 @@ type Props = {
   guild: Guild;
   large?: boolean;
   editable?: boolean;
+  /** 표시할 행 순서(guild.members 인덱스). 검색/정렬용. 없으면 원래 순서. */
+  order?: number[];
   onCell?: (memberIdx: number, key: StatKey, value: string) => void;
   onPickaxe?: (starIdx: number, value: number) => void;
 };
@@ -56,9 +58,10 @@ const STAR_COLOR = [
  * 길드 1개의 내실 현황 표. 깔끔한 다크 테이블 스타일.
  * editable=true 면 stat 셀과 곡괭이 개수를 직접 수정할 수 있다.
  */
-export default function GuildTable({ guild, large = false, editable = false, onCell, onPickaxe }: Props) {
+export default function GuildTable({ guild, large = false, editable = false, order, onCell, onPickaxe }: Props) {
   const cellText = large ? "text-sm" : "text-xs";
   const headText = large ? "text-xs" : "text-[11px]";
+  const rowOrder = order ?? guild.members.map((_, i) => i);
 
   function renderCell(memberIdx: number, key: StatKey) {
     const value = guild.members[memberIdx][key];
@@ -103,7 +106,10 @@ export default function GuildTable({ guild, large = false, editable = false, onC
           </thead>
 
           <tbody>
-            {guild.members.map((m, idx) => (
+            {rowOrder.map((idx) => {
+              const m = guild.members[idx];
+              if (!m) return null;
+              return (
               <tr key={idx} className={`${cellText} border-t border-white/5 transition hover:bg-white/[0.025]`}>
                 <th
                   scope="row"
@@ -118,7 +124,8 @@ export default function GuildTable({ guild, large = false, editable = false, onC
                 ))}
                 <td className="border-l border-white/5 px-0.5 py-0.5 text-center">{renderCell(idx, "mount")}</td>
               </tr>
-            ))}
+              );
+            })}
 
             {/* 평균 행 (숫자 컬럼 자동 평균) */}
             <tr className={`${cellText} border-t-2 border-white/15 bg-white/[0.04] font-semibold`}>

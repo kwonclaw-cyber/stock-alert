@@ -1,22 +1,48 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "../../components/StoreProvider";
 import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { sendDiscord } from "../../components/discord";
 import { uid } from "@/lib/data";
 
 export default function InfoPage() {
   const { data, update } = useStore();
+  const [sent, setSent] = useState<string | null>(null);
   if (!data) return <Loading />;
 
   const posts = [...data.infos].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const webhook = data.discordWebhook;
+
+  async function pushPost(title: string, body: string, link: string, id: string) {
+    const msg = `📢 **${title || "공지"}**\n${body}${link ? `\n${link}` : ""}`;
+    const ok = await sendDiscord(webhook, msg);
+    setSent(ok ? id : null);
+    setTimeout(() => setSent(null), 2000);
+  }
 
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        서버 <b>공략·꿀팁·공지</b>를 자유롭게 공유하는 게시판이에요. “새 글”로 글을 추가하고 제목·내용·링크·작성자를 적으면 자동 저장돼요. 최신 글이 위로 올라옵니다.
+        서버 <b>공략·꿀팁·공지</b>를 자유롭게 공유하는 게시판이에요. “새 글”로 추가하면 자동 저장돼요. <b>디스코드 웹훅</b>을 등록하면 글을 <b>디스코드로 전송</b>하거나, 보스 젠 알림을 채널로 자동 푸시할 수 있어요.
       </PageHelp>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#15171c] p-3">
+        <span className="text-sm font-semibold text-white/70">🔗 디스코드 웹훅</span>
+        <TextInput
+          value={webhook}
+          onChange={(v) => update((d) => { d.discordWebhook = v; })}
+          placeholder="https://discord.com/api/webhooks/..."
+          className="!text-left min-w-0 flex-1"
+        />
+        {webhook && (
+          <Btn onClick={() => { void pushPost("내수서버 알림 테스트", "디스코드 연동이 정상 동작합니다 ✅", "", "test"); }} className="!text-xs">
+            {sent === "test" ? "전송됨 ✓" : "테스트 전송"}
+          </Btn>
+        )}
+      </div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-white/50">서버 공략·꿀팁·공지 등 자유롭게 공유하세요.</p>
         <Btn
@@ -50,6 +76,11 @@ export default function InfoPage() {
                   placeholder="제목"
                   className="flex-1 text-base font-semibold"
                 />
+                {webhook && (
+                  <Btn onClick={() => { void pushPost(post.title, post.body, post.link, post.id); }} className="!py-1 !text-xs" title="이 글을 디스코드로 전송">
+                    {sent === post.id ? "전송됨 ✓" : "디스코드"}
+                  </Btn>
+                )}
                 <button
                   onClick={() => update((d) => { d.infos.splice(pi, 1); })}
                   className="text-red-300/60 hover:text-red-300"
