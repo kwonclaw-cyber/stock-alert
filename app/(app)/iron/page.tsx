@@ -194,10 +194,10 @@ export default function IronPage() {
                       ) : (
                         <button
                           onClick={() => complete(m.key)}
-                          title="철 넣어!!"
+                          title="철 구워!!"
                           className="rounded-md bg-red-500 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-red-400"
                         >
-                          철넣어!!
+                          철구워!!
                         </button>
                       )}
                       <button onClick={() => undo(m.key)} className="px-1 text-white/35 hover:text-white" title="1회 취소(쿨타임 해제)">↺</button>
