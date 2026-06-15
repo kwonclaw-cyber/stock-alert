@@ -12,7 +12,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            총겜동 내수서버 내실 현황
+            박사장 문파를 강하게 Make CeoPark Great Again <span className="text-white/50">by 킹카콜라</span>
           </h1>
           <p className="mt-0.5 text-xs text-white/45">
             숲(SOOP) 방송인 마인크래프트 내수서버 길드 운영

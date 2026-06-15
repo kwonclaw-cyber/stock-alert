@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
@@ -8,20 +9,27 @@ import PageHelp from "../../components/PageHelp";
 import { resolveMembers } from "../../components/useMembers";
 import { todayKey, uid } from "@/lib/data";
 
+/** 날짜 문자열(YYYY-MM-DD)을 delta일 이동 */
+function shiftDate(ds: string, delta: number): string {
+  const d = new Date(ds + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return todayKey(d);
+}
+
 export default function DailyPage() {
   const { data, update } = useStore();
+  const [date, setDate] = useState(() => todayKey());
   if (!data) return <Loading />;
 
   const daily = data.daily;
-  const today = todayKey();
   const members = resolveMembers(data, daily.guildId, daily.manualMembers);
 
-  const ckey = (memberKey: string, taskId: string) => `${today}|${memberKey}|${taskId}`;
-  const isDone = (memberKey: string, taskId: string) => Boolean(daily.checks[ckey(memberKey, taskId)]);
+  const isDone = (memberKey: string, taskId: string) =>
+    Boolean(daily.checks[`${date}|${memberKey}|${taskId}`]);
 
   function toggle(memberKey: string, taskId: string) {
     update((d) => {
-      const k = `${today}|${memberKey}|${taskId}`;
+      const k = `${date}|${memberKey}|${taskId}`;
       if (d.daily.checks[k]) delete d.daily.checks[k];
       else d.daily.checks[k] = true;
     });
@@ -30,16 +38,43 @@ export default function DailyPage() {
   const memberDone = (memberKey: string) => daily.tasks.filter((t) => isDone(memberKey, t.id)).length;
   const fullyDone = members.filter((m) => daily.tasks.length > 0 && memberDone(m.key) === daily.tasks.length).length;
 
+  // 누적: 전체 숙제를 완료한 날 수 (기록된 모든 날짜 기준)
+  const allDates = Array.from(new Set(Object.keys(daily.checks).map((k) => k.split("|")[0])));
+  const cumulativeFullDays = (memberKey: string) => {
+    if (daily.tasks.length === 0) return 0;
+    return allDates.reduce(
+      (c, d) => (daily.tasks.every((t) => daily.checks[`${d}|${memberKey}|${t.id}`]) ? c + 1 : c),
+      0,
+    );
+  };
+  const isToday = date === todayKey();
+
   return (
     <div className="mx-auto max-w-5xl">
       <PageHelp>
-        문파원별 <b>일일 숙제 완료</b>를 체크하는 표예요. 상단 항목명(철넣기·보스참여 등)은 자유롭게 추가·수정하고, 칸을 눌러 완료/미완료를 토글하세요. 체크는 <b>날짜별로 자동 분리</b>되고, 모든 항목을 끝내면 행이 초록색으로 표시돼요. (명단은 멤버현황 연동 + 수동 추가)
+        문파원별 <b>일일 숙제 완료</b>를 체크하는 표예요. 칸을 눌러 완료/미완료를 토글하고, 항목명은 자유롭게 추가·수정하세요. 체크는 <b>날짜별로 누적 저장</b>돼서 <b>◀ ▶ 또는 날짜 선택</b>으로 지난 날짜도 볼 수 있어요. 맨 오른쪽 <b>누적</b>은 전체 숙제를 끝낸 날 수예요. (명단은 멤버현황 연동 + 수동 추가)
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={daily.guildId} onChange={(id) => update((d) => { d.daily.guildId = id; })} />
-        <div className="text-sm text-white/50">
-          기준일 <b className="text-white/80">{today}</b> · 전원완료{" "}
-          <b className="text-emerald-300">{fullyDone}</b>/{members.length}명
+        <div className="flex items-center gap-2 text-sm text-white/50">
+          <button onClick={() => setDate((ds) => shiftDate(ds, -1))} className="rounded-md border border-white/15 px-2 py-1 text-white/60 hover:text-white" title="전날">◀</button>
+          <input
+            type="date"
+            value={date}
+            max={todayKey()}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm text-white outline-none [color-scheme:dark]"
+          />
+          <button
+            onClick={() => setDate((ds) => shiftDate(ds, 1))}
+            disabled={isToday}
+            className="rounded-md border border-white/15 px-2 py-1 text-white/60 hover:text-white disabled:opacity-30"
+            title="다음날"
+          >▶</button>
+          {!isToday && (
+            <button onClick={() => setDate(todayKey())} className="text-xs text-emerald-300 hover:underline">오늘</button>
+          )}
+          <span className="ml-1">전원완료 <b className="text-emerald-300">{fullyDone}</b>/{members.length}명</span>
         </div>
         <Btn variant="primary" onClick={() => update((d) => { d.daily.tasks.push({ id: uid(), name: "새 숙제" }); })}>
           + 숙제 항목 추가
@@ -69,6 +104,7 @@ export default function DailyPage() {
                 </th>
               ))}
               <th className="w-16 border-b border-l border-white/10 py-2 text-center">완료</th>
+              <th className="w-16 border-b border-l border-white/10 py-2 text-center" title="전체 숙제를 끝낸 날 수">누적</th>
             </tr>
           </thead>
           <tbody>
@@ -109,6 +145,9 @@ export default function DailyPage() {
                   })}
                   <td className="border-l border-white/10 py-1.5 text-center text-xs font-semibold text-white/70">
                     {done}/{daily.tasks.length}
+                  </td>
+                  <td className="border-l border-white/10 py-1.5 text-center text-xs font-bold text-amber-200/90" title="전체 숙제 완료한 날 수">
+                    {cumulativeFullDays(m.key)}일
                   </td>
                 </tr>
               );
