@@ -13,6 +13,36 @@ type Props = {
 
 const STAT_COLS = FLAT_COLUMNS.filter((c) => c.key !== "mount");
 
+/**
+ * 한 컬럼의 평균을 구한다. 숫자로 해석 가능한 값들만 평균내고,
+ * %/+/쉼표 표기는 자동으로 유지한다. 숫자가 없으면(텍스트 컬럼) 빈 값.
+ */
+function columnAverage(members: Guild["members"], key: StatKey): string {
+  let sum = 0;
+  let count = 0;
+  let percent = false;
+  let comma = false;
+  let plus = false;
+  for (const m of members) {
+    const raw = (m[key] ?? "").trim();
+    if (!raw) continue;
+    if (raw.includes("%")) percent = true;
+    if (raw.includes(",")) comma = true;
+    if (raw.startsWith("+")) plus = true;
+    const num = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(num)) {
+      sum += num;
+      count++;
+    }
+  }
+  if (count === 0) return "";
+  const avg = sum / count;
+  let s = comma ? Math.round(avg).toLocaleString() : String(Math.round(avg * 10) / 10);
+  if (plus && !s.startsWith("-")) s = "+" + s;
+  if (percent) s += "%";
+  return s;
+}
+
 /** 곡괭이 성급별 색상 (1성 → 5성) */
 const STAR_COLOR = [
   "text-white/55",
@@ -44,7 +74,7 @@ export default function GuildTable({ guild, large = false, editable = false, onC
         <table className="w-full border-collapse">
           <thead>
             <tr className={`${headText} font-semibold text-white/55`}>
-              <th rowSpan={2} className="w-20 border-b border-r border-white/10 px-2 py-2 text-left">
+              <th rowSpan={2} className="min-w-[7rem] whitespace-nowrap border-b border-r border-white/10 px-3 py-2 text-left">
                 이름
               </th>
               {COLUMN_GROUPS.map((group, gi) => (
@@ -77,7 +107,7 @@ export default function GuildTable({ guild, large = false, editable = false, onC
               <tr key={idx} className={`${cellText} border-t border-white/5 transition hover:bg-white/[0.025]`}>
                 <th
                   scope="row"
-                  className="border-r border-white/10 px-2 py-1 text-left font-medium text-white/80"
+                  className="whitespace-nowrap border-r border-white/10 px-3 py-1 text-left font-medium text-white/80"
                 >
                   {idx === 0 ? guild.name : m.name || idx + 1}
                 </th>
@@ -89,6 +119,27 @@ export default function GuildTable({ guild, large = false, editable = false, onC
                 <td className="border-l border-white/5 px-0.5 py-0.5 text-center">{renderCell(idx, "mount")}</td>
               </tr>
             ))}
+
+            {/* 평균 행 (숫자 컬럼 자동 평균) */}
+            <tr className={`${cellText} border-t-2 border-white/15 bg-white/[0.04] font-semibold`}>
+              <th
+                scope="row"
+                className="whitespace-nowrap border-r border-white/10 px-3 py-1.5 text-left text-amber-200/90"
+              >
+                평균
+              </th>
+              {STAT_COLS.map((col, i) => (
+                <td
+                  key={col.key}
+                  className={`px-0.5 py-1.5 text-center text-emerald-200/90 ${i > 0 ? "border-l border-white/5" : ""}`}
+                >
+                  {columnAverage(guild.members, col.key)}
+                </td>
+              ))}
+              <td className="border-l border-white/5 px-0.5 py-1.5 text-center text-emerald-200/90">
+                {columnAverage(guild.members, "mount")}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
