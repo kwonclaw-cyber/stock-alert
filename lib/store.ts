@@ -13,9 +13,26 @@ import { type AppData, defaultData, normalizeData } from "./data";
  *    (파일 저장은 서버리스 환경에서 영구 보존되지 않음)
  */
 
-// Vercel KV(=Upstash) 환경변수: 두 가지 명명 규칙 모두 지원
-const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Vercel KV(=Upstash) 연결 정보 탐색.
+// 표준 이름(KV_REST_API_*, UPSTASH_REDIS_REST_*)을 우선 사용하고,
+// 커스텀 접두어가 붙은 경우(*_KV_REST_API_URL 등)도 자동 인식한다.
+function findKvConfig(): { url?: string; token?: string } {
+  const env = process.env;
+  let url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL;
+  let token = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    for (const [k, v] of Object.entries(env)) {
+      if (!v) continue;
+      if (!url && (k.endsWith("KV_REST_API_URL") || k.endsWith("UPSTASH_REDIS_REST_URL"))) url = v;
+      // READ_ONLY 토큰은 쓰기가 안 되므로 제외 (endsWith로 자연히 걸러짐)
+      if (!token && (k.endsWith("KV_REST_API_TOKEN") || k.endsWith("UPSTASH_REDIS_REST_TOKEN"))) token = v;
+    }
+  }
+  return { url, token };
+}
+
+const { url: KV_URL, token: KV_TOKEN } = findKvConfig();
 const KV_KEY = "naesu:appdata";
 const VER_KEY = "naesu:version";
 
