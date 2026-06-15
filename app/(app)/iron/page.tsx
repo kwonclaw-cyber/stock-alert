@@ -100,13 +100,14 @@ export default function IronPage() {
       const r = d.iron.records[key];
       if (!r) return;
       r.daily[today] = Math.max(0, (r.daily[today] ?? 0) - 1);
+      r.lastDoneAt = null; // 쿨타임 해제 → 다시 완료 가능
     });
   }
 
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        문파원별 <b>철넣기 완료</b>를 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시됩니다. 각 문파원의 <b>🔔</b>을 켜면 <b>그 사람만</b> 다시 가능해질 때(0분 전) 소리가 <b>종료를 누를 때까지</b> 울려요. <b>알림은 개인 설정</b>이라(내 브라우저에만 저장) 본인이 원하는 인원만 골라 켜면 됩니다. (탭 열려 있어야 동작 · 명단은 멤버현황 연동)
+        문파원별 <b>철넣기 완료</b>를 누르면 오늘 횟수가 1 올라가고 시간이 기록돼요. 주기(분)를 설정하면 다음 가능 시각까지 카운트다운이 표시되고, 그동안 버튼은 <b>대기중</b>으로 잠겨요(↺로 취소·해제). 각 문파원의 <b>🔔</b>을 켜면 <b>그 사람만</b> 다시 가능해질 때(0분 전) 소리가 <b>종료를 누를 때까지</b> 울려요. <b>알림은 개인 설정</b>이라(내 브라우저에만 저장) 본인이 원하는 인원만 골라 켜면 됩니다. (탭 열려 있어야 동작 · 명단은 멤버현황 연동)
       </PageHelp>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <GuildSelect guilds={data.guilds} value={iron.guildId} onChange={(id) => update((d) => { d.iron.guildId = id; })} />
@@ -187,8 +188,16 @@ export default function IronPage() {
                   </td>
                   <td className="py-1.5 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <Btn variant="primary" onClick={() => complete(m.key)} className="!py-1 !text-xs">철넣기 완료</Btn>
-                      <button onClick={() => undo(m.key)} className="px-1 text-white/35 hover:text-white" title="1회 취소">↺</button>
+                      <Btn
+                        variant="primary"
+                        onClick={() => complete(m.key)}
+                        disabled={remain ? !remain.ready : false}
+                        title={remain && !remain.ready ? `다음 가능까지 대기 (${remain.text})` : "철넣기 완료"}
+                        className="!py-1 !text-xs"
+                      >
+                        {remain && !remain.ready ? "대기중" : "철넣기 완료"}
+                      </Btn>
+                      <button onClick={() => undo(m.key)} className="px-1 text-white/35 hover:text-white" title="1회 취소(쿨타임 해제)">↺</button>
                     </div>
                   </td>
                 </tr>

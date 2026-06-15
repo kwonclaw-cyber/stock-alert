@@ -81,12 +81,14 @@ export function Btn({
   variant = "default",
   className = "",
   title,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   variant?: "default" | "primary" | "danger" | "ghost";
   className?: string;
   title?: string;
+  disabled?: boolean;
 }) {
   const styles = {
     default: "border border-white/15 text-white/80 hover:border-white/30 hover:text-white",
@@ -98,7 +100,8 @@ export function Btn({
     <button
       onClick={onClick}
       title={title}
-      className={`rounded-md px-2.5 py-1.5 text-sm transition ${styles} ${className}`}
+      disabled={disabled}
+      className={`rounded-md px-2.5 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/15 disabled:hover:text-current ${styles} ${className}`}
     >
       {children}
     </button>
