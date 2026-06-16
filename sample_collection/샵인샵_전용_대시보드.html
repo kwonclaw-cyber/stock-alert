@@ -32,7 +32,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f0f4f8;color:#1e293b;min-
 .bz-drop{margin:0 14px;border:2px dashed #cbd5e1;border-radius:11px;padding:16px 10px;text-align:center;cursor:pointer;transition:all .2s;}
 .bz-drop:hover,.bz-drop.over{border-color:#1a56db;background:#eff6ff;}
 .bz-drop .di{font-size:24px;} .bz-drop .dt{font-size:11.5px;color:#64748b;margin-top:4px;}
-.bz-files{list-style:none;padding:8px 16px 14px;font-size:11px;min-height:14px;} .bz-files li{padding:2px 0;color:#64748b;}
+.bz-files{list-style:none;padding:8px 16px 14px;font-size:11px;min-height:14px;} .bz-files li{padding:2px 0;color:#64748b;display:flex;align-items:center;gap:4px;}
+.bz-files li button{margin-left:auto;border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:13px;line-height:1;}
+.bz-files li button:hover{color:#dc2626;}
+.uplabel{font-size:13px;color:#334155;margin-bottom:8px;}
+.saleslist{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.sl-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:7px 12px;font-size:12.5px;}
+.sl-nm{flex:1;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sl-row select{border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:12px;font-family:inherit;color:#1e293b;background:#f8fafc;cursor:pointer;}
+.sl-row .rm{border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:15px;}.sl-row .rm:hover{color:#dc2626;}
+.sl-empty{font-size:12px;color:#94a3b8;padding:6px 2px;}
+#upbox.collapsed{display:none;}
 .tag{display:inline-block;font-size:9.5px;font-weight:700;border-radius:5px;padding:0 6px;margin-right:5px;color:#fff;}
 .t-j{background:#7c3aed;} .t-s{background:#16a34a;} .t-x{background:#94a3b8;}
 button.go{background:#1a56db;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14.5px;font-weight:700;cursor:pointer;}
@@ -85,11 +95,23 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
   <div class="nav-tab" data-tab="tl" onclick="DG.tab('tl',this)">📈 타임라인</div>
 </div>
 <div class="wrap">
-  <div class="sec">브랜드별 데이터 업로드 — 각 브랜드 영역에 배민 JSON + matetech xlsx를 넣으세요</div>
-  <div class="brandup" id="brandup"></div>
-  <div style="margin-top:4px;"><button class="go" id="run" disabled>대시보드 생성 ▶</button><span id="status" style="margin-left:10px;font-size:13px;color:#64748b;"></span></div>
-  <div id="cachebar" class="cachebar hide">💾 <b>저장된 샵인샵 데이터로 보는 중</b> <span id="cacheinfo" style="color:#64748b"></span> · 새 파일을 올리면 교체됩니다.<button id="clearCache">저장 데이터 지우기</button></div>
-  <p id="neednet" style="color:#dc2626;font-size:13px;margin:10px 0 0">⚠ 인터넷이 필요합니다(차트/엑셀 라이브러리 로딩). 연결 후 새로고침하세요.</p>
+  <div class="sec" id="upsec" onclick="DG.toggleUp()" style="cursor:pointer;justify-content:space-between;">
+    <span>데이터 업로드</span>
+    <span id="uptoggle" style="color:#1a56db;font-weight:700;font-size:11px;">▲ 접기</span>
+  </div>
+  <div id="upbox">
+    <div class="uplabel">① 브랜드별 <b>배민 변경이력(JSON)</b> — 각 브랜드 칸에 그 브랜드 JSON</div>
+    <div class="brandup" id="brandjson"></div>
+    <div class="uplabel" style="margin-top:14px;">② <b>매출 엑셀(xlsx)</b> — 한번에 올린 뒤 각 파일의 브랜드를 지정하세요 <span style="color:#94a3b8">(매출 파일엔 매장 정보가 없어 자동 구분 불가)</span></div>
+    <div id="salesdrop" class="bz-drop" style="margin:0;border-color:#16a34a;background:#f0fdf4;">
+      <div class="di">📦</div><div class="dt"><b>주문경로별·시간대별 xlsx 전부</b> 끌어놓기/클릭 (브랜드 무관, 여러 달)</div>
+      <input type="file" id="salespick" multiple accept=".xlsx" class="hide">
+    </div>
+    <div id="saleslist" class="saleslist"></div>
+    <div style="margin-top:16px;"><button class="go" id="run" disabled>대시보드 생성 ▶</button><span id="status" style="margin-left:10px;font-size:13px;color:#64748b;"></span></div>
+    <div id="cachebar" class="cachebar hide">💾 <b>저장된 샵인샵 데이터로 보는 중</b> <span id="cacheinfo" style="color:#64748b"></span> · 새 파일을 올리면 교체됩니다.<button id="clearCache">저장 데이터 지우기</button></div>
+    <p id="neednet" style="color:#dc2626;font-size:13px;margin:10px 0 0">⚠ 인터넷이 필요합니다(차트/엑셀 라이브러리 로딩). 연결 후 새로고침하세요.</p>
+  </div>
 
   <div id="result" class="hide">
     <div class="modebar">
@@ -262,7 +284,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
 var DG=(function(){
   var SAMPLE=window.SAMPLE, WEEK=['일','월','화','수','목','금','토'];
   var BRANDS=[{key:'제로고기찜',icon:'🥩',col:'#1a56db'},{key:'제주할멍고기국수',icon:'🍜',col:'#f59e0b'},{key:'황제쌀국수',icon:'🍲',col:'#16a34a'}];
-  var store={}; BRANDS.forEach(function(b){store[b.key]={files:[],comp:null};});
+  var store={}; BRANDS.forEach(function(b){store[b.key]={jsonFile:null,comp:null};});
+  var salesFiles=[]; // {id, file, brand}
+  var salesSeq=0;
   var CKEY='shopinshop_brands_v1', charts={}, VIEW=null, META={}, curMode='brand', selBrand=null, activeTab='ov';
   var PAL={blue:'#1a56db',purple:'#7c3aed',cyan:'#0891b2',green:'#16a34a',amber:'#f59e0b',red:'#ef4444',gray:'#cbd5e1'};
 
@@ -279,35 +303,90 @@ var DG=(function(){
     if(window.XLSX&&window.Chart) document.getElementById('neednet').style.display='none';
     if(window.Chart&&window.ChartDataLabels){try{Chart.register(ChartDataLabels);}catch(e){}}
     var d=new Date();document.getElementById('hdrdate').innerHTML=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일<br><span style="opacity:.6;font-size:10px;">분석기준일</span>';
-    // 업로드 영역 생성
-    var bu=document.getElementById('brandup');
+    // ① 브랜드별 JSON 슬롯
+    var bu=document.getElementById('brandjson');
     BRANDS.forEach(function(b,i){
       var div=document.createElement('div');div.className='bz';
       div.innerHTML='<div class="bz-head">'+b.icon+' '+b.key+'</div>'
-        +'<div class="bz-drop" id="drop-'+i+'"><div class="di">📁</div><div class="dt">JSON + xlsx 끌어놓기/클릭</div>'
-        +'<input type="file" id="pick-'+i+'" multiple accept=".json,.xlsx" class="hide"></div>'
-        +'<ul class="bz-files" id="files-'+i+'"></ul>';
+        +'<div class="bz-drop" id="jdrop-'+i+'"><div class="di">📁</div><div class="dt">변경이력 JSON 끌어놓기/클릭</div>'
+        +'<input type="file" id="jpick-'+i+'" accept=".json" class="hide"></div>'
+        +'<ul class="bz-files" id="jfiles-'+i+'"></ul>';
       bu.appendChild(div);
     });
     BRANDS.forEach(function(b,i){
-      var dz=document.getElementById('drop-'+i),pk=document.getElementById('pick-'+i);
+      var dz=document.getElementById('jdrop-'+i),pk=document.getElementById('jpick-'+i);
       dz.addEventListener('click',function(){pk.click();});
       ['dragover','dragenter'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.add('over');});});
       ['dragleave','drop'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.remove('over');});});
-      dz.addEventListener('drop',function(ev){addFiles(b.key,i,ev.dataTransfer.files);});
-      pk.addEventListener('change',function(ev){addFiles(b.key,i,ev.target.files);});
+      dz.addEventListener('drop',function(ev){addJson(b.key,i,ev.dataTransfer.files);});
+      pk.addEventListener('change',function(ev){addJson(b.key,i,ev.target.files);});
     });
+    // ② 매출 일괄 드롭존
+    var sd=document.getElementById('salesdrop'),sp=document.getElementById('salespick');
+    sd.addEventListener('click',function(){sp.click();});
+    ['dragover','dragenter'].forEach(function(e){sd.addEventListener(e,function(ev){ev.preventDefault();sd.classList.add('over');});});
+    ['dragleave','drop'].forEach(function(e){sd.addEventListener(e,function(ev){ev.preventDefault();sd.classList.remove('over');});});
+    sd.addEventListener('drop',function(ev){addSales(ev.dataTransfer.files);});
+    sp.addEventListener('change',function(ev){addSales(ev.target.files);});
     document.getElementById('run').addEventListener('click',function(){run().catch(function(e){document.getElementById('status').innerHTML='<span class="err">'+e+'</span>';console.error(e);});});
-    document.getElementById('clearCache').addEventListener('click',function(){try{localStorage.removeItem(CKEY);}catch(e){}location.reload();});
-    var cached=loadCache(); if(cached){BRANDS.forEach(function(b){if(cached[b.key])store[b.key].comp=cached[b.key];});
-      if(BRANDS.some(function(b){return store[b.key].comp;})){var bar=document.getElementById('cachebar');bar.classList.remove('hide');
-        document.getElementById('cacheinfo').textContent='('+loadedKeys().join(', ')+')';showResult();}}
+    document.getElementById('clearCache').addEventListener('click',function(){clearAll();});
+    // 저장된 파일/결과 복원
+    idbLoad(function(){
+      drawSales();BRANDS.forEach(function(b,i){drawJson(b.key,i);});refreshRun();
+      var cached=loadCache(); if(cached){BRANDS.forEach(function(b){if(cached[b.key])store[b.key].comp=cached[b.key];});
+        if(loadedKeys().length){var bar=document.getElementById('cachebar');bar.classList.remove('hide');
+          document.getElementById('cacheinfo').textContent='('+loadedKeys().join(', ')+')';showResult();collapseUp(true);}}
+      var anyFile=salesFiles.length||BRANDS.some(function(b){return store[b.key].jsonFile;});
+      if(anyFile&&!loadedKeys().length) document.getElementById('status').textContent='저장된 파일 복원됨 — [대시보드 생성]을 누르세요.';
+    });
   }
-  function addFiles(key,idx,list){for(var i=0;i<list.length;i++){var n=list[i].name.toLowerCase();if(n.endsWith('.json')||n.endsWith('.xlsx'))store[key].files.push(list[i]);}drawFiles(key,idx);}
-  function drawFiles(key,idx){var ul=document.getElementById('files-'+idx);ul.innerHTML='';
-    store[key].files.forEach(function(f){var n=f.name.toLowerCase(),tag='<span class="tag t-x">기타</span>';if(n.endsWith('.json'))tag='<span class="tag t-j">변경</span>';else if(n.endsWith('.xlsx'))tag='<span class="tag t-s">매출</span>';var li=document.createElement('li');li.innerHTML=tag+esc(f.name);ul.appendChild(li);});
-    document.getElementById('run').disabled=!BRANDS.some(function(b){return store[b.key].files.length;});}
+  function defaultBrand(){for(var i=0;i<BRANDS.length;i++)if(store[BRANDS[i].key].jsonFile)return BRANDS[i].key;return BRANDS[0].key;}
+  // ── 브랜드 JSON ──
+  function addJson(key,idx,list){for(var i=0;i<list.length;i++){if(list[i].name.toLowerCase().endsWith('.json')){store[key].jsonFile=list[i];break;}}drawJson(key,idx);refreshRun();idbSave();}
+  function removeJson(key,idx){store[key].jsonFile=null;drawJson(key,idx);refreshRun();idbSave();}
+  function drawJson(key,idx){var ul=document.getElementById('jfiles-'+idx);ul.innerHTML='';var f=store[key].jsonFile;
+    if(f){var li=document.createElement('li');li.innerHTML='<span class="tag t-j">JSON</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.name)+'</span><button title="제거" onclick="DG.rmJson(\''+key+'\','+idx+')">✕</button>';ul.appendChild(li);}}
+  // ── 매출 일괄 ──
+  function addSales(list){for(var i=0;i<list.length;i++){if(list[i].name.toLowerCase().endsWith('.xlsx'))salesFiles.push({id:++salesSeq,file:list[i],brand:defaultBrand()});}drawSales();refreshRun();idbSave();}
+  function setSalesBrand(id,brand){for(var i=0;i<salesFiles.length;i++)if(salesFiles[i].id==id)salesFiles[i].brand=brand;idbSave();}
+  function removeSales(id){salesFiles=salesFiles.filter(function(s){return s.id!=id;});drawSales();refreshRun();idbSave();}
+  function drawSales(){var box=document.getElementById('saleslist');box.innerHTML='';
+    if(!salesFiles.length){box.innerHTML='<div class="sl-empty">아직 매출 파일이 없습니다.</div>';return;}
+    salesFiles.forEach(function(s){var row=document.createElement('div');row.className='sl-row';
+      var opts=BRANDS.map(function(b){return '<option value="'+b.key+'"'+(b.key===s.brand?' selected':'')+'>'+b.icon+' '+b.key+'</option>';}).join('');
+      row.innerHTML='<span class="tag t-s">xlsx</span><span class="sl-nm">'+esc(s.file.name)+'</span>'
+        +'<select onchange="DG.setSalesBrand('+s.id+',this.value)">'+opts+'</select>'
+        +'<button class="rm" title="제거" onclick="DG.removeSales('+s.id+')">✕</button>';
+      box.appendChild(row);});}
+  function refreshRun(){
+    // 실행 가능: JSON이 있고 그 브랜드에 매출이 1개 이상 배정된 브랜드가 1개 이상
+    var ok=BRANDS.some(function(b){return store[b.key].jsonFile&&salesFiles.some(function(s){return s.brand===b.key;});});
+    document.getElementById('run').disabled=!ok;}
   function loadedKeys(){return BRANDS.filter(function(b){return store[b.key].comp;}).map(function(b){return b.key;});}
+
+  // ── 업로드 섹션 접기/펴기 ──
+  function toggleUp(){var box=document.getElementById('upbox');collapseUp(!box.classList.contains('collapsed'));}
+  function collapseUp(c){var box=document.getElementById('upbox');box.classList.toggle('collapsed',c);
+    document.getElementById('uptoggle').textContent=c?'▼ 펼치기':'▲ 접기';}
+
+  // ── IndexedDB: 업로드 파일 기억 ──
+  function idbOpen(cb){var rq=indexedDB.open('sis_db',1);
+    rq.onupgradeneeded=function(){rq.result.createObjectStore('kv');};
+    rq.onsuccess=function(){cb(rq.result);};rq.onerror=function(){cb(null);};}
+  function idbSave(){try{idbOpen(function(db){if(!db)return;var tx=db.transaction('kv','readwrite');
+    var brandsObj={};BRANDS.forEach(function(b){if(store[b.key].jsonFile)brandsObj[b.key]=store[b.key].jsonFile;});
+    var sales=salesFiles.map(function(s){return {id:s.id,file:s.file,brand:s.brand};});
+    tx.objectStore('kv').put({brands:brandsObj,sales:sales,seq:salesSeq},'state');});}catch(e){}}
+  function idbLoad(done){try{idbOpen(function(db){if(!db){done();return;}var tx=db.transaction('kv','readonly');
+    var rq=tx.objectStore('kv').get('state');
+    rq.onsuccess=function(){var st=rq.result;if(st){
+      BRANDS.forEach(function(b){if(st.brands&&st.brands[b.key])store[b.key].jsonFile=st.brands[b.key];});
+      salesFiles=(st.sales||[]).map(function(s){return {id:s.id,file:s.file,brand:s.brand};});
+      salesSeq=st.seq||salesFiles.reduce(function(m,s){return Math.max(m,s.id||0);},0);}
+      done();};
+    rq.onerror=function(){done();};});}catch(e){done();}}
+  function idbClear(){try{idbOpen(function(db){if(!db)return;db.transaction('kv','readwrite').objectStore('kv').delete('state');});}catch(e){}}
+  function clearAll(){try{localStorage.removeItem(CKEY);}catch(e){}idbClear();location.reload();}
 
   async function buildComputed(files,defName){
     if(!window.XLSX) throw '엑셀 라이브러리를 불러오지 못했습니다(인터넷 확인).';
@@ -347,11 +426,17 @@ var DG=(function(){
   }
   async function run(){
     document.getElementById('status').textContent='분석 중…';
-    for(var i=0;i<BRANDS.length;i++){var b=BRANDS[i];if(store[b.key].files.length){store[b.key].comp=await buildComputed(store[b.key].files,b.key);}}
-    var keys=loadedKeys(); if(!keys.length) throw '브랜드 파일이 없습니다.';
+    var skipped=[];
+    for(var i=0;i<BRANDS.length;i++){var b=BRANDS[i];
+      var jf=store[b.key].jsonFile;
+      var sf=salesFiles.filter(function(s){return s.brand===b.key;}).map(function(s){return s.file;});
+      if(jf&&sf.length){store[b.key].comp=await buildComputed([jf].concat(sf),b.key);}
+      else{store[b.key].comp=null; if(jf||sf.length)skipped.push(b.key+'('+(!jf?'JSON 없음':'매출 미배정')+')');}
+    }
+    var keys=loadedKeys(); if(!keys.length) throw '분석할 브랜드가 없습니다 — 브랜드 JSON과 그 브랜드로 지정된 매출이 모두 필요합니다.';
     saveCache(); document.getElementById('cachebar').classList.add('hide');
-    document.getElementById('status').textContent='완료! ('+keys.length+'개 브랜드: '+keys.join(', ')+')';
-    selBrand=null; showResult();
+    document.getElementById('status').textContent='완료! ('+keys.length+'개 브랜드: '+keys.join(', ')+')'+(skipped.length?' · 제외: '+skipped.join(', '):'');
+    selBrand=null; showResult(); collapseUp(true);
   }
   function saveCache(){try{var o={};BRANDS.forEach(function(b){if(store[b.key].comp)o[b.key]=store[b.key].comp;});localStorage.setItem(CKEY,JSON.stringify(o));}catch(e){}}
   function loadCache(){try{var o=JSON.parse(localStorage.getItem(CKEY));return(o&&typeof o==='object')?o:null;}catch(e){return null;}}
@@ -552,7 +637,7 @@ var DG=(function(){
     }
   }
   if(document.readyState!=='loading')init();else document.addEventListener('DOMContentLoaded',init);
-  return {tab:tab,mode:mode,selBrand:selectBrand};
+  return {tab:tab,mode:mode,selBrand:selectBrand,toggleUp:toggleUp,rmJson:removeJson,setSalesBrand:setSalesBrand,removeSales:removeSales};
 })();
 </script>
 </body>
