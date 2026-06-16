@@ -34,6 +34,9 @@
   section.collapsed{padding-bottom:12px;}
   section.collapsed > h2{margin-bottom:0;padding-bottom:0;border-bottom:none;}
   section.collapsed > :not(h2){display:none !important;}
+  section.bcollapsed .storewrap{display:none !important;}
+  h3 .cind{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid var(--line);border-radius:5px;color:#868e96;font-size:11px;font-weight:800;background:#f8f9fa;cursor:pointer;margin-right:6px;vertical-align:middle;}
+  h3 .cind:hover{border-color:var(--accent);color:var(--accent);}
   h3{font-size:15px;margin:24px 0 8px;padding:8px 12px;background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 6px 6px 0;}
   .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
   .drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfc;}
@@ -172,8 +175,20 @@
     <button class="vtab" data-v="buy">매입가 관리</button>
     <button class="vtab" data-v="match">매장 매칭표</button>
     <button class="vtab" data-v="cal">스케줄 달력</button>
+    <button class="vtab" data-v="hist">업로드 기록</button>
     <button class="vtab" data-v="log">공문 발송 기록</button>
   </div>
+
+  <section id="histView" style="display:none">
+    <h2>업로드 기록 <span class="muted" id="histCount" style="font-weight:400"></span></h2>
+    <div class="note">업로드한 원본 파일(POS 매출·물류 원장·전월 데이터)을 <b>일자별로 기억</b>합니다. <b>불러오기</b>로 그 파일을 다시 적용하고, <b>내보내기/가져오기(.zip)</b>로 다른 PC와 주고받을 수 있어요. (이 PC 브라우저에 저장)</div>
+    <div class="opts" style="margin:10px 0">
+      <button class="ghost" id="histExport">전체 내보내기(.zip)</button>
+      <label class="ghost" style="border:1px solid var(--accent);color:var(--accent);padding:9px 16px;border-radius:8px;cursor:pointer">가져오기(.zip)<input type="file" id="histImport" accept=".zip" style="display:none"></label>
+      <button class="ghost" id="histClear">전체 삭제</button>
+    </div>
+    <div class="tablewrap"><table><thead><tr><th class="l">일시</th><th class="l">종류</th><th class="l">파일</th><th>크기</th><th class="l"></th></tr></thead><tbody id="histBody"></tbody></table></div>
+  </section>
 
   <section id="logView" style="display:none">
     <h2>사입 경고 공문 발송 기록 <span class="muted" id="logCount" style="font-weight:400"></span></h2>
@@ -497,6 +512,7 @@ function nameSim(a,b){
 // ===== 상태 =====
 const FILES = { pos:[], logi:null, buy:null, prev:null };
 let LOGI_AGG = null;     // {month: {logi: {name, brand, items:{pcode:{qty,supply,total}}}}}
+let LOGI_TOTAL = {};     // {month: {logi: {name, brand, total}}} — 총 물류매출(전·범용 전체)
 let MONTHS = [];
 let POS = null;          // {mate: {real, net, order}}
 let PREVRES = null;      // {logi: {sales}}
@@ -568,7 +584,7 @@ function parseLogi(rows){
     total:colIndex(H,["총합계","합계"],["부가","공급"])
   };
   if(ci.ym<0||ci.code<0||ci.supply<0||ci.jb<0) return {error:"물류 원장 컬럼 인식 실패 (발주일/사업장코드/공급가/전·범용 확인)"};
-  const agg={}, dir={}, sis={};   // sis: 샵인샵(+신규샵인샵) 월별 총합계 합
+  const agg={}, dir={}, sis={}, tot={};   // sis: 샵인샵 월별 총합계 / tot: 매장별 총물류매출(전·범용 전체)
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]; if(!row||row[ci.ym]==null||row[ci.ym]==="")continue;
     const brand=String(row[ci.brand]||"").trim();
@@ -580,6 +596,11 @@ function parseLogi(rows){
     const ymA=toCode(row[ci.ym]), codeA=toCode(row[ci.code]);
     if(!dir[codeA])dir[codeA]={name:String(row[ci.sname]||"").trim(), brand, months:new Set()};
     dir[codeA].months.add(ymA);
+    // 총 물류매출(전용+범용 전체) 매장별 합계
+    const rowTotal=ci.total>=0?toNum(row[ci.total]):toNum(row[ci.supply])*1.1;
+    if(!tot[ymA])tot[ymA]={};
+    if(!tot[ymA][codeA])tot[ymA][codeA]={name:String(row[ci.sname]||"").trim(), brand, total:0};
+    tot[ymA][codeA].total+=rowTotal;
     if(String(row[ci.jb]||"").trim()!=="전용") continue;       // 전용만 집계
     const ym=toCode(row[ci.ym]), code=toCode(row[ci.code]), pcode=toCode(row[ci.pcode]);
     const qty=toNum(row[ci.qty]), supply=toNum(row[ci.supply]);
@@ -591,7 +612,7 @@ function parseLogi(rows){
     if(!it[pcode])it[pcode]={qty:0,supply:0,total:0};
     it[pcode].qty+=qty; it[pcode].supply+=supply; it[pcode].total+=total;
   }
-  return {agg, dir, sis};
+  return {agg, dir, sis, tot};
 }
 
 // ===== POS 매출 파싱 =====
@@ -659,7 +680,7 @@ const profitRate=m=>m.ex?m.profit/m.ex:0;
 
 // 리스트 정렬·필터 상태 (브랜드별)
 let BRAND_VIEW={};
-function bview(b){ if(!BRAND_VIEW[b])BRAND_VIEW[b]={sort:"sales",dir:-1,filter:"all"}; return BRAND_VIEW[b]; }
+function bview(b){ if(!BRAND_VIEW[b])BRAND_VIEW[b]={sort:"sales",dir:-1,filter:"all",q:""}; return BRAND_VIEW[b]; }
 const SORT_VAL={ sales:s=>s.cur.sales, ex:s=>s.cur.ex, profit:s=>s.cur.profit,
   orate:s=>orderRate(s.cur), prate:s=>profitRate(s.cur), name:s=>s.name,
   salesMoM:s=>{ const p=s.prev?s.prev.sales:0; return p? (s.cur.sales-p)/p : (s.cur.sales>0?9:0); } };
@@ -1019,6 +1040,9 @@ function render(res){
     <div class="legend">증감 <span class="up">▲</span>/<span class="down">▼</span> · 비율 %p · <span class="badge ref" style="margin:0">기준</span> <span class="badge" style="margin:0 0 0 4px">사입</span> <span class="badge openb" style="margin:0 0 0 4px">당월오픈</span>(전월 데이터 없음)</div>`;
   root.appendChild(sum);
 
+  // 매장별 총 물류매출 (전·범용 전체)
+  safePanel("매장별 총 물류매출", ()=>renderTotalLogi(res, root));
+
   // 수기 수정모드 안내(전체 1회)
   const ovN=Object.keys(USER_OV).length;
   if(EDIT_MODE){
@@ -1044,7 +1068,7 @@ function render(res){
             : `<label style="white-space:nowrap;font-size:12px;cursor:pointer"><input type="checkbox" class="saip-chk" data-logi="${s.logi}" ${s.saip?"checked":""}> 사입</label>`)
         : (s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>')));
       const memo=(USER_MEMO[s.logi]||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');
-      rows+=`<tr class="${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}">
+      rows+=`<tr class="bstore-row ${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}" data-name="${esc(s.name).replace(/"/g,'&quot;')}">
         <td class="l">${s.name}${badges}</td>
         ${amtCell(s,'sales')}${amtCell(s,'ex')}
         ${rcell(o,po)}${amtCell(s,'profit')}${rcell(p,pp)}
@@ -1058,9 +1082,10 @@ function render(res){
     const bv=bview(b.brand);
     const sortOpts=SORT_OPTS.map(([v,t])=>`<option value="${v}" ${bv.sort===v?"selected":""}>${t}</option>`).join("");
     const filtOpts=FILT_OPTS.map(([v,t])=>`<option value="${v}" ${bv.filter===v?"selected":""}>${t}</option>`).join("");
-    sec.innerHTML=`<h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    sec.innerHTML=`<h3 data-bk="${esc(b.brand)}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span>${b.brand} <span class="muted" style="font-weight:400">· 기준매장 ${b.ref?b.ref.name+" ("+pct(b.refRate)+")":"미지정"}</span></span>
         <span class="opts" style="margin:0 0 0 auto;font-size:12px;font-weight:400;gap:8px">
+          <label>🔍 <input class="box bq" data-brand="${b.brand}" value="${esc(bv.q||"").replace(/"/g,'&quot;')}" placeholder="매장명 검색" style="width:120px"></label>
           <label>정렬 <select class="box bsort" data-brand="${b.brand}">${sortOpts}</select></label>
           <select class="box bdir" data-brand="${b.brand}"><option value="-1" ${bv.dir<0?"selected":""}>내림 ▼</option><option value="1" ${bv.dir>0?"selected":""}>오름 ▲</option></select>
           <label>구분 <select class="box bfilter" data-brand="${b.brand}">${filtOpts}</select></label>
@@ -1073,7 +1098,12 @@ function render(res){
     sec.querySelector(".bdir").addEventListener("change",e=>{ bview(b.brand).dir=+e.target.value; render(LAST); });
     sec.querySelector(".bfilter").addEventListener("change",e=>{ bview(b.brand).filter=e.target.value; render(LAST); });
     sec.querySelector(".bedit").addEventListener("change",e=>{ EDIT_MODE=e.target.checked; render(LAST); });
+    const bq=sec.querySelector(".bq");
+    function applyBQ(){ const q=(bview(b.brand).q||"").trim().toLowerCase();
+      sec.querySelectorAll("tr.bstore-row").forEach(tr=>{ tr.style.display=(!q||(tr.dataset.name||"").toLowerCase().indexOf(q)>=0)?"":"none"; }); }
+    if(bq){ bq.addEventListener("input",e=>{ bview(b.brand).q=e.target.value; applyBQ(); }); }
     root.appendChild(sec);
+    applyBQ();
   });
   // 매장별 특이사항 메모 입력 저장
   root.querySelectorAll(".memo-in").forEach(el=>el.addEventListener("input",e=>{
@@ -1225,6 +1255,43 @@ function renderCompareResult(res, logi){
   }));
   const rb=document.getElementById("cmpMergeReset");
   if(rb) rb.addEventListener("click",()=>{ if(!ITEM_SYN.length){ alert("수동으로 합친 품목이 없습니다."); return; } if(confirm("수동으로 합친 품목 그룹을 모두 초기화할까요?")){ ITEM_SYN=[]; saveItemSyn(); renderCompareResult(res, logi); } });
+}
+
+// 매장별 총 물류매출 섹션 (전·범용 전체 발주 총합계) — 매장명 검색(즉시 필터)
+let TOTLOGI_Q="";
+function renderTotalLogi(res, root){
+  const cur=res.cur, prev=res.prev;
+  const curT=LOGI_TOTAL[cur]||{}, prevT=prev?(LOGI_TOTAL[prev]||{}):{};
+  const byCanon={};
+  for(const code in curT){ const c=canon(code), o=curT[code];
+    if(!byCanon[c])byCanon[c]={name:o.name,brand:o.brand,cur:0,prev:0};
+    byCanon[c].cur+=o.total; if(code===c){ byCanon[c].name=o.name; byCanon[c].brand=o.brand; } }
+  for(const code in prevT){ const c=canon(code), o=prevT[code];
+    if(!byCanon[c])byCanon[c]={name:o.name,brand:o.brand,cur:0,prev:0};
+    byCanon[c].prev+=o.total; }
+  const brands={};
+  Object.values(byCanon).forEach(s=>{ if(TARGET_BRANDS.indexOf(s.brand)<0)return; (brands[s.brand]=brands[s.brand]||[]).push(s); });
+  if(!Object.keys(brands).length) return;
+  const sec=document.createElement("section");
+  let html=`<h2>매장별 총 물류매출 <span class="muted" style="font-weight:400">· 전·범용 전체 발주 총합계 · 당월 ${cur||"-"}</span></h2>
+    <div class="opts" style="margin:0 0 8px"><label>매장명 검색 <input class="box" id="totLogiQ" value="${esc(TOTLOGI_Q).replace(/"/g,'&quot;')}" placeholder="매장명 일부" style="width:200px"></label></div>`;
+  let gcur=0, gprev=0;
+  Object.keys(brands).sort().forEach(b=>{
+    const arr=brands[b].slice().sort((x,y)=>y.cur-x.cur);
+    let bc=0,bp=0; arr.forEach(s=>{ bc+=s.cur; bp+=s.prev; }); gcur+=bc; gprev+=bp;
+    const rows=arr.map(s=>{ const nm=(s.name||"").replace(/_/g," ");
+      return `<tr class="tl-row" data-name="${esc(nm).replace(/"/g,'&quot;')}"><td class="l">${esc(nm)}</td><td class="num">${won(s.cur)}</td><td class="num sub">${won(s.prev)}</td><td class="num">${deltaPct(s.cur,s.prev)}</td></tr>`; }).join("");
+    html+=`<h3>${b} <span class="muted" style="font-weight:400">· ${arr.length}개 매장 · 총 ${won(bc)}원</span></h3>
+      <div class="tablewrap storewrap"><table><thead><tr><th class="l">매장명</th><th>총 물류매출(당월)</th><th>전월</th><th>전월대비</th></tr></thead>
+      <tbody><tr class="brandtot"><td class="l">합계 (${arr.length})</td><td class="num">${won(bc)}</td><td class="num">${won(bp)}</td><td class="num">${deltaPct(bc,bp)}</td></tr>${rows}</tbody></table></div>`;
+  });
+  html+=`<div class="card" style="margin-top:10px"><div class="row"><span>전체 총 물류매출</span><span class="v">${won(gcur)}원 ${deltaPct(gcur,gprev)}</span></div></div>`;
+  sec.innerHTML=html; root.appendChild(sec);
+  const qi=sec.querySelector("#totLogiQ");
+  function applyQ(){ const q=TOTLOGI_Q.trim().toLowerCase();
+    sec.querySelectorAll(".tl-row").forEach(tr=>{ const nm=(tr.dataset.name||"").toLowerCase(); tr.style.display=(!q||nm.indexOf(q)>=0)?"":"none"; }); }
+  if(qi) qi.addEventListener("input",e=>{ TOTLOGI_Q=e.target.value; applyQ(); });
+  applyQ();
 }
 
 // 발주 품목 비교 결과를 '매장 전달용' 이미지(PNG)로 저장
@@ -1439,7 +1506,7 @@ function initCollapsibles(){
   document.querySelectorAll("main section > h2").forEach(h2=>{
     if(h2.dataset.collap) return;                 // 이미 처리됨
     const sec=h2.parentElement;
-    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView") return;   // 탭 전용 뷰는 제외
+    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView"||sec.id==="histView") return;   // 탭 전용 뷰는 제외
     const key=collapKey(h2); if(!key) return;
     h2.dataset.collap=key; h2.classList.add("collap");
     const ind=document.createElement("span"); ind.className="cind";
@@ -1447,6 +1514,17 @@ function initCollapsibles(){
     const apply=()=>{ const c=!!COLLAPSED[key]; sec.classList.toggle("collapsed",c); ind.textContent=c?"▸":"▾"; ind.title=c?"펼치기":"접기"; };
     apply();
     h2.addEventListener("click",()=>{ COLLAPSED[key]=!COLLAPSED[key]; localStorage.setItem(COLLAP_KEY,JSON.stringify(COLLAPSED)); apply(); });
+  });
+  // 브랜드 상세(h3) 접기 — 제목 앞 ▾ 인디케이터로만 토글(컨트롤 클릭과 충돌 방지), 표만 숨김
+  document.querySelectorAll("main section > h3[data-bk]").forEach(h3=>{
+    if(h3.dataset.collap) return;
+    const sec=h3.parentElement, key="h3:"+(h3.dataset.bk||"");
+    h3.dataset.collap=key;
+    const ind=document.createElement("span"); ind.className="cind";
+    h3.insertBefore(ind, h3.firstChild);
+    const apply=()=>{ const c=!!COLLAPSED[key]; sec.classList.toggle("bcollapsed",c); ind.textContent=c?"▸":"▾"; ind.title=c?"펼치기":"접기"; };
+    apply();
+    ind.addEventListener("click",(e)=>{ e.stopPropagation(); COLLAPSED[key]=!COLLAPSED[key]; localStorage.setItem(COLLAP_KEY,JSON.stringify(COLLAPSED)); apply(); });
   });
 }
 
@@ -1532,7 +1610,7 @@ function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.le
 // 파일 처리
 function processLogi(file){ readRows(file, rows=>{ const r=parseLogi(rows);
   if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); return; }
-  LOGI_AGG=r.agg; STORE_DIR=r.dir; SIS_BY_MONTH=r.sis||{}; MONTHS=Object.keys(r.agg).sort();
+  LOGI_AGG=r.agg; STORE_DIR=r.dir; SIS_BY_MONTH=r.sis||{}; LOGI_TOTAL=r.tot||{}; MONTHS=Object.keys(r.agg).sort();
   const sel=document.getElementById("curMonth"); sel.innerHTML="";
   MONTHS.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
   sel.value=MONTHS[MONTHS.length-1];
@@ -1584,6 +1662,7 @@ function bindDrop(id){
     if(kind==="pos"){ FILES.pos=[...fl]; lbl.textContent=FILES.pos.map(f=>f.name).join(", "); processPos(FILES.pos); }
     else { FILES[kind]=fl[0]; lbl.textContent=fl[0].name;
       if(kind==="logi")processLogi(fl[0]); else if(kind==="buy")processBuy(fl[0]); else if(kind==="prev")processPrev(fl[0]); }
+    saveUpload(kind, fl);   // 업로드 파일 기억(일자별)
   }
   input.addEventListener("change",e=>handle(e.target.files));
   ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
@@ -1591,6 +1670,81 @@ function bindDrop(id){
   drop.addEventListener("drop",e=>handle(e.dataTransfer.files));
 }
 ["drop-pos","drop-logi","drop-prev"].forEach(bindDrop);
+
+// ===== 업로드 파일 기억(일자별, IndexedDB) + 내보내기/가져오기(.zip) =====
+const HIST_DB="monthlyCloseHist", HIST_STORE="uploads";
+const HIST_LABEL={pos:"POS 매출", logi:"물류 원장", prev:"전월 데이터", buy:"매입가"};
+function idbOpen(){ return new Promise((res,rej)=>{ const rq=indexedDB.open(HIST_DB,1);
+  rq.onupgradeneeded=()=>{ if(!rq.result.objectStoreNames.contains(HIST_STORE)) rq.result.createObjectStore(HIST_STORE,{keyPath:"id"}); };
+  rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+function idbTx(mode, fn){ return idbOpen().then(db=>new Promise((res,rej)=>{ const tx=db.transaction(HIST_STORE,mode), st=tx.objectStore(HIST_STORE); let out; out=fn(st); tx.oncomplete=()=>res(out&&out.result!==undefined?out.result:out); tx.onerror=()=>rej(tx.error); })); }
+function histPut(rec){ return idbTx("readwrite", st=>st.put(rec)); }
+function histAll(){ return idbOpen().then(db=>new Promise((res,rej)=>{ const rq=db.transaction(HIST_STORE,"readonly").objectStore(HIST_STORE).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); })); }
+function histGet(id){ return idbOpen().then(db=>new Promise((res,rej)=>{ const rq=db.transaction(HIST_STORE,"readonly").objectStore(HIST_STORE).get(id); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); })); }
+function histDel(id){ return idbTx("readwrite", st=>st.delete(id)); }
+function histClearAll(){ return idbTx("readwrite", st=>st.clear()); }
+function ab2b64(buf){ const b=new Uint8Array(buf); let s=""; const CH=0x8000; for(let i=0;i<b.length;i+=CH){ s+=String.fromCharCode.apply(null,b.subarray(i,i+CH)); } return btoa(s); }
+function b64ToBlob(b64){ const bin=atob(b64), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); return new Blob([u8]); }
+async function saveUpload(kind, fileList){
+  if(!window.indexedDB) return;
+  try{
+    const files=[];
+    for(const f of Array.from(fileList)){ const buf=await f.arrayBuffer(); files.push({name:f.name||("파일."+kind), size:buf.byteLength, b64:ab2b64(buf)}); }
+    const ts=Date.now();
+    await histPut({id:"u"+ts+"_"+Math.random().toString(36).slice(2,5), ts, kind, files});
+    if(document.getElementById("histView").style.display!=="none") renderHist();
+  }catch(e){ console.error("saveUpload",e); }
+}
+function fmtTs(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function fmtSize(n){ return n>=1048576?(n/1048576).toFixed(1)+"MB":(n>=1024?(n/1024).toFixed(0)+"KB":n+"B"); }
+function loadUploadRecord(rec){
+  const blobs=rec.files.map(f=>{ const b=b64ToBlob(f.b64); try{ b.name=f.name; }catch(e){} return b; });
+  if(rec.kind==="pos"){ FILES.pos=blobs; const l=document.querySelector("#drop-pos [data-file]"); if(l)l.textContent=rec.files.map(f=>f.name).join(", "); processPos(blobs); }
+  else { FILES[rec.kind]=blobs[0]; const l=document.querySelector("#drop-"+rec.kind+" [data-file]"); if(l)l.textContent=rec.files[0].name;
+    if(rec.kind==="logi")processLogi(blobs[0]); else if(rec.kind==="buy")processBuy(blobs[0]); else if(rec.kind==="prev")processPrev(blobs[0]); }
+  showView("main");
+  setMsg(`<div class="msg ok">업로드 기록에서 <b>${HIST_LABEL[rec.kind]||rec.kind}</b> (${fmtTs(rec.ts)})를 불러왔습니다.</div>`);
+}
+async function renderHist(){
+  const body=document.getElementById("histBody"); if(!body)return;
+  let recs=[]; try{ recs=await histAll(); }catch(e){ body.innerHTML=`<tr><td colspan="5" class="muted">기록 저장소를 열 수 없습니다.</td></tr>`; return; }
+  recs.sort((a,b)=>b.ts-a.ts);
+  document.getElementById("histCount").textContent=recs.length?`· ${recs.length}건`:"";
+  body.innerHTML = recs.length ? recs.map(r=>{
+    const names=r.files.map(f=>esc(f.name)).join("<br>");
+    const size=r.files.reduce((s,f)=>s+(f.size||0),0);
+    return `<tr><td class="l">${fmtTs(r.ts)}</td><td class="l"><span class="badge openb">${HIST_LABEL[r.kind]||r.kind}</span></td>
+      <td class="l" style="font-size:12px">${names}</td><td class="num">${fmtSize(size)}</td>
+      <td class="l"><button class="hist-load" data-id="${r.id}" style="padding:3px 10px">불러오기</button> <button class="ghost hist-del" data-id="${r.id}" style="padding:3px 10px">삭제</button></td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="muted">저장된 업로드가 없습니다. 월마감 정산에서 파일을 올리면 여기에 기록됩니다.</td></tr>`;
+  body.querySelectorAll(".hist-load").forEach(b=>b.addEventListener("click",async e=>{ const rec=await histGet(e.target.dataset.id); if(rec)loadUploadRecord(rec); }));
+  body.querySelectorAll(".hist-del").forEach(b=>b.addEventListener("click",async e=>{ if(confirm("이 업로드 기록을 삭제할까요?")){ await histDel(e.target.dataset.id); renderHist(); } }));
+}
+document.getElementById("histExport").addEventListener("click",async ()=>{
+  const recs=await histAll(); if(!recs.length){ alert("내보낼 기록이 없습니다."); return; }
+  if(typeof JSZip==="undefined"){ alert("압축 라이브러리 로드 실패"); return; }
+  const zip=new JSZip();
+  const manifest=recs.map(r=>({id:r.id, ts:r.ts, kind:r.kind, files:r.files.map((f,i)=>({name:f.name, size:f.size, path:r.id+"/"+i+"_"+f.name}))}));
+  recs.forEach(r=>r.files.forEach((f,i)=>zip.file(r.id+"/"+i+"_"+f.name, f.b64, {base64:true})));
+  zip.file("manifest.json", JSON.stringify(manifest));
+  const blob=await zip.generateAsync({type:"blob"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`업로드기록_${new Date().toISOString().slice(0,10)}.zip`; a.click();
+});
+document.getElementById("histImport").addEventListener("change",async e=>{
+  const file=e.target.files[0]; if(!file)return;
+  try{
+    const zip=await JSZip.loadAsync(file);
+    const mf=zip.file("manifest.json"); if(!mf){ alert("올바른 백업(.zip)이 아닙니다."); return; }
+    const manifest=JSON.parse(await mf.async("string"));
+    for(const m of manifest){ const files=[];
+      for(const f of m.files){ const zf=zip.file(f.path); if(!zf)continue; files.push({name:f.name, size:f.size, b64:await zf.async("base64")}); }
+      await histPut({id:m.id, ts:m.ts, kind:m.kind, files});
+    }
+    renderHist(); alert("가져오기 완료");
+  }catch(x){ alert("가져오기 오류: "+x.message); }
+  e.target.value="";
+});
+document.getElementById("histClear").addEventListener("click",async ()=>{ if(confirm("업로드 기록을 모두 삭제할까요?")){ await histClearAll(); renderHist(); } });
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
 ["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(id==="curMonth")renderExtra(); if(LAST)rerun(); }));
@@ -1823,10 +1977,12 @@ function showView(v){
   document.getElementById("buyView").style.display = v==="buy"?"":"none";
   document.getElementById("matchView").style.display = v==="match"?"":"none";
   document.getElementById("calView").style.display = v==="cal"?"":"none";
+  document.getElementById("histView").style.display = v==="hist"?"":"none";
   document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
   if(v==="match") renderMatchTable();
   if(v==="cal") renderCalendar();
+  if(v==="hist") renderHist();
   if(v==="log") renderGongmunLog();
 }
 document.querySelectorAll("#topTabs .vtab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.v)));
