@@ -16,6 +16,7 @@ const TABS = [
   { href: "/dwelling", label: "무인의 거처" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
+  { href: "/changelog", label: "업데이트" },
 ];
 
 type Tab = (typeof TABS)[number];
@@ -51,13 +52,6 @@ export default function TabNav() {
     setOrder(next);
     try { localStorage.setItem("tab-order", JSON.stringify(next.map((t) => t.href))); } catch { /* 무시 */ }
   }
-  function move(i: number, dir: -1 | 1) {
-    const j = i + dir;
-    if (j < 0 || j >= order.length) return;
-    const next = order.slice();
-    [next[i], next[j]] = [next[j], next[i]];
-    save(next);
-  }
   function onDrop(target: number) {
     const from = dragIndex.current;
     dragIndex.current = null;
@@ -82,11 +76,11 @@ export default function TabNav() {
             onDragStart={() => { dragIndex.current = i; }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => onDrop(i)}
-            className="flex cursor-grab items-center gap-1 rounded-md border border-dashed border-white/25 bg-white/5 px-2 py-1.5 text-sm text-white/75 active:cursor-grabbing"
+            className="flex cursor-grab select-none items-center gap-1.5 rounded-md border border-dashed border-white/25 bg-white/5 px-3 py-1.5 text-sm text-white/75 active:cursor-grabbing"
+            title="드래그해서 순서 이동"
           >
-            <button onClick={() => move(i, -1)} disabled={i === 0} className="px-0.5 text-white/40 hover:text-white disabled:opacity-20" title="왼쪽으로">◀</button>
-            <span className="select-none">{tab.label}</span>
-            <button onClick={() => move(i, 1)} disabled={i === order.length - 1} className="px-0.5 text-white/40 hover:text-white disabled:opacity-20" title="오른쪽으로">▶</button>
+            <span className="text-white/30">⠿</span>
+            {tab.label}
           </div>
         ) : (
           <Link
