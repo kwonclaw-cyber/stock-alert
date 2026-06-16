@@ -17,6 +17,14 @@
 //  ★ 200개 매장은 반드시 '매장별로 따로' __save() 하세요. (한 세션에 여러 매장을 쌓으면 섞입니다)
 //  ★ 매장이 바뀐 게 감지되면 자동으로 초기화합니다. 수동 초기화는 __reset().
 //  ★ 매장명을 미리 지정하려면 __setName('육식사관학교 강동천호점').
+//
+// ─── 매출 수집(브랜드별 배민 매출) ───────────────────────────
+//  메이트 매출은 샵인샵 합산이라 브랜드 구분이 안 됩니다. 브랜드별 매출은 배민(가게별)에서만 나옵니다.
+//  1) self.baemin.com → 그 브랜드(가게) 선택 → '매출' 화면.
+//  2) 콘솔에 이 코드 붙여넣기(이미 설치돼 있으면 생략) → __sales()  (매출 캡처 ON)
+//  3) 원하는 기간/필터로 '조회'(필요시 새로고침). 일별·시간대 탭도 한 번씩 열기. (응답이 자동 캡처됨)
+//  4) __saveSales() → baemin_매출_<매장번호>_<매장명>.json 다운로드. (브랜드마다 따로)
+//  ※ 정확한 매출 API 구조를 모르므로, 매출 화면의 self-api 응답을 통째로 저장합니다.
 // ─────────────────────────────────────────────────────────────
 (() => {
   if (window.__bmReady) { console.log('이미 설치됨. 탭 조회/스크롤 후 __save() 하세요. (다른 매장이면 새로고침 후 다시 붙여넣기)'); return; }
@@ -80,7 +88,7 @@
   window.fetch = function (input, init) {
     const url = (typeof input === 'string') ? input : (input && input.url);
     return origFetch.apply(this, arguments).then(res => {
-      try { if (url && url.indexOf('self-api.baemin.com') >= 0) res.clone().text().then(t => absorb(url, t)).catch(() => {}); } catch (e) {}
+      try { if (url && url.indexOf('self-api.baemin.com') >= 0) res.clone().text().then(t => { absorb(url, t); absorbSales(url, t); }).catch(() => {}); } catch (e) {}
       return res;
     });
   };
@@ -91,10 +99,43 @@
   const oSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.send = function () {
     this.addEventListener('load', () => {
-      try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0) absorb(this.__u, this.responseText); } catch (e) {}
+      try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0) { absorb(this.__u, this.responseText); absorbSales(this.__u, this.responseText); } } catch (e) {}
     });
     return oSend.apply(this, arguments);
   };
+
+  // ── 매출 수집(확장): '매출' 화면의 self-api 응답을 통째로 캡처(일별/시간대 데이터 확보용) ──
+  const salesStore = { type: 'baemin_sales_raw', shopNumber: null, shopName: null, capturedAt: null, responses: [] };
+  let salesArmed = false;
+  function absorbSales(url, text) {
+    if (!salesArmed || !url || url.indexOf('self-api.baemin.com') < 0 || !text) return;
+    if (/modify-history|promotions\/history/.test(url)) return; // 변경이력은 제외
+    let data; try { data = JSON.parse(text); } catch (e) { return; }
+    const m = url.match(/shopNumber=(\d+)/); if (m) salesStore.shopNumber = m[1];
+    grabName(data); if (store.shopName) salesStore.shopName = store.shopName;
+    const rec = { url: url, ts: Date.now(), json: data };
+    const i = salesStore.responses.findIndex(c => c.url === url);
+    if (i >= 0) salesStore.responses[i] = rec; else salesStore.responses.push(rec);
+    if (salesStore.responses.length > 150) salesStore.responses.shift();
+    console.log('  +매출 응답 캡처: ' + url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] + '  (누적 ' + salesStore.responses.length + ')');
+  }
+  // 매출 캡처 ON → 매출 화면에서 기간/필터 조회(필요시 새로고침), 일별·시간대 탭도 열기 → __saveSales()
+  window.__sales = function () { salesArmed = true; console.log('%c[매출 캡처 ON] 매출 화면에서 기간/필터를 정하고 조회(필요시 새로고침)하세요. 일별·시간대 탭도 한 번씩 열면 같이 잡힙니다. 끝나면 __saveSales().', 'color:#1971c2;font-weight:bold;font-size:13px'); };
+  window.__salesOff = function () { salesArmed = false; console.log('매출 캡처 OFF'); };
+  window.__saveSales = function () {
+    if (!salesStore.responses.length) { console.warn('캡처된 매출 응답이 없습니다. __sales() 실행 후 매출 화면을 조회/새로고침 하세요.'); return; }
+    if (!salesStore.shopName && store.shopName) salesStore.shopName = store.shopName;
+    if (!salesStore.shopName) { const g = window.prompt('이 매장(브랜드)명을 입력하세요.\n(예: 제로고기찜 보라매점)', ''); if (g && g.trim()) salesStore.shopName = g.trim(); }
+    salesStore.capturedAt = new Date().toISOString();
+    const safe = (salesStore.shopName || '').replace(/[\\/:*?"<>|]/g, '').trim();
+    const blob = new Blob([JSON.stringify(salesStore, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'baemin_매출_' + (salesStore.shopNumber || 'shop') + (safe ? ('_' + safe) : '') + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    console.log('%c✓ 매출 응답 ' + salesStore.responses.length + '건 저장: ' + a.download, 'color:green;font-weight:bold;font-size:14px');
+  };
+  window.__bmSales = salesStore;
+
 
   // 현재 탭 목록을 끝까지 자동 스크롤해서 모두 불러온다
   window.__scrollAll = async function () {
@@ -243,5 +284,6 @@
 
   window.__bmStore = store;
   window.__bmReady = true;
-  console.log('%c[설치완료] ⚡ __auto() 하면 자동으로 다 모으고 저장합니다. (수동: 탭 조회 → __scrollAll() → __save())', 'color:#e8590c;font-weight:bold;font-size:14px');
+  console.log('%c[설치완료] ⚡ 변경이력: __auto() → 자동 수집·저장. (수동: 탭 조회 → __scrollAll() → __save())', 'color:#e8590c;font-weight:bold;font-size:14px');
+  console.log('%c💰 매출 수집: __sales() 후 \'매출\' 화면 조회(일별·시간대 탭 열기) → __saveSales()', 'color:#1971c2;font-weight:bold;font-size:13px');
 })();
