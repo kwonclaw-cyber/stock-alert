@@ -320,8 +320,28 @@ var DG=(function(){
     if(!bundle) throw defName+': 배민 변경이력 JSON이 필요합니다.';
     if(!ju.length && !si.length) throw defName+': matetech 매출 엑셀이 필요합니다.';
     var gd=SAMPLE.getDaily({ju:SAMPLE.parseJu(ju),hourly:SAMPLE.parseSi(si)});
-    return {gd:gd,hourly:SAMPLE.parseSi(si),changes:SAMPLE.parseBundle(bundle),
+    var comp={gd:gd,hourly:SAMPLE.parseSi(si),changes:SAMPLE.parseBundle(bundle),
             cats:SAMPLE.categorize(SAMPLE.parseBundle(bundle)),name:defName,shopNumber:bundle.shopNumber};
+    return clipToChanges(comp);
+  }
+  // 변경이력이 매출보다 짧으면, 매출을 변경이력 기간(첫 변경~마지막 변경)에 맞춰 잘라서 분석
+  function clipToChanges(comp){
+    var cd=comp.changes.map(function(c){return c.date;}).filter(Boolean).sort();
+    var sd=Object.keys(comp.gd.daily).sort();
+    if(!cd.length||!sd.length) return comp;
+    var ss=sd[0], se=sd[sd.length-1], cs=cd[0], ce=cd[cd.length-1];
+    var lo=cs>ss?cs:ss, hi=ce<se?ce:se;
+    comp._fullRange=[ss,se];
+    if(lo>hi){comp._clipped=false;comp._warn=true;comp._range=[ss,se];return comp;} // 겹치는 구간 없음 → 클립 안 함
+    comp._range=[lo,hi];
+    comp._clipped=(lo!==ss)||(hi!==se);
+    if(!comp._clipped) return comp;
+    var kept=0,total=0;
+    var nd={}; for(var k in comp.gd.daily){total++; if(k>=lo&&k<=hi){nd[k]=comp.gd.daily[k];kept++;}} comp.gd.daily=nd;
+    if(comp.gd.ju){var nj={};for(var k2 in comp.gd.ju){if(k2>=lo&&k2<=hi)nj[k2]=comp.gd.ju[k2];}comp.gd.ju=nj;}
+    comp.hourly=comp.hourly.filter(function(h){return h.date>=lo&&h.date<=hi;});
+    comp._excluded=total-kept;
+    return comp;
   }
   async function run(){
     document.getElementById('status').textContent='분석 중…';
@@ -397,6 +417,13 @@ var DG=(function(){
       +(c.gd.hasChannel?kpi('🛒','쿠팡 비중',(coup+bae>0?Math.round(coup/(coup+bae)*100):0)+'%','쿠팡 '+manwon(coup)+'원'):kpi('🛒','채널','배달 합산','채널분리 없음'))
       +kpi('⚙️','운영 변경',c.changes.length+'건',Object.keys(g).map(function(k){return k+' '+g[k];}).join(' · '))
       +'</div>';
+    if(!META.unified&&c._clipped){
+      h+='<div class="tip" style="margin:0 0 16px;">🔗 <b>변경이력 기간에 맞춰 매출을 조정</b>했습니다 — 분석구간 <b>'+c._range[0]+' ~ '+c._range[1]+'</b> (전체 매출 '+c._fullRange[0]+'~'+c._fullRange[1]+' 중 '+(c._excluded||0)+'일 제외). 변경이력 밖 매출은 분석에서 제외됩니다.</div>';
+    }
+    if(META.unified&&c.brands){
+      var clp=c.brands.filter(function(b){return b.comp._clipped;});
+      if(clp.length) h+='<div class="tip" style="margin:0 0 16px;">🔗 <b>변경이력이 짧은 브랜드는 변경이력 기간에 맞춰 매출을 조정</b>했습니다 — '+clp.map(function(b){return iconOf(b.key)+' '+esc(b.key)+' ('+b.comp._range[0]+'~'+b.comp._range[1]+', '+(b.comp._excluded||0)+'일 제외)';}).join(' · ')+'</div>';
+    }
     if(META.unified&&c.brands){
       var bsorted=c.brands.slice().sort(function(a,b){return b.sales-a.sales;}),tt=sum(c.brands.map(function(b){return b.sales;}))||1;
       h+='<div class="row2"><div class="cc"><div class="cc-head"><h3>🧩 브랜드별 매출 비중</h3></div><div class="cw"><canvas id="cv-share"></canvas></div></div>'
