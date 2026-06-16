@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>도곡점 전용 대시보드</title>
+<title>샵인샵 전용 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -65,7 +65,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
 </head>
 <body>
 <div class="hdr">
-  <div class="hdr-l"><div class="hdr-logo">🏪</div><div><h1>도곡점 전용 대시보드</h1><p>배민 변경이력 × 매출 — 시간대·요일 패턴과 설정 변경 효과</p></div></div>
+  <div class="hdr-l"><div class="hdr-logo">🏪</div><div><h1>샵인샵 전용 대시보드</h1><p>배민 변경이력 × 매출 — 시간대·요일 패턴과 설정 변경 효과</p></div></div>
   <div class="hdr-date" id="hdrdate"></div>
 </div>
 <div class="nav" id="nav">
@@ -79,13 +79,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
   <div class="cc" style="padding:18px 20px;">
     <div id="drop">
       <div class="dz-icon">📁</div>
-      <div class="dz-main">도곡점 파일을 끌어다 놓으세요</div>
+      <div class="dz-main">샵인샵 파일을 끌어다 놓으세요</div>
       <div class="dz-sub">배민 변경이력 <code>JSON</code> + matetech 매출 <code>xlsx</code>(주문경로별·시간대별, 여러 달 가능)</div>
       <input type="file" id="picker" multiple accept=".json,.xlsx" class="hide">
     </div>
     <ul class="files" id="filelist"></ul>
     <div style="margin-top:14px;"><button class="go" id="run" disabled>대시보드 생성 ▶</button><span id="status" style="margin-left:10px;font-size:13px;color:#64748b;"></span></div>
-    <div id="cachebar" class="cachebar hide">💾 <b>저장된 도곡점 데이터로 보는 중</b> <span id="cacheinfo" style="color:#64748b"></span> · 새 파일을 올리면 교체됩니다.<button id="clearCache">저장 데이터 지우기</button></div>
+    <div id="cachebar" class="cachebar hide">💾 <b>저장된 샵인샵 데이터로 보는 중</b> <span id="cacheinfo" style="color:#64748b"></span> · 새 파일을 올리면 교체됩니다.<button id="clearCache">저장 데이터 지우기</button></div>
     <p id="neednet" style="color:#dc2626;font-size:13px;margin:10px 0 0">⚠ 인터넷이 필요합니다(차트/엑셀 라이브러리 로딩). 연결 후 새로고침하세요.</p>
   </div>
 
@@ -251,7 +251,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
 </script>
 <script>
 
-/* ===== 도곡점 대시보드 앱 (Chart.js) ===== */
+/* ===== 샵인샵 대시보드 앱 (Chart.js) ===== */
 var DG=(function(){
   var SAMPLE=window.SAMPLE, WEEK=['일','월','화','수','목','금','토'];
   var dropped=[], C=null, CKEY='dogok_computed_v1', charts={};
@@ -296,7 +296,7 @@ var DG=(function(){
     if(!ju.length && !si.length) throw 'matetech 매출 엑셀(주문경로별/시간대별)이 필요합니다.';
     var gd=SAMPLE.getDaily({ju:SAMPLE.parseJu(ju),hourly:SAMPLE.parseSi(si)});
     return {gd:gd,hourly:SAMPLE.parseSi(si),changes:SAMPLE.parseBundle(bundle),
-            cats:SAMPLE.categorize(SAMPLE.parseBundle(bundle)),name:(bundle.shopName||'도곡점'),shopNumber:bundle.shopNumber};
+            cats:SAMPLE.categorize(SAMPLE.parseBundle(bundle)),name:(bundle.shopName||'샵인샵'),shopNumber:bundle.shopNumber};
   }
   async function run(){statusEl.textContent='분석 중…';C=await buildComputed(dropped);saveCache(C);
     document.getElementById('cachebar').classList.add('hide');
