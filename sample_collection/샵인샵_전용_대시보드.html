@@ -328,16 +328,18 @@ var DG=(function(){
   function clipToChanges(comp){
     var cd=comp.changes.map(function(c){return c.date;}).filter(Boolean).sort();
     var sd=Object.keys(comp.gd.daily).sort();
-    if(!cd.length||!sd.length) return comp;
+    if(!cd.length||!sd.length){comp._dailyLB=comp.gd.daily;return comp;}
     var ss=sd[0], se=sd[sd.length-1], cs=cd[0], ce=cd[cd.length-1];
     var lo=cs>ss?cs:ss, hi=ce<se?ce:se;
     comp._fullRange=[ss,se];
-    if(lo>hi){comp._clipped=false;comp._warn=true;comp._range=[ss,se];return comp;} // 겹치는 구간 없음 → 클립 안 함
+    if(lo>hi){comp._clipped=false;comp._warn=true;comp._range=[ss,se];comp._dailyLB=comp.gd.daily;return comp;} // 겹치는 구간 없음 → 클립 안 함
     comp._range=[lo,hi];
     comp._clipped=(lo!==ss)||(hi!==se);
+    // 전주대비(WoW) 비교를 위해 분석구간 앞 7일은 lookback용으로만 보존(표시는 분석구간만)
+    var orig=comp.gd.daily, pre=SAMPLE.addDays(lo,-7), loLB=pre<ss?ss:pre;
+    var dlb={}; for(var kk in orig){ if(kk>=loLB&&kk<=hi) dlb[kk]=orig[kk]; } comp._dailyLB=dlb;
     if(!comp._clipped) return comp;
-    var kept=0,total=0;
-    var nd={}; for(var k in comp.gd.daily){total++; if(k>=lo&&k<=hi){nd[k]=comp.gd.daily[k];kept++;}} comp.gd.daily=nd;
+    var kept=0,total=0,nd={}; for(var k in orig){total++; if(k>=lo&&k<=hi){nd[k]=orig[k];kept++;}} comp.gd.daily=nd;
     if(comp.gd.ju){var nj={};for(var k2 in comp.gd.ju){if(k2>=lo&&k2<=hi)nj[k2]=comp.gd.ju[k2];}comp.gd.ju=nj;}
     comp.hourly=comp.hourly.filter(function(h){return h.date>=lo&&h.date<=hi;});
     comp._excluded=total-kept;
@@ -368,7 +370,7 @@ var DG=(function(){
         ['운영시간','할인','우리가게클릭'].forEach(function(kk){c.cats[dt][kk].forEach(function(v){cats[dt][kk].push(v);});});}
       brands.push({key:key,sales:bsum,cnt:bcnt,comp:c});});
     changes.sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:0);});
-    return {gd:{daily:daily,salesName:'매출',hasChannel:hasCh,ju:hasCh?ju:null},hourly:hourly,changes:changes,cats:cats,name:'샵인샵 통합',brands:brands};
+    return {gd:{daily:daily,salesName:hasCh?'배민매출':'배달매출',hasChannel:hasCh,ju:hasCh?ju:null},hourly:hourly,changes:changes,cats:cats,name:'샵인샵 통합',brands:brands};
   }
 
   // ===== 모드/탭 =====
@@ -438,7 +440,7 @@ var DG=(function(){
   function renderHourWeek(){
     document.getElementById('p-hw').innerHTML=
       '<div class="sec">'+(META.unified?'통합 ':'')+'시간대 · 요일 패턴</div>'
-      +'<div class="cc"><div class="cc-head"><h3>🕐 시간대별 매출 비중</h3><small id="hw-op"></small></div><div class="cw"><canvas id="cv-hour"></canvas></div><div class="tip" id="hw-tip"></div></div>'
+      +'<div class="cc"><div class="cc-head"><h3>🕐 시간대별 매출 비중</h3><small id="hw-op">배달(배민) 기준</small></div><div class="cw"><canvas id="cv-hour"></canvas></div><div class="tip" id="hw-tip"></div></div>'
       +'<div class="cc"><div class="cc-head"><h3>📅 요일별 '+VIEW.gd.salesName+'</h3></div><div class="cw"><canvas id="cv-wday"></canvas></div><div class="tip" id="wd-tip"></div></div>';
   }
 
@@ -455,14 +457,14 @@ var DG=(function(){
       var h='<div class="sec">브랜드별 설정 효과 비교</div>'
         +'<p style="font-size:13px;color:#64748b;margin:-4px 0 12px;">각 변경이 있던 날의 <b>전주 동일요일 대비 매출 증감(%)</b> 평균 · 괄호=건수 · <b>참고치</b>.</p>'
         +'<div class="cc"><div class="tablewrap"><table><thead><tr><th>브랜드</th><th>기준선</th><th>운영시간</th><th>할인시작</th><th>할인종료</th><th>클릭비▲</th><th>클릭비▼</th></tr></thead><tbody>';
-      c.brands.forEach(function(b){var a=SAMPLE.analyze(b.comp.gd.daily,b.comp.cats);
+      c.brands.forEach(function(b){var a=SAMPLE.analyze(b.comp._dailyLB||b.comp.gd.daily,b.comp.cats);
         h+='<tr><td>'+iconOf(b.key)+' '+esc(b.key)+'</td><td class="num" style="color:#94a3b8">'+(a.base==null?'-':(a.base>=0?'+':'')+a.base.toFixed(1)+'%')+'</td>'
           +cell(a.op,true,a.base)+cell(a.dStart,true,a.base)+cell(a.dEnd,false,a.base)+cell(a.bidUp,true,a.base)+cell(a.bidDn,false,a.base)+'</tr>';});
       h+='</tbody></table></div></div>';
       h+=changeTable(c,true);
       document.getElementById('p-ef').innerHTML=h;return;
     }
-    var a=SAMPLE.analyze(c.gd.daily,c.cats),base=a.base;
+    var a=SAMPLE.analyze(c._dailyLB||c.gd.daily,c.cats),base=a.base;
     var h='<div class="sec">설정 변경의 매출 효과</div>'
       +'<p style="font-size:13px;color:#64748b;margin:-4px 0 12px;">각 변경이 있던 날의 <b>전주 동일요일 대비 매출 증감(%)</b> 평균. 기준선보다 좋은 쪽이면 초록 · <b>참고치</b>.</p>'
       +'<div class="eff">'+effCard('운영시간 변경',a.op,true,base)+effCard('할인 시작',a.dStart,true,base)+effCard('할인 종료',a.dEnd,false,base)+effCard('클릭비 인상',a.bidUp,true,base)+effCard('클릭비 인하',a.bidDn,false,base)+'</div>'
@@ -514,14 +516,15 @@ var DG=(function(){
             tooltip:{callbacks:{label:function(x){return x.label+' '+manwon(x.raw*10000)+'원';}}}}}});}
     } else if(name==='hw'){
       var bh=[];for(var i=0;i<24;i++)bh.push(0);
-      c.hourly.forEach(function(x){var hr=parseInt(x.slot,10);if(hr>=0&&hr<24)bh[hr]+=x.ta;});
+      var dvTot=0;c.hourly.forEach(function(x){dvTot+=(x.da||0);});var useDv=dvTot>0; // 배달(배민) 매출 우선, 없으면 전체
+      c.hourly.forEach(function(x){var hr=parseInt(x.slot,10);if(hr>=0&&hr<24)bh[hr]+=(useDv?(x.da||0):(x.ta||0));});
       var tot=sum(bh)||1,cum=0,lo=null,hi=null;
       for(var h2=0;h2<24;h2++){if(bh[h2]<=0)continue;cum+=bh[h2];if(lo==null&&cum>=tot*0.025)lo=h2;if(cum<=tot*0.975)hi=h2;}
       var L=[],D=[],Cl=[];for(var i2=0;i2<24;i2++){if(bh[i2]<=0&&(i2<lo||i2>hi))continue;L.push(pad(i2)+'시');D.push(+(bh[i2]/tot*100).toFixed(1));Cl.push((i2<lo||i2>hi)?'#e2e8f0':colHour(i2));}
       mkBar('cv-hour',L,D,Cl,{labels:true,fmt:function(v){return v>=4?v+'%':'';},ytick:function(v){return v+'%';},maxBar:30});
       var dinner=0;for(var dd=17;dd<=21;dd++)dinner+=bh[dd];
-      document.getElementById('hw-op').textContent='핵심영업 '+lo+'~'+hi+'시';
-      document.getElementById('hw-tip').innerHTML='<b>🕐 운영시간 권장:</b> 매출 95%가 <b>'+lo+'시~'+hi+'시</b>에 발생 · 저녁 17~21시 = 전체 <b>'+(dinner/tot*100).toFixed(0)+'%</b>. 한계 시간대(회색)는 인건비 대비 효율 점검.';
+      document.getElementById('hw-op').textContent=(useDv?'배달(배민) 기준 · ':'전체 기준 · ')+'핵심영업 '+lo+'~'+hi+'시';
+      document.getElementById('hw-tip').innerHTML='<b>🕐 운영시간 권장:</b> '+(useDv?'배달(배민) ':'')+'매출 95%가 <b>'+lo+'시~'+hi+'시</b>에 발생 · 저녁 17~21시 = <b>'+(dinner/tot*100).toFixed(0)+'%</b>. 한계 시간대(회색)는 인건비 대비 효율 점검.'+(useDv?' <span style="color:#94a3b8">(시간대 파일은 채널분리가 없어 배달 전체 기준)</span>':'');
       var d2=c.gd.daily,bw=[];for(var j=0;j<7;j++)bw.push(0);
       Object.keys(d2).forEach(function(k){bw[new Date(k+'T00:00:00').getDay()]+=d2[k].sales;});
       var wt=sum(bw)||1,wl=[1,2,3,4,5,6,0];
@@ -531,7 +534,7 @@ var DG=(function(){
       document.getElementById('wd-tip').innerHTML='강한 요일 <b>'+WEEK[best[0]]+'·'+WEEK[best[1]]+'</b> → 할인·광고 강화 / 약한 요일 <b>'+WEEK[best[6]]+'</b> → 프로모션 검토';
     } else if(name==='ef'){
       if(META.unified)return;
-      var a=SAMPLE.analyze(c.gd.daily,c.cats);
+      var a=SAMPLE.analyze(c._dailyLB||c.gd.daily,c.cats);
       var items=[['운영시간',a.op,true],['할인시작',a.dStart,true],['할인종료',a.dEnd,false],['클릭비▲',a.bidUp,true],['클릭비▼',a.bidDn,false]];
       var L2=[],D2=[],C2=[];items.forEach(function(it){if(it[1]&&it[1].n&&it[1].v!=null){L2.push(it[0]);D2.push(+it[1].v.toFixed(1));C2.push(((it[1].v>=(a.base||0))===it[2])?PAL.green:PAL.red);}});
       mkBar('cv-eff',L2,D2,C2,{horizontal:true,labels:true,fmt:function(v){return(v>=0?'+':'')+v+'%';}});
