@@ -237,6 +237,67 @@ def load_depth_rows():
     return out
 
 
+# ---- 차트 JS (일반 문자열: 중괄호 escape 불필요) ----
+DASH_JS = r"""
+let _dashDone=false;
+function initDashboard(){
+  if(_dashDone)return; _dashDone=true;
+  const won=v=>v.toLocaleString();
+  new Chart(c1,{type:'bar',data:{labels:DASH.months,datasets:[
+    {label:'배민매출',data:DASH.bm,backgroundColor:'#1a8c34'},
+    {label:'전체매출',type:'line',data:DASH.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
+    options:{scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}});
+  new Chart(c2,{type:'doughnut',data:{labels:DASH.chL,datasets:[{data:DASH.chV,
+    backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원'}}}}});
+  new Chart(c3,{type:'bar',data:{labels:DASH.topL,datasets:[{label:'배민매출',data:DASH.topV,backgroundColor:'#1971c2'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+  new Chart(c4,{type:'bar',data:{labels:DASH.eL,datasets:[
+    {label:'매출효과(중앙값,%)',data:DASH.eAmt,backgroundColor:'#74c0fc'},
+    {label:'추세보정 DiD(%)',data:DASH.eDid,backgroundColor:'#1971c2'}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}});
+}
+"""
+
+TIME_JS = r"""
+let _timeDone=false;
+function initTime(){
+  if(_timeDone)return; _timeDone=true;
+  new Chart(t1,{type:'bar',data:{labels:TD.hours,datasets:[{label:'배달매출',data:TD.deliv,backgroundColor:'#1a8c34'}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.parsed.y/1e8).toFixed(2)+'억원'}}},
+    scales:{x:{title:{display:true,text:'시(0~23)'}},y:{ticks:{callback:v=>(v/1e8).toFixed(0)+'억'}}}}});
+}
+"""
+
+DRILL_JS = r"""
+let _drChart=null,_drDone=false;
+function initDrill(){
+  if(_drDone)return; _drDone=true;
+  const sel=document.getElementById('storeSel');
+  DR.forEach((s,i)=>{const o=document.createElement('option');o.value=i;
+    o.textContent=s.name+'  ('+(s.amt/1e8).toFixed(1)+'억)';sel.appendChild(o);});
+  sel.addEventListener('change',()=>renderStore(+sel.value));
+  renderStore(0);
+}
+function renderStore(i){
+  const s=DR[i];
+  document.getElementById('dkpi').innerHTML=
+    '<div><b>'+(s.amt).toLocaleString()+'</b><span>배민 6개월(원)</span></div>'+
+    '<div><b>'+Math.round(s.share*100)+'%</b><span>배민 비중</span></div>'+
+    '<div><b>'+s.nad+'</b><span>광고변경</span></div>'+
+    '<div><b>'+s.ndisc+'</b><span>할인</span></div>'+
+    '<div><b>'+s.nhour+'</b><span>영업시간변경</span></div>';
+  if(_drChart)_drChart.destroy();
+  _drChart=new Chart(d1,{type:'bar',data:{labels:DRM,datasets:[{label:'배민매출',data:s.m,backgroundColor:'#1971c2'}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+'원'}}},scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+  document.getElementById('devlist').innerHTML = s.ev.length? s.ev.slice().reverse().map(e=>
+    '<div style="padding:4px 0;border-bottom:1px solid #f1f3f5;"><b>'+e[0]+'</b> '+
+    '<span class="tag" style="background:#e7f5ff;color:#1971c2;">'+e[1]+'</span> '+
+    '<span style="color:#868e96;">'+e[2]+'</span></div>').join('') : '<p style="color:#868e96;">표시할 변경 없음</p>';
+}
+"""
+
+
 def dashboard_parts(D, EFF):
     months = MONTHS
     bm = [round(D["monthly"].get(m, 0)) for m in months]
@@ -267,27 +328,7 @@ def dashboard_parts(D, EFF):
   <h2>매출 상위 10개 매장</h2><div class="card"><canvas id="c3" height="140"></canvas></div>
   <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
 """
-    script = f"""
-const D={data};
-const won=v=>v.toLocaleString();
-let _dashDone=false;
-function initDashboard(){{
-  if(_dashDone)return; _dashDone=true;
-  new Chart(c1,{{type:'bar',data:{{labels:D.months,datasets:[
-    {{label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'}},
-    {{label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}}]}},
-    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}}}}},scales:{{y:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
-  new Chart(c2,{{type:'doughnut',data:{{labels:D.chL,datasets:[{{data:D.chV,
-    backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}}]}},
-    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.label+': '+won(c.parsed)+'원'}}}}}}}}}});
-  new Chart(c3,{{type:'bar',data:{{labels:D.topL,datasets:[{{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}}]}},
-    options:{{indexAxis:'y',plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>won(c.parsed.x)+'원'}}}}}},scales:{{x:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
-  new Chart(c4,{{type:'bar',data:{{labels:D.eL,datasets:[
-    {{label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'}},
-    {{label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}}]}},
-    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}}}}}}});
-}}
-"""
+    script = "const DASH=" + data + ";\n" + DASH_JS
     return body, script
 
 
@@ -344,17 +385,8 @@ def time_parts(TM):
   {card("영업시간 연장 → 배달 전체", TM['ext_all'], "전체 배달도 소폭 상승")}
   <div class="win"><b>인사이트:</b> 저녁 17~21시가 배달의 핵심. <b>영업시간 연장은 야간 배달매출을 올린다</b>(연장 +{TM['ext_night']['med']*100:.1f}% vs 단축 {TM['cut_night']['med']*100:+.1f}%).</div>
 """
-    hours = json.dumps(TM["hours"])
-    deliv = json.dumps(TM["deliv"])
-    script = f"""
-let _timeDone=false;
-function initTime(){{
-  if(_timeDone)return; _timeDone=true;
-  new Chart(t1,{{type:'bar',data:{{labels:{hours},datasets:[{{label:'배달매출',data:{deliv},backgroundColor:'#1a8c34'}}]}},
-    options:{{plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>(c.parsed.y/1e8).toFixed(2)+'억원'}}}}}},
-    scales:{{x:{{title:{{display:true,text:'시(0~23)'}}}},y:{{ticks:{{callback:v=>(v/1e8).toFixed(0)+'억'}}}}}}}}}});
-}}
-"""
+    td = json.dumps({"hours": TM["hours"], "deliv": TM["deliv"]}, ensure_ascii=False)
+    script = "const TD=" + td + ";\n" + TIME_JS
     return body, script
 
 
@@ -395,34 +427,7 @@ def drilldown_parts(D):
   <div id="devlist" style="font-size:13.5px;"></div>
 """
     months = json.dumps([m[2:] for m in MONTHS])
-    script = f"""
-const DR={j}; const DRM={months}; let _drChart=null, _drDone=false;
-function initDrill(){{
-  if(_drDone)return; _drDone=true;
-  const sel=document.getElementById('storeSel');
-  DR.forEach((s,i)=>{{const o=document.createElement('option');o.value=i;
-    o.textContent=s.name+'  ('+(s.amt/1e8).toFixed(1)+'억)';sel.appendChild(o);}});
-  sel.addEventListener('change',()=>renderStore(+sel.value));
-  renderStore(0);
-}}
-function renderStore(i){{
-  const s=DR[i];
-  document.getElementById('dkpi').innerHTML=
-    '<div><b>'+(s.amt).toLocaleString()+'</b><span>배민 6개월(원)</span></div>'+
-    '<div><b>'+Math.round(s.share*100)+'%</b><span>배민 비중</span></div>'+
-    '<div><b>'+s.nad+'</b><span>광고변경</span></div>'+
-    '<div><b>'+s.ndisc+'</b><span>할인</span></div>'+
-    '<div><b>'+s.nhour+'</b><span>영업시간변경</span></div>';
-  if(_drChart)_drChart.destroy();
-  _drChart=new Chart(d1,{{type:'bar',data:{{labels:DRM,datasets:[{{label:'배민매출',data:s.m,backgroundColor:'#1971c2'}}]}},
-    options:{{plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>c.parsed.y.toLocaleString()+'원'}}}}}},scales:{{y:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
-  const col={{'광고':'#1971c2','할인시작':'#e8590c','할인종료':'#adb5bd','영업시간':'#2f9e44','휴무변경':'# ae3ec9'}};
-  document.getElementById('devlist').innerHTML = s.ev.length? s.ev.slice().reverse().map(e=>
-    '<div style="padding:4px 0;border-bottom:1px solid #f1f3f5;"><b>'+e[0]+'</b> '+
-    '<span class="tag" style="background:#e7f5ff;color:#1971c2;">'+e[1]+'</span> '+
-    '<span style="color:#868e96;">'+e[2]+'</span></div>').join('') : '<p style="color:#868e96;">표시할 변경 없음</p>';
-}}
-"""
+    script = "const DR=" + j + ";\nconst DRM=" + months + ";\n" + DRILL_JS
     return body, script
 
 
@@ -559,8 +564,10 @@ def main():
     open(os.path.join(OUT, "dashboard.html"), "w", encoding="utf-8").write(
         page("📊 육식사관학교 매출 분석 대시보드", "배민 6개월", db) .replace(
             "</body>", f"{CHARTJS}<script>{ds}initDashboard();</script></body>"))
-    # ★ 통합관리 단일 파일(탭)
-    open(os.path.join(OUT, "integrated.html"), "w", encoding="utf-8").write(gen_combined(D, EFF))
+    # ★ 통합관리 단일 파일(탭) — 배포용 이름 '빅데이터 통합관리'
+    combined = gen_combined(D, EFF)
+    open(os.path.join(OUT, "integrated.html"), "w", encoding="utf-8").write(combined)
+    open(os.path.join(OUT, "빅데이터 통합관리.html"), "w", encoding="utf-8").write(combined)
     # 컨설팅 보고서(인쇄용)
     TM = time_data()
     open(os.path.join(OUT, "report.html"), "w", encoding="utf-8").write(gen_report(D, EFF, TM))

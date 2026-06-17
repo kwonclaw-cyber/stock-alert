@@ -36,24 +36,24 @@ ol,ul{margin:8px 0;padding-left:22px;} li{margin:4px 0;font-size:14.3px;}
   <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
 
 <p class="foot">생성: 메이트포스 자동수집 + 배민 변경이력 결합 · sample_collection/</p>
-</div><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script><script>
-const D={"months": ["25-12", "26-01", "26-02", "26-03", "26-04", "26-05", "26-06"], "bm": [2792692991, 5773993025, 4938983130, 5787197692, 5880591620, 7118203230, 3605931743], "tot": [4639930071, 9571020003, 8221466751, 9705589607, 10052595344, 11955727541, 6065698243], "chL": ["배민", "쿠팡이츠", "요기요", "땡겨요", "내점/포스", "먹깨비", "전화/기타"], "chV": [37592891821, 23773506170, 1287501800, 290867540, 167563059, 52257000, 34368210], "topL": ["인천구월점", "목포하당점", "광주상무점", "광주용봉점", "남구점", "평택서정점", "울산달동점", "안산중앙점", "첨단점", "용산점"], "topV": [674653200, 637334300, 518593100, 441322200, 435284310, 434414700, 433906100, 405746300, 402716600, 397745600], "eL": ["광고 예산 증액", "광고 시작(최초)", "즉시할인 시작", "휴무일 변경", "배달가능시간 변경", "영업시간 변경"], "eAmt": [4.7, 1.8, -3.2, 1.8, 1.2, 0.3], "eDid": [1.3, 0.0, -1.6, -0.5, -1.6, -2.0]};
-const won=v=>v.toLocaleString();
+</div><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script><script>const DASH={"months": ["25-12", "26-01", "26-02", "26-03", "26-04", "26-05", "26-06"], "bm": [2792692991, 5773993025, 4938983130, 5787197692, 5880591620, 7118203230, 3605931743], "tot": [4639930071, 9571020003, 8221466751, 9705589607, 10052595344, 11955727541, 6065698243], "chL": ["배민", "쿠팡이츠", "요기요", "땡겨요", "내점/포스", "먹깨비", "전화/기타"], "chV": [37592891821, 23773506170, 1287501800, 290867540, 167563059, 52257000, 34368210], "topL": ["인천구월점", "목포하당점", "광주상무점", "광주용봉점", "남구점", "평택서정점", "울산달동점", "안산중앙점", "첨단점", "용산점"], "topV": [674653200, 637334300, 518593100, 441322200, 435284310, 434414700, 433906100, 405746300, 402716600, 397745600], "eL": ["광고 예산 증액", "광고 시작(최초)", "즉시할인 시작", "휴무일 변경", "배달가능시간 변경", "영업시간 변경"], "eAmt": [4.7, 1.8, -3.2, 1.8, 1.2, 0.3], "eDid": [1.3, 0.0, -1.6, -0.5, -1.6, -2.0]};
+
 let _dashDone=false;
 function initDashboard(){
   if(_dashDone)return; _dashDone=true;
-  new Chart(c1,{type:'bar',data:{labels:D.months,datasets:[
-    {label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'},
-    {label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
-    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}},scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
-  new Chart(c2,{type:'doughnut',data:{labels:D.chL,datasets:[{data:D.chV,
+  const won=v=>v.toLocaleString();
+  new Chart(c1,{type:'bar',data:{labels:DASH.months,datasets:[
+    {label:'배민매출',data:DASH.bm,backgroundColor:'#1a8c34'},
+    {label:'전체매출',type:'line',data:DASH.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
+    options:{scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}});
+  new Chart(c2,{type:'doughnut',data:{labels:DASH.chL,datasets:[{data:DASH.chV,
     backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
     options:{plugins:{tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원'}}}}});
-  new Chart(c3,{type:'bar',data:{labels:D.topL,datasets:[{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}]},
+  new Chart(c3,{type:'bar',data:{labels:DASH.topL,datasets:[{label:'배민매출',data:DASH.topV,backgroundColor:'#1971c2'}]},
     options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
-  new Chart(c4,{type:'bar',data:{labels:D.eL,datasets:[
-    {label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'},
-    {label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}]},
+  new Chart(c4,{type:'bar',data:{labels:DASH.eL,datasets:[
+    {label:'매출효과(중앙값,%)',data:DASH.eAmt,backgroundColor:'#74c0fc'},
+    {label:'추세보정 DiD(%)',data:DASH.eDid,backgroundColor:'#1971c2'}]},
     options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}});
 }
 initDashboard();</script></body></html>
