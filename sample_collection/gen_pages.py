@@ -174,7 +174,7 @@ def gen_progress(D):
     <li>시간대별 매출은 아직 미수집(영업시간 효과 정밀화용).</li>
     <li>매출 16개 매장은 변경이력 없어 분석 제외(신규/타브랜드).</li></ul></div>
 """
-    return page("🧭 육식사관학교 — 진행 기록 & 로직 정리", "수동 364회 → 자동 1회. 수집부터 분석까지 한 페이지", b)
+    return b
 
 
 def gen_board(D, EFF):
@@ -214,10 +214,10 @@ def gen_board(D, EFF):
   <h2>매출 상위 15개 매장</h2>
   <table><tr><th>매장</th><th class="num">배민매출(원)</th><th class="num">광고변경</th><th class="num">할인</th><th class="num">영업시간</th></tr>{rows}</table>
 """
-    return page("📈 육식사관학교 배민 분석 보드", "변경 → 매출 직접 영향 · 6개월", b)
+    return b
 
 
-def gen_dashboard(D, EFF):
+def dashboard_parts(D, EFF):
     months = MONTHS
     bm = [round(D["monthly"].get(m, 0)) for m in months]
     tot = [round(D["monthly_total"].get(m, 0)) for m in months]
@@ -246,36 +246,91 @@ def gen_dashboard(D, EFF):
   <h2>채널 매출 비중</h2><div class="card"><canvas id="c2" height="110"></canvas></div>
   <h2>매출 상위 10개 매장</h2><div class="card"><canvas id="c3" height="140"></canvas></div>
   <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
+"""
+    script = f"""
 const D={data};
 const won=v=>v.toLocaleString();
-new Chart(c1,{{type:'bar',data:{{labels:D.months,datasets:[
-  {{label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'}},
-  {{label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}}]}},
-  options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}}}}},scales:{{y:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
-new Chart(c2,{{type:'doughnut',data:{{labels:D.chL,datasets:[{{data:D.chV,
-  backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}}]}},
-  options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.label+': '+won(c.parsed)+'원'}}}}}}}}}});
-new Chart(c3,{{type:'bar',data:{{labels:D.topL,datasets:[{{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}}]}},
-  options:{{indexAxis:'y',plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>won(c.parsed.x)+'원'}}}}}},scales:{{x:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
-new Chart(c4,{{type:'bar',data:{{labels:D.eL,datasets:[
-  {{label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'}},
-  {{label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}}]}},
-  options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}}}}}}});
-</script>
+let _dashDone=false;
+function initDashboard(){{
+  if(_dashDone)return; _dashDone=true;
+  new Chart(c1,{{type:'bar',data:{{labels:D.months,datasets:[
+    {{label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'}},
+    {{label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}}]}},
+    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}}}}},scales:{{y:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
+  new Chart(c2,{{type:'doughnut',data:{{labels:D.chL,datasets:[{{data:D.chV,
+    backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}}]}},
+    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.label+': '+won(c.parsed)+'원'}}}}}}}}}});
+  new Chart(c3,{{type:'bar',data:{{labels:D.topL,datasets:[{{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}}]}},
+    options:{{indexAxis:'y',plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>won(c.parsed.x)+'원'}}}}}},scales:{{x:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
+  new Chart(c4,{{type:'bar',data:{{labels:D.eL,datasets:[
+    {{label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'}},
+    {{label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}}]}},
+    options:{{plugins:{{tooltip:{{callbacks:{{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}}}}}}});
+}}
 """
-    return page("📊 육식사관학교 매출 분석 대시보드", "배민 6개월 · 매장·채널·변경효과", body)
+    return body, script
+
+
+CHARTJS = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
+
+
+def gen_combined(D, EFF):
+    """3개 패널을 탭으로 묶은 단일 통합관리 파일."""
+    prog = gen_progress(D)
+    board = gen_board(D, EFF)
+    dash_body, dash_script = dashboard_parts(D, EFF)
+    tabcss = """
+.topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
+.topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
+.tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;position:sticky;top:0;z-index:10;overflow-x:auto;}
+.tab{padding:14px 20px;font-size:14px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.tab:hover{background:#f1f3f5;} .tab.on{color:#1971c2;border-bottom-color:#1971c2;}
+.panel-title{font-size:26px;margin:8px 0 2px;} .panel-sub{color:var(--mut);margin:0 0 20px;}
+"""
+    return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>육식사관학교 빅데이터 통합관리</title>
+<style>{CSS}{tabcss}</style>{CHARTJS}</head><body>
+<div class="topbar"><b>🗂️ 육식사관학교 빅데이터 통합관리</b><span>배민 6개월 · {D['n_stores']}매장 · {won(D['baemin_total'])}원</span></div>
+<div class="tabs">
+  <div class="tab on" data-t="board">📈 분석 보드</div>
+  <div class="tab" data-t="dash">📊 대시보드</div>
+  <div class="tab" data-t="prog">🧭 진행기록/로직</div>
+</div>
+<div class="wrap">
+  <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>{board}</div>
+  <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
+  <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
+</div>
+<script>{dash_script}
+function show(t){{
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.getElementById(t).style.display='';
+  document.querySelector('.tab[data-t="'+t+'"]').classList.add('on');
+  if(t==='dash')initDashboard();
+}}
+document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
+</script>
+</body></html>"""
 
 
 def main():
     D = collect()
     EFF = effects()
-    open(os.path.join(OUT, "progress.html"), "w", encoding="utf-8").write(gen_progress(D))
-    open(os.path.join(OUT, "board.html"), "w", encoding="utf-8").write(gen_board(D, EFF))
-    open(os.path.join(OUT, "dashboard.html"), "w", encoding="utf-8").write(gen_dashboard(D, EFF))
+    # 개별 페이지(참고용)
+    open(os.path.join(OUT, "progress.html"), "w", encoding="utf-8").write(
+        page("🧭 육식사관학교 — 진행 기록 & 로직 정리", "수동 364회 → 자동 1회", gen_progress(D)))
+    open(os.path.join(OUT, "board.html"), "w", encoding="utf-8").write(
+        page("📈 육식사관학교 배민 분석 보드", "변경 → 매출 직접 영향 · 6개월", gen_board(D, EFF)))
+    db, ds = dashboard_parts(D, EFF)
+    open(os.path.join(OUT, "dashboard.html"), "w", encoding="utf-8").write(
+        page("📊 육식사관학교 매출 분석 대시보드", "배민 6개월", db) .replace(
+            "</body>", f"{CHARTJS}<script>{ds}initDashboard();</script></body>"))
+    # ★ 통합관리 단일 파일(탭)
+    open(os.path.join(OUT, "integrated.html"), "w", encoding="utf-8").write(gen_combined(D, EFF))
     print("생성 완료:")
-    for f in ("progress.html", "board.html", "dashboard.html"):
+    for f in ("integrated.html", "board.html", "dashboard.html", "progress.html"):
         p = os.path.join(OUT, f)
         print(f"  {p}  ({os.path.getsize(p)//1024}KB)")
     print(f"\n배민 6개월 매출 {won(D['baemin_total'])}원, 매장 {D['n_stores']}개")

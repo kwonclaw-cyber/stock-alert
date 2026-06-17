@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>육식사관학교 빅데이터 통합관리</title>
+<style>
+:root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
+*{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#f8f9fa;}
+.wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;} h1{font-size:28px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 28px;}
+h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);} h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+code{background:#f1f3f5;padding:2px 7px;border-radius:5px;font-family:Consolas,monospace;font-size:13px;color:#c92a2a;}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;} th{background:#f1f3f5;}
+.ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;} .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;margin-right:6px;} .t-try{background:#fff3bf;color:#e8590c;} .t-win{background:#ebfbee;color:#2f9e44;}
+.tip{background:var(--b2);border-left:4px solid var(--b);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.warn{background:#fff9db;border-left:4px solid var(--o);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.win{background:#ebfbee;border-left:4px solid var(--g);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+ol,ul{margin:8px 0;padding-left:22px;} li{margin:4px 0;font-size:14.3px;}
+.timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:3px solid var(--line);} .ev{position:relative;margin:0 0 18px;}
+.ev::before{content:'';position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--b);} .ev.good::before{border-color:var(--g);} .ev.fail::before{border-color:var(--r);}
+.ev h4{margin:0 0 4px;font-size:15px;} .ev p{margin:3px 0;font-size:14px;}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13.5px;} .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;} .arrow{color:var(--mut);font-weight:700;}
+.kpi{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;} .kpi div{flex:1;min-width:130px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;} .kpi b{display:block;font-size:24px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
+.bcard{border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid var(--line);background:#fff;} .bcard.pos{border-left:6px solid var(--g);} .bcard.neg{border-left:6px solid var(--r);} .bcard.flat{border-left:6px solid var(--mut);}
+.bcard h3{margin:0 0 8px;color:var(--ink);} .metric{display:inline-block;margin:4px 16px 4px 0;font-size:13px;} .metric b{font-size:18px;display:block;}
+.foot{margin-top:40px;color:var(--mut);font-size:13px;text-align:center;}
+
+.topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
+.topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
+.tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;position:sticky;top:0;z-index:10;overflow-x:auto;}
+.tab{padding:14px 20px;font-size:14px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.tab:hover{background:#f1f3f5;} .tab.on{color:#1971c2;border-bottom-color:#1971c2;}
+.panel-title{font-size:26px;margin:8px 0 2px;} .panel-sub{color:var(--mut);margin:0 0 20px;}
+</style><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script></head><body>
+<div class="topbar"><b>🗂️ 육식사관학교 빅데이터 통합관리</b><span>배민 6개월 · 181매장 · 35,897,593,431원</span></div>
+<div class="tabs">
+  <div class="tab on" data-t="board">📈 분석 보드</div>
+  <div class="tab" data-t="dash">📊 대시보드</div>
+  <div class="tab" data-t="prog">🧭 진행기록/로직</div>
+</div>
+<div class="wrap">
+  <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>
+  <h2>📊 분석 보드 — 변경이 배민 매출에 준 영향</h2>
+  <div class="kpi">
+    <div><b>181</b><span>매장</span></div>
+    <div><b>35,897,593,431</b><span>배민 매출(원)</span></div>
+    <div><b>60%</b><span>배민 비중</span></div>
+    <div><b>±14일</b><span>전후 비교창</span></div>
+  </div>
+  <div class="tip">각 변경 전후 <b>±14일 일평균 배민매출</b> 비교(신규오픈 30일 보정).
+  <b>DiD</b>는 브랜드 전체 추세를 빼 계절성을 제거한 '순수 효과'. <b>상관관계이며 인과는 아님.</b></div>
+  
+    <div class="bcard pos">
+      <h3>광고 예산 증액 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 92건 분석 · 효과 있음(+)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+4.7%</b></span>
+      <span class="metric">건수<b>+3.2%</b></span>
+      <span class="metric">객단가<b>+0.6%</b></span>
+      <span class="metric">추세보정(DiD)<b class="ok">+1.3%</b></span>
+      <span class="metric">상승비율<b>62%</b></span>
+    </div>
+    <div class="bcard flat">
+      <h3>광고 시작(최초) <span style="font-size:12px;color:var(--mut);font-weight:400;">· 77건 분석 · 효과 미미</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.8%</b></span>
+      <span class="metric">건수<b>+0.8%</b></span>
+      <span class="metric">객단가<b>+0.1%</b></span>
+      <span class="metric">추세보정(DiD)<b class="ok">+0.0%</b></span>
+      <span class="metric">상승비율<b>56%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>즉시할인 시작 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 791건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="no">-3.2%</b></span>
+      <span class="metric">건수<b>-3.5%</b></span>
+      <span class="metric">객단가<b>+0.1%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-1.6%</b></span>
+      <span class="metric">상승비율<b>43%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>휴무일 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 773건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.8%</b></span>
+      <span class="metric">건수<b>+2.1%</b></span>
+      <span class="metric">객단가<b>-0.2%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-0.5%</b></span>
+      <span class="metric">상승비율<b>56%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>배달가능시간 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 371건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.2%</b></span>
+      <span class="metric">건수<b>+1.7%</b></span>
+      <span class="metric">객단가<b>-0.5%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-1.6%</b></span>
+      <span class="metric">상승비율<b>51%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>영업시간 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 2059건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+0.3%</b></span>
+      <span class="metric">건수<b>+0.3%</b></span>
+      <span class="metric">객단가<b>+0.0%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-2.0%</b></span>
+      <span class="metric">상승비율<b>51%</b></span>
+    </div>
+  <div class="win"><b>요약:</b> 광고 예산 <b>증액</b>이 가장 뚜렷한 양(+) — 추세보정 후에도 매출 상승.
+  <b>즉시할인</b>은 건수도 안 늘고 추세보정 후 효과 없음(빠질 때 켜는 반응적 사용).</div>
+
+  <h2>매출 상위 15개 매장</h2>
+  <table><tr><th>매장</th><th class="num">배민매출(원)</th><th class="num">광고변경</th><th class="num">할인</th><th class="num">영업시간</th></tr><tr><td>육식사관학교 인천구월점</td><td class='num'>674,653,200</td><td class='num'>1</td><td class='num'>9</td><td class='num'>70</td></tr><tr><td>육식사관학교목포하당점</td><td class='num'>637,334,300</td><td class='num'>8</td><td class='num'>4</td><td class='num'>2</td></tr><tr><td>육식사관학교 광주상무점</td><td class='num'>518,593,100</td><td class='num'>2</td><td class='num'>8</td><td class='num'>34</td></tr><tr><td>육식사관학교광주용봉점</td><td class='num'>441,322,200</td><td class='num'>1</td><td class='num'>5</td><td class='num'>7</td></tr><tr><td>육식사관학교남구점</td><td class='num'>435,284,310</td><td class='num'>37</td><td class='num'>10</td><td class='num'>2</td></tr><tr><td>육식사관학교평택서정점</td><td class='num'>434,414,700</td><td class='num'>200</td><td class='num'>10</td><td class='num'>17</td></tr><tr><td>육식사관학교울산달동점</td><td class='num'>433,906,100</td><td class='num'>5</td><td class='num'>5</td><td class='num'>32</td></tr><tr><td>육식사관학교안산중앙점</td><td class='num'>405,746,300</td><td class='num'>3</td><td class='num'>16</td><td class='num'>1</td></tr><tr><td>육식사관학교첨단점</td><td class='num'>402,716,600</td><td class='num'>68</td><td class='num'>5</td><td class='num'>3</td></tr><tr><td>육식사관학교용산점</td><td class='num'>397,745,600</td><td class='num'>6</td><td class='num'>1</td><td class='num'>26</td></tr><tr><td>육식사관학교 강동천호점</td><td class='num'>392,661,500</td><td class='num'>2</td><td class='num'>17</td><td class='num'>16</td></tr><tr><td>육식사관학교진주상대점</td><td class='num'>385,927,000</td><td class='num'>7</td><td class='num'>13</td><td class='num'>1</td></tr><tr><td>육식사관학교부산연산점</td><td class='num'>384,052,100</td><td class='num'>2</td><td class='num'>20</td><td class='num'>7</td></tr><tr><td>육식사관학교 광주광산점</td><td class='num'>369,476,800</td><td class='num'>1</td><td class='num'>4</td><td class='num'>7</td></tr><tr><td>육식사관학교 신기점</td><td class='num'>366,173,500</td><td class='num'>3</td><td class='num'>11</td><td class='num'>0</td></tr></table>
+</div>
+  <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>
+  <div class="kpi">
+    <div><b>35,897,593,431</b><span>배민 6개월 매출(원)</span></div>
+    <div><b>181</b><span>매장</span></div>
+    <div><b>60%</b><span>배민 비중</span></div>
+    <div><b>198,329,245</b><span>매장당 평균(원)</span></div>
+  </div>
+  <h2>월별 배민 매출 추이</h2><div class="card"><canvas id="c1" height="110"></canvas></div>
+  <h2>채널 매출 비중</h2><div class="card"><canvas id="c2" height="110"></canvas></div>
+  <h2>매출 상위 10개 매장</h2><div class="card"><canvas id="c3" height="140"></canvas></div>
+  <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
+</div>
+  <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>
+  <h2>0 · 목표</h2>
+  <div class="card">육식사관학교 전 매장의 <b>배민 운영 변경</b>(광고·즉시할인·영업시간)이
+  <b>배민 매출</b>에 어떤 영향을 주는지, <b>6개월 일별 데이터</b>로 분석한다.</div>
+
+  <h2>1 · 핵심 전환 — 매출 수집 자동화</h2>
+  <div class="timeline">
+    <div class="ev fail"><h4><span class="tag t-try">처음</span> 수동 다운로드의 벽</h4>
+      <p>메이트포스에서 매장×날짜 매출을 받으려면 <b>주문경로 182번 + 시간대 182번</b> 수동 다운로드가 필요했다. 날짜를 매번 바꿔 클릭 = 사실상 불가능.</p></div>
+    <div class="ev good"><h4><span class="tag t-win">정답</span> API 자동수집 <code>matetech_console.js</code></h4>
+      <p>검색 버튼이 부르는 <code>orders-path</code> API를 찾아, <b>날짜를 자동 루프</b>로 호출.
+      로그인된 세션에서 콘솔에 붙여넣고 1번 실행 → <b>6개월 전체</b>가 파일 하나로.</p>
+      <p class="ok">검증: 수집 합계 = 공식 일별 총매출과 정확히 일치(이중계상·누락 없음).</p></div>
+    <div class="ev good"><h4><span class="tag t-win">결합</span> 매장 매핑 + 마스터 <code>build_master.py</code></h4>
+      <p>메이트 매장코드 ↔ 배민 매장번호를 매장명으로 매핑(<b>185개 연결</b>), 매출과 변경이력을 <b>날짜로 조인</b>.</p></div>
+  </div>
+
+  <h2>2 · 확립된 프로세스</h2>
+  <div class="flow"><span class="pill">콘솔 코드 붙여넣기</span><span class="arrow">→</span>
+  <span class="pill">6개월 자동수집(1회)</span><span class="arrow">→</span>
+  <span class="pill">슬림 분할</span><span class="arrow">→</span>
+  <span class="pill">매장매핑·마스터</span><span class="arrow">→</span>
+  <span class="pill">이벤트스터디·리포트</span></div>
+
+  <h2>3 · 현재 산출물</h2>
+  <div class="kpi">
+    <div><b>181</b><span>분석 매장</span></div>
+    <div><b>35,897,593,431</b><span>배민 6개월 매출(원)</span></div>
+    <div><b>27,068</b><span>일별 매출행</span></div>
+    <div><b>74,726</b><span>변경 이벤트</span></div>
+  </div>
+  <table>
+    <tr><th>파일</th><th>역할</th></tr>
+    <tr><td><code>matetech_console.js</code></td><td>★ 메이트포스 매출 자동수집(날짜 루프)</td></tr>
+    <tr><td><code>build_store_map.py</code></td><td>매장코드 ↔ 배민 매장번호 매핑</td></tr>
+    <tr><td><code>build_master.py</code></td><td>일별 마스터 + 변경이벤트 테이블</td></tr>
+    <tr><td><code>analyze_effects.py</code></td><td>이벤트스터디(매출·건수·객단가, DiD 추세보정)</td></tr>
+    <tr><td><code>build_store_report.py</code></td><td>매장별 리포트(월매출·이벤트)</td></tr>
+    <tr><td><code>gen_pages.py</code></td><td>이 페이지들 생성</td></tr>
+  </table>
+
+  <h2>4 · 한계 & 다음</h2>
+  <div class="warn"><b>한계</b><ul style="margin:6px 0 0;">
+    <li>±14일 전후비교 → 상관관계(인과 아님). DiD로 전체추세는 제거.</li>
+    <li>시간대별 매출은 아직 미수집(영업시간 효과 정밀화용).</li>
+    <li>매출 16개 매장은 변경이력 없어 분석 제외(신규/타브랜드).</li></ul></div>
+</div>
+</div>
+<script>
+const D={"months": ["25-12", "26-01", "26-02", "26-03", "26-04", "26-05", "26-06"], "bm": [2792692991, 5773993025, 4938983130, 5787197692, 5880591620, 7118203230, 3605931743], "tot": [4639930071, 9571020003, 8221466751, 9705589607, 10052595344, 11955727541, 6065698243], "chL": ["배민", "쿠팡이츠", "요기요", "땡겨요", "내점/포스", "먹깨비", "전화/기타"], "chV": [37592891821, 23773506170, 1287501800, 290867540, 167563059, 52257000, 34368210], "topL": ["인천구월점", "목포하당점", "광주상무점", "광주용봉점", "남구점", "평택서정점", "울산달동점", "안산중앙점", "첨단점", "용산점"], "topV": [674653200, 637334300, 518593100, 441322200, 435284310, 434414700, 433906100, 405746300, 402716600, 397745600], "eL": ["광고 예산 증액", "광고 시작(최초)", "즉시할인 시작", "휴무일 변경", "배달가능시간 변경", "영업시간 변경"], "eAmt": [4.7, 1.8, -3.2, 1.8, 1.2, 0.3], "eDid": [1.3, 0.0, -1.6, -0.5, -1.6, -2.0]};
+const won=v=>v.toLocaleString();
+let _dashDone=false;
+function initDashboard(){
+  if(_dashDone)return; _dashDone=true;
+  new Chart(c1,{type:'bar',data:{labels:D.months,datasets:[
+    {label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'},
+    {label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}},scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+  new Chart(c2,{type:'doughnut',data:{labels:D.chL,datasets:[{data:D.chV,
+    backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원'}}}}});
+  new Chart(c3,{type:'bar',data:{labels:D.topL,datasets:[{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+  new Chart(c4,{type:'bar',data:{labels:D.eL,datasets:[
+    {label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'},
+    {label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}});
+}
+
+function show(t){
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.getElementById(t).style.display='';
+  document.querySelector('.tab[data-t="'+t+'"]').classList.add('on');
+  if(t==='dash')initDashboard();
+}
+document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
+</script>
+</body></html>
