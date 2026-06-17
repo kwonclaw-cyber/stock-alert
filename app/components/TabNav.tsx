@@ -16,7 +16,7 @@ const TABS = [
   { href: "/dwelling", label: "무인의 거처" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
-  { href: "/changelog", label: "업데이트" },
+  { href: "/changelog", label: "패치노트" },
 ];
 
 type Tab = (typeof TABS)[number];
