@@ -13,6 +13,7 @@
 매칭 안 되는 건 status로 남겨 사람이 손으로 채우게 한다(억지 매칭 금지).
 """
 import csv
+import json
 import re
 import sys
 import openpyxl
@@ -53,8 +54,23 @@ def load_manifest(path):
     return out
 
 
+def load_mate_from_slim(sales_glob):
+    """slim 매출 파일들에서 매장코드->매장명 수집(6개월 합집합)."""
+    import glob as _glob
+    stores = {}
+    for f in sorted(_glob.glob(sales_glob)):
+        d = json.load(open(f, encoding="utf-8"))
+        for code, name in d.get("stores", {}).items():
+            stores[str(code)] = name
+    return stores
+
+
 def build(mate_xlsx, manifest_csv, out_csv):
     mate = load_mate(mate_xlsx)              # code -> name
+    match_and_write(mate, manifest_csv, out_csv)
+
+
+def match_and_write(mate, manifest_csv, out_csv):
     man = load_manifest(manifest_csv)        # shopNumber -> name
     man_by_norm = {}
     for sn, nm in man.items():
@@ -105,7 +121,7 @@ def build(mate_xlsx, manifest_csv, out_csv):
     from collections import Counter
     c = Counter(r[4] for r in rows)
     print(f"매핑 결과 → {out_csv}")
-    for k in ("matched", "ambiguous", "mate_only", "baemin_only"):
+    for k in ("matched", "matched_fuzzy", "ambiguous", "mate_only", "baemin_only"):
         if c.get(k):
             print(f"  {k}: {c[k]}")
     print("\n[손보기 필요] 매출엔 있는데 배민변경이력에 못 붙은 매장:")
@@ -115,7 +131,14 @@ def build(mate_xlsx, manifest_csv, out_csv):
 
 
 if __name__ == "__main__":
-    mate_xlsx = sys.argv[1]
-    manifest = sys.argv[2] if len(sys.argv) > 2 else "dataset/manifest.csv"
-    out = sys.argv[3] if len(sys.argv) > 3 else "dataset/store_map.csv"
-    build(mate_xlsx, manifest, out)
+    # 사용법:
+    #   build_store_map.py --slim 'dataset/sales/matetech_slim_*.json'   (권장: 6개월 전체 매장)
+    #   build_store_map.py <xlsx>                                        (단일 엑셀)
+    manifest = "dataset/manifest.csv"
+    out = "dataset/store_map.csv"
+    if len(sys.argv) > 1 and sys.argv[1] == "--slim":
+        pattern = sys.argv[2] if len(sys.argv) > 2 else "dataset/sales/matetech_slim_*.json"
+        mate = load_mate_from_slim(pattern)
+        match_and_write(mate, manifest, out)
+    else:
+        build(sys.argv[1], manifest, out)
