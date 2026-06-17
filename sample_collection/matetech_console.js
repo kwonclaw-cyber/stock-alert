@@ -45,6 +45,15 @@
     return u.toString();
   }
 
+  // 응답에서 행 배열과 총페이지를 꺼낸다. 메이트포스: data.result.content / totalPage
+  function extract(data) {
+    const r = data && data.data && data.data.result ? data.data.result : null;
+    if (r && Array.isArray(r.content)) return { content: r.content, totalPage: r.totalPage };
+    if (Array.isArray(data)) return { content: data, totalPage: null };
+    const c = (data && (data.content || data.list || data.rows)) || [];
+    return { content: Array.isArray(c) ? c : [], totalPage: null };
+  }
+
   async function fetchDay(day) {
     const rows = [];
     let page = 1;
@@ -54,15 +63,10 @@
         headers: { 'x-requested-with': 'XMLHttpRequest', accept: 'application/json' },
       });
       if (!res.ok) { console.warn('  !', day, 'page', page, 'HTTP', res.status); break; }
-      const data = await res.json();
-      // 응답 형태가 무엇이든 행 배열을 찾아낸다
-      const content = Array.isArray(data)
-        ? data
-        : (data.content || data.list || data.rows || data.data || data.resultList || []);
+      const { content, totalPage } = extract(await res.json());
       content.forEach((r) => { r._operDt = day; });
       rows.push(...content);
-      const totalPages = (data && typeof data.totalPages === 'number') ? data.totalPages : null;
-      if (totalPages !== null) { if (page >= totalPages) break; }
+      if (typeof totalPage === 'number') { if (page >= totalPage) break; }
       else if (content.length < PAGE_SIZE) break;
       page++;
       await sleep(SLEEP_MS);
