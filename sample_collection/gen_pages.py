@@ -426,8 +426,8 @@ function renderStore(i){{
     return body, script
 
 
-def gen_report(D, EFF, TM):
-    """인쇄용 컨설팅 보고서(단독 HTML, Ctrl+P → PDF)."""
+def report_inner(D, EFF, TM):
+    """컨설팅 보고서 내부 콘텐츠(탭/단독 공용)."""
     dmap = {n: e for n, e in EFF}
     depth = list(csv.DictReader(open(os.path.join(DS, "discount_depth.csv"), encoding="utf-8-sig"))) \
         if os.path.exists(os.path.join(DS, "discount_depth.csv")) else []
@@ -439,9 +439,7 @@ def gen_report(D, EFF, TM):
     def e(n):
         x = dmap.get(n, {"amt": 0, "did": 0, "n": 0})
         return f"{x['amt']*100:+.1f}% (DiD {x['did']*100:+.1f}%, {x['n']}건)"
-    pcss = CSS + "\n@media print{.wrap{max-width:none;}h2{page-break-after:avoid;}.card,table{page-break-inside:avoid;}}"
-    body = f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-<title>육식사관학교 배민 운영-매출 분석 보고서</title><style>{pcss}</style></head><body><div class="wrap">
+    inner = f"""
 <h1>육식사관학교 — 배민 운영 변경이 매출에 미친 영향</h1>
 <p class="sub">분석기간 2025-12-16 ~ 2026-06-17 · {D['n_stores']}개 매장 · 배민 6개월 {won(D['baemin_total'])}원</p>
 
@@ -474,9 +472,17 @@ def gen_report(D, EFF, TM):
 <li>각 변경 전후 ±14일 일평균 비교(신규오픈 30일 보정). <b>DiD</b>로 브랜드 전체추세 제거.</li>
 <li><b>상관관계이며 인과는 아님</b> — 동시 발생 이벤트·매장 개별요인 잔존. 시간대별은 채널분리 불가(배달 합산).</li>
 </ul></div>
-<p class="foot">이 보고서는 sample_collection/dataset/reports/report.html · 인쇄(Ctrl+P) → PDF 저장</p>
-</div></body></html>"""
-    return body
+<p class="foot">메이트포스 매출 + 배민 변경이력 결합 분석 · 인쇄(Ctrl+P) → PDF 저장</p>
+"""
+    return inner
+
+
+def gen_report(D, EFF, TM):
+    """단독 인쇄용 보고서 HTML."""
+    pcss = CSS + "\n@media print{.wrap{max-width:none;}h2{page-break-after:avoid;}.card,table{page-break-inside:avoid;}}"
+    return (f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>육식사관학교 배민 운영-매출 분석 보고서</title><style>{pcss}</style></head>
+<body><div class="wrap">{report_inner(D, EFF, TM)}</div></body></html>""")
 
 
 def gen_combined(D, EFF):
@@ -487,6 +493,7 @@ def gen_combined(D, EFF):
     TM = time_data()
     time_body, time_script = time_parts(TM)
     drill_body, drill_script = drilldown_parts(D)
+    report = report_inner(D, EFF, TM)
     tabcss = """
 .topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
 .topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
@@ -494,6 +501,9 @@ def gen_combined(D, EFF):
 .tab{padding:14px 20px;font-size:14px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
 .tab:hover{background:#f1f3f5;} .tab.on{color:#1971c2;border-bottom-color:#1971c2;}
 .panel-title{font-size:26px;margin:8px 0 2px;} .panel-sub{color:var(--mut);margin:0 0 20px;}
+.btn{background:#1971c2;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;}
+.btn:hover{background:#1864ab;}
+@media print{.topbar,.tabs,.noprint{display:none!important;} .panel{display:none!important;} #report{display:block!important;} .wrap{max-width:none;padding:0;} h2{page-break-after:avoid;} .card,table{page-break-inside:avoid;}}
 """
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -505,6 +515,7 @@ def gen_combined(D, EFF):
   <div class="tab" data-t="dash">📊 대시보드</div>
   <div class="tab" data-t="time">⏰ 시간대</div>
   <div class="tab" data-t="drill">🏪 매장별</div>
+  <div class="tab" data-t="report">📄 리포트 생성</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
@@ -512,6 +523,13 @@ def gen_combined(D, EFF):
   <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
+  <div class="panel" id="report" style="display:none">
+    <div class="noprint" style="margin:0 0 18px;display:flex;gap:10px;align-items:center;">
+      <button class="btn" onclick="window.print()">🖨 PDF로 저장 (인쇄)</button>
+      <span style="color:var(--mut);font-size:13px;">인쇄 대화상자에서 '대상 → PDF로 저장'을 선택하세요. 이 탭 내용만 출력됩니다.</span>
+    </div>
+    {report}
+  </div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
 <script>{dash_script}{time_script}{drill_script}
