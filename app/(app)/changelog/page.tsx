@@ -5,7 +5,7 @@ export default function ChangelogPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        <b>업데이트 기록</b>이에요. 버전별로 추가·변경된 내용을 정리해둡니다. 새 기능이 배포되면 가장 위에 추가돼요.
+        <b>패치노트</b>에요. 버전별로 추가·변경된 내용을 정리해둡니다. 새 기능이 배포되면 가장 위에 추가돼요.
       </PageHelp>
 
       <div className="space-y-3">
