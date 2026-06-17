@@ -122,9 +122,53 @@ def ad_budget_events():
     return out
 
 
+def brand_index(sales):
+    """전체 매장 합산 일별 배민매출(추세 대조군)."""
+    idx = defaultdict(float)
+    for s in sales.values():
+        for dt, (a, q) in s.items():
+            idx[dt] += a
+    return idx
+
+
+def bmean(idx, t, lo, hi):
+    pts = [idx[t + timedelta(days=k)] for k in range(lo, hi + 1) if (t + timedelta(days=k)) in idx]
+    return mean(pts) if pts else None
+
+
+def did_study(sales, first, idx, event_days, ramp=0):
+    """이중차분: (매장 POST/PRE) ÷ (브랜드 POST/PRE) − 1 = 추세보정 효과."""
+    out = []
+    for shop, t in event_days:
+        s = sales.get(shop)
+        if not s or (ramp and (t - first[shop]).days < ramp):
+            continue
+        pre, post = wmean(s, t, -WIN, -1), wmean(s, t, 1, WIN)
+        if not pre or not post or pre[2] < MINOBS or post[2] < MINOBS or pre[0] <= 0:
+            continue
+        bp, bq = bmean(idx, t, -WIN, -1), bmean(idx, t, 1, WIN)
+        if not bp or bp <= 0 or not bq:
+            continue
+        store_ratio = post[0] / pre[0]
+        brand_ratio = bq / bp
+        out.append(store_ratio / brand_ratio - 1)
+    return out
+
+
+def did_summ(label, vals):
+    if not vals:
+        print(f"\n[{label}] 0건")
+        return
+    pos = sum(1 for x in vals if x > 0)
+    print(f"\n[{label}]  {len(vals)}건")
+    print(f"    추세보정 매출효과  중앙값 {median(vals)*100:+5.1f}%  "
+          f"평균 {mean(vals)*100:+5.1f}%  상승 {pos/len(vals)*100:3.0f}%")
+
+
 def main():
     sales, first = load_sales()
     events = load_events()
+    idx = brand_index(sales)
 
     print("=" * 60)
     print("■ 즉시할인 — 매출/건수/객단가 (할인은 객단가↓ 건수↑ 가설 검증)")
@@ -153,7 +197,16 @@ def main():
     deliv = dedup(events, cats={"shop"}, types={"DELIVERY_AVAILABLE_HOUR_MODIFY"})
     summ("배달가능시간 변경 (램프보정)", study(sales, first, deliv, ramp=RAMP))
 
-    print(f"\n* 윈도우 ±{WIN}일, 최소관측 {MINOBS}일, 램프보정 {RAMP}일. 상관관계.")
+    print("\n" + "=" * 60)
+    print("■ 추세보정(DiD) — 브랜드 전체 추세를 빼고 '순수 효과'만")
+    did_summ("즉시할인 시작 (추세보정)", did_study(sales, first, idx, disc, ramp=RAMP))
+    did_summ("광고 예산 증액 (추세보정)", did_study(sales, first, idx, inc, ramp=RAMP))
+    did_summ("광고 시작 최초 (추세보정)",
+             did_study(sales, first, idx, first_per_shop(ad_days), ramp=RAMP))
+    did_summ("휴무일 변경 (추세보정)", did_study(sales, first, idx, dayoff, ramp=RAMP))
+
+    print(f"\n* 윈도우 ±{WIN}일, 최소관측 {MINOBS}일, 램프보정 {RAMP}일.")
+    print("  DiD = 매장 변화율 ÷ 브랜드 변화율 − 1 (계절성·전체추세 제거).")
 
 
 if __name__ == "__main__":
