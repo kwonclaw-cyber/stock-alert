@@ -62,6 +62,7 @@ def build(mate_xlsx, manifest_csv, out_csv):
 
     rows = []
     used_sn = set()
+    pending = []  # 1차(정확) 매칭 실패분 → 2차(부분일치) 시도
     for code, mname in sorted(mate.items()):
         cands = man_by_norm.get(norm(mname), [])
         if len(cands) == 1:
@@ -71,7 +72,26 @@ def build(mate_xlsx, manifest_csv, out_csv):
         elif len(cands) > 1:
             rows.append([code, mname, "", " / ".join(f"{s}:{n}" for s, n in cands), "ambiguous"])
         else:
-            rows.append([code, mname, "", "", "mate_only"])
+            pending.append([code, mname])
+
+    # 2차: 지역접두 차이(강서점↔강서본점, 수영점↔부산수영점 등) — 한쪽이 다른 쪽을
+    #      포함하고, 아직 안 쓰인 배민매장 후보가 '유일'할 때만 매칭(억지 금지)
+    for code, mname in pending:
+        mn = norm(mname)
+        hits = []
+        for sn, bn in man.items():
+            if sn in used_sn:
+                continue
+            bn_n = norm(bn)
+            if mn and bn_n and (mn in bn_n or bn_n in mn):
+                hits.append((sn, bn))
+        if len(hits) == 1:
+            sn, bn = hits[0]
+            used_sn.add(sn)
+            rows.append([code, mname, sn, bn, "matched_fuzzy"])
+        else:
+            note = " / ".join(f"{s}:{n}" for s, n in hits) if hits else ""
+            rows.append([code, mname, "", note, "mate_only"])
     # 배민에만 있는 매장
     for sn, nm in sorted(man.items()):
         if sn not in used_sn:
