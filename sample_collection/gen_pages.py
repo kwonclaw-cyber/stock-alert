@@ -193,6 +193,7 @@ def gen_board(D, EFF):
       <span class="metric">상승비율<b>{e['rise']*100:.0f}%</b></span>
     </div>"""
     # 상위매장 표
+    depth_rows = load_depth_rows()
     rows = ""
     for s in D["stores"][:15]:
         rows += (f"<tr><td>{s['store']}</td><td class='num'>{int(s['amt']):,}</td>"
@@ -210,12 +211,30 @@ def gen_board(D, EFF):
   <b>DiD</b>는 브랜드 전체 추세를 빼 계절성을 제거한 '순수 효과'. <b>상관관계이며 인과는 아님.</b></div>
   {cards}
   <div class="win"><b>요약:</b> 광고 예산 <b>증액</b>이 가장 뚜렷한 양(+) — 추세보정 후에도 매출 상승.
-  <b>즉시할인</b>은 건수도 안 늘고 추세보정 후 효과 없음(빠질 때 켜는 반응적 사용).</div>
+  <b>즉시할인</b>은 평균적으론 효과 없지만 <b>깊이별로 갈린다</b>(아래).</div>
+
+  <h2>🏷️ 할인 깊이별 효과</h2>
+  <div class="tip">소액 고정할인(1~3천원)은 효과 없음/반응적. <b>4천원+ 할인·배달팁 할인</b>은 건수·매출 모두 상승.</div>
+  <table><tr><th>할인 유형</th><th class="num">건수</th><th class="num">매출(중앙값)</th><th class="num">건수변화</th><th class="num">상승비율</th></tr>{depth_rows}</table>
 
   <h2>매출 상위 15개 매장</h2>
   <table><tr><th>매장</th><th class="num">배민매출(원)</th><th class="num">광고변경</th><th class="num">할인</th><th class="num">영업시간</th></tr>{rows}</table>
 """
     return b
+
+
+def load_depth_rows():
+    p = os.path.join(DS, "discount_depth.csv")
+    if not os.path.exists(p):
+        return ""
+    out = ""
+    for r in csv.DictReader(open(p, encoding="utf-8-sig")):
+        amt, qty = float(r["amt_med"]), float(r["qty_med"])
+        out += (f"<tr><td>{r['bucket']}</td><td class='num'>{r['n']}</td>"
+                f"<td class='num {'ok' if amt>0 else 'no'}'>{amt*100:+.1f}%</td>"
+                f"<td class='num'>{qty*100:+.1f}%</td>"
+                f"<td class='num'>{float(r['rise'])*100:.0f}%</td></tr>")
+    return out
 
 
 def dashboard_parts(D, EFF):
@@ -339,13 +358,135 @@ function initTime(){{
     return body, script
 
 
+EV_SHORT = {("ad", ""): "광고", ("instantDiscount", "ACTIVATE"): "할인시작",
+            ("instantDiscount", "FINISH"): "할인종료",
+            ("shop", "SHOP_OPERATION_HOUR_MODIFY"): "영업시간",
+            ("shop", "SHOP_DAY_OFF_MODIFY"): "휴무변경"}
+
+
+def drilldown_parts(D):
+    evbyshop = defaultdict(list)
+    for e in csv.DictReader(open(os.path.join(DS, "events.csv"), encoding="utf-8-sig")):
+        if not e["shopNumber"]:
+            continue
+        cat, typ = e["category"], e["type"]
+        keep = (cat == "ad" or (cat == "instantDiscount" and typ in ("ACTIVATE", "FINISH"))
+                or (cat == "shop" and typ in ("SHOP_OPERATION_HOUR_MODIFY", "SHOP_DAY_OFF_MODIFY")))
+        if keep:
+            lab = EV_SHORT.get((cat, typ if cat != "ad" else ""), typ)
+            evbyshop[e["shopNumber"]].append([e["date"], lab, (e["detail"] or "")[:34]])
+    data = []
+    for s in D["stores"]:
+        if not s["shop"]:
+            continue
+        evs = sorted(evbyshop.get(s["shop"], []))[-60:]
+        data.append({"shop": s["shop"], "name": s["store"],
+                     "m": [int(s[f"m_{m}"]) for m in MONTHS],
+                     "amt": int(s["amt"]), "share": round(float(s["baemin_share"]), 2),
+                     "nad": int(s["n_ad"]), "ndisc": int(s["n_disc"]), "nhour": int(s["n_hour"]),
+                     "ev": evs})
+    j = json.dumps(data, ensure_ascii=False)
+    body = """
+  <p class="sub">매장을 선택하면 월별 배민매출 + 변경 타임라인을 봅니다.</p>
+  <select id="storeSel" style="font-size:15px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;min-width:280px;"></select>
+  <div class="kpi" id="dkpi" style="margin-top:14px;"></div>
+  <div class="card"><canvas id="d1" height="110"></canvas></div>
+  <h3>변경 타임라인 (최근 60건)</h3>
+  <div id="devlist" style="font-size:13.5px;"></div>
+"""
+    months = json.dumps([m[2:] for m in MONTHS])
+    script = f"""
+const DR={j}; const DRM={months}; let _drChart=null, _drDone=false;
+function initDrill(){{
+  if(_drDone)return; _drDone=true;
+  const sel=document.getElementById('storeSel');
+  DR.forEach((s,i)=>{{const o=document.createElement('option');o.value=i;
+    o.textContent=s.name+'  ('+(s.amt/1e8).toFixed(1)+'억)';sel.appendChild(o);}});
+  sel.addEventListener('change',()=>renderStore(+sel.value));
+  renderStore(0);
+}}
+function renderStore(i){{
+  const s=DR[i];
+  document.getElementById('dkpi').innerHTML=
+    '<div><b>'+(s.amt).toLocaleString()+'</b><span>배민 6개월(원)</span></div>'+
+    '<div><b>'+Math.round(s.share*100)+'%</b><span>배민 비중</span></div>'+
+    '<div><b>'+s.nad+'</b><span>광고변경</span></div>'+
+    '<div><b>'+s.ndisc+'</b><span>할인</span></div>'+
+    '<div><b>'+s.nhour+'</b><span>영업시간변경</span></div>';
+  if(_drChart)_drChart.destroy();
+  _drChart=new Chart(d1,{{type:'bar',data:{{labels:DRM,datasets:[{{label:'배민매출',data:s.m,backgroundColor:'#1971c2'}}]}},
+    options:{{plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>c.parsed.y.toLocaleString()+'원'}}}}}},scales:{{y:{{ticks:{{callback:v=>(v/1e8).toFixed(1)+'억'}}}}}}}}}});
+  const col={{'광고':'#1971c2','할인시작':'#e8590c','할인종료':'#adb5bd','영업시간':'#2f9e44','휴무변경':'# ae3ec9'}};
+  document.getElementById('devlist').innerHTML = s.ev.length? s.ev.slice().reverse().map(e=>
+    '<div style="padding:4px 0;border-bottom:1px solid #f1f3f5;"><b>'+e[0]+'</b> '+
+    '<span class="tag" style="background:#e7f5ff;color:#1971c2;">'+e[1]+'</span> '+
+    '<span style="color:#868e96;">'+e[2]+'</span></div>').join('') : '<p style="color:#868e96;">표시할 변경 없음</p>';
+}}
+"""
+    return body, script
+
+
+def gen_report(D, EFF, TM):
+    """인쇄용 컨설팅 보고서(단독 HTML, Ctrl+P → PDF)."""
+    dmap = {n: e for n, e in EFF}
+    depth = list(csv.DictReader(open(os.path.join(DS, "discount_depth.csv"), encoding="utf-8-sig"))) \
+        if os.path.exists(os.path.join(DS, "discount_depth.csv")) else []
+    drows = "".join(
+        f"<tr><td>{r['bucket']}</td><td class='num'>{r['n']}</td>"
+        f"<td class='num {'ok' if float(r['amt_med'])>0 else 'no'}'>{float(r['amt_med'])*100:+.1f}%</td>"
+        f"<td class='num'>{float(r['qty_med'])*100:+.1f}%</td></tr>" for r in depth)
+
+    def e(n):
+        x = dmap.get(n, {"amt": 0, "did": 0, "n": 0})
+        return f"{x['amt']*100:+.1f}% (DiD {x['did']*100:+.1f}%, {x['n']}건)"
+    pcss = CSS + "\n@media print{.wrap{max-width:none;}h2{page-break-after:avoid;}.card,table{page-break-inside:avoid;}}"
+    body = f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>육식사관학교 배민 운영-매출 분석 보고서</title><style>{pcss}</style></head><body><div class="wrap">
+<h1>육식사관학교 — 배민 운영 변경이 매출에 미친 영향</h1>
+<p class="sub">분석기간 2025-12-16 ~ 2026-06-17 · {D['n_stores']}개 매장 · 배민 6개월 {won(D['baemin_total'])}원</p>
+
+<h2>요약 (Executive Summary)</h2>
+<div class="card"><ol>
+<li><b>광고(우리가게클릭) 예산 증액</b>이 매출과 가장 뚜렷한 양(+)의 관계 — 전후 {e('광고 예산 증액')}, 추세보정 후에도 상승 유지.</li>
+<li><b>즉시할인은 깊이에 따라 갈린다</b> — 소액(1~3천원)은 효과 없음/반응적이나, <b>4천원+·배달팁 할인은 주문건수·매출 모두 상승</b>.</li>
+<li><b>영업시간 연장</b>은 야간(21~24시) 배달매출을 +{TM['ext_night']['med']*100:.1f}% 끌어올림(단축은 {TM['cut_night']['med']*100:+.1f}%). 배달 피크는 저녁 17~21시.</li>
+</ol></div>
+
+<h2>1 · 광고 효과</h2>
+<table><tr><th>구분</th><th class="num">매출 변화(중앙값)</th></tr>
+<tr><td>광고 예산 증액</td><td class="num ok">{e('광고 예산 증액')}</td></tr>
+<tr><td>광고 시작(최초)</td><td class="num">{e('광고 시작(최초)')}</td></tr></table>
+<div class="tip"><b>권고:</b> 광고는 ROI가 확인되는 레버. 매출 정체 매장에 <b>예산 증액</b>을 우선 검토.</div>
+
+<h2>2 · 할인 효과 (깊이별)</h2>
+<table><tr><th>할인 유형</th><th class="num">건수</th><th class="num">매출(중앙값)</th><th class="num">건수변화</th></tr>{drows}</table>
+<div class="tip"><b>권고:</b> 효과 약한 <b>소액 고정할인은 축소</b>, 전환이 확인되는 <b>배달팁 할인·큰 할인</b>으로 재배분.</div>
+
+<h2>3 · 영업시간 / 시간대</h2>
+<table><tr><th>구분</th><th class="num">야간(21~24시) 배달 변화</th></tr>
+<tr><td>영업시간 연장</td><td class="num ok">{TM['ext_night']['med']*100:+.1f}% ({TM['ext_night']['n']}건)</td></tr>
+<tr><td>영업시간 단축</td><td class="num no">{TM['cut_night']['med']*100:+.1f}% ({TM['cut_night']['n']}건)</td></tr></table>
+<div class="tip"><b>권고:</b> 저녁 피크(17~21시)와 야간 수요가 있는 매장은 <b>마감시간 연장</b>이 야간매출을 키움.</div>
+
+<h2>4 · 방법론 & 한계</h2>
+<div class="warn"><ul style="margin:6px 0 0;">
+<li>매출=메이트포스 주문경로별(배민=배달의민족+배민배달), 변경=배민 변경이력. 날짜로 결합.</li>
+<li>각 변경 전후 ±14일 일평균 비교(신규오픈 30일 보정). <b>DiD</b>로 브랜드 전체추세 제거.</li>
+<li><b>상관관계이며 인과는 아님</b> — 동시 발생 이벤트·매장 개별요인 잔존. 시간대별은 채널분리 불가(배달 합산).</li>
+</ul></div>
+<p class="foot">이 보고서는 sample_collection/dataset/reports/report.html · 인쇄(Ctrl+P) → PDF 저장</p>
+</div></body></html>"""
+    return body
+
+
 def gen_combined(D, EFF):
-    """3개 패널을 탭으로 묶은 단일 통합관리 파일."""
+    """패널들을 탭으로 묶은 단일 통합관리 파일."""
     prog = gen_progress(D)
     board = gen_board(D, EFF)
     dash_body, dash_script = dashboard_parts(D, EFF)
     TM = time_data()
     time_body, time_script = time_parts(TM)
+    drill_body, drill_script = drilldown_parts(D)
     tabcss = """
 .topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
 .topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
@@ -363,15 +504,17 @@ def gen_combined(D, EFF):
   <div class="tab on" data-t="board">📈 분석 보드</div>
   <div class="tab" data-t="dash">📊 대시보드</div>
   <div class="tab" data-t="time">⏰ 시간대</div>
+  <div class="tab" data-t="drill">🏪 매장별</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
   <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>{board}</div>
   <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
+  <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
-<script>{dash_script}{time_script}
+<script>{dash_script}{time_script}{drill_script}
 function show(t){{
   document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
@@ -379,6 +522,7 @@ function show(t){{
   document.querySelector('.tab[data-t="'+t+'"]').classList.add('on');
   if(t==='dash')initDashboard();
   if(t==='time')initTime();
+  if(t==='drill')initDrill();
 }}
 document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
 </script>
@@ -399,8 +543,11 @@ def main():
             "</body>", f"{CHARTJS}<script>{ds}initDashboard();</script></body>"))
     # ★ 통합관리 단일 파일(탭)
     open(os.path.join(OUT, "integrated.html"), "w", encoding="utf-8").write(gen_combined(D, EFF))
+    # 컨설팅 보고서(인쇄용)
+    TM = time_data()
+    open(os.path.join(OUT, "report.html"), "w", encoding="utf-8").write(gen_report(D, EFF, TM))
     print("생성 완료:")
-    for f in ("integrated.html", "board.html", "dashboard.html", "progress.html"):
+    for f in ("integrated.html", "report.html", "board.html", "dashboard.html", "progress.html"):
         p = os.path.join(OUT, f)
         print(f"  {p}  ({os.path.getsize(p)//1024}KB)")
     print(f"\n배민 6개월 매출 {won(D['baemin_total'])}원, 매장 {D['n_stores']}개")
