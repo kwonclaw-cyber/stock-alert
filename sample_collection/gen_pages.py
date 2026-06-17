@@ -16,6 +16,7 @@ from collections import defaultdict
 from statistics import median, mean
 
 import analyze_effects as A
+import analyze_time as T
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DS = os.path.join(HERE, "dataset")
@@ -171,7 +172,7 @@ def gen_progress(D):
   <h2>4 · 한계 & 다음</h2>
   <div class="warn"><b>한계</b><ul style="margin:6px 0 0;">
     <li>±14일 전후비교 → 상관관계(인과 아님). DiD로 전체추세는 제거.</li>
-    <li>시간대별 매출은 아직 미수집(영업시간 효과 정밀화용).</li>
+    <li>시간대별은 채널(배민/쿠팡) 분리가 안 됨 → 배달 전체 합산으로 분석.</li>
     <li>매출 16개 매장은 변경이력 없어 분석 제외(신규/타브랜드).</li></ul></div>
 """
     return b
@@ -274,11 +275,77 @@ function initDashboard(){{
 CHARTJS = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
 
 
+def time_data():
+    """시간대 프로파일 + 영업시간 변경 효과."""
+    hours, deliv = [], []
+    tot = 0
+    for r in csv.DictReader(open(os.path.join(DS, "hour_profile.csv"), encoding="utf-8-sig")):
+        hours.append(r["hour"][:2])
+        deliv.append(int(r["delivery_amt"]))
+        tot += int(r["delivery_amt"])
+    evening = sum(v for h, v in zip(hours, deliv) if "17" <= h <= "20")
+    shop2mate = T.load_shop2mate()
+    series, _, _ = T.load_time()
+    evs = T.hour_events(shop2mate)
+
+    def fx(idx, kind=None):
+        res = T.study(series, evs, idx)
+        if kind:
+            res = [r for r in res if r[0] == kind]
+        v = [p for _, p in res]
+        return {"n": len(v), "med": (median(v) if v else 0),
+                "rise": (sum(1 for x in v if x > 0) / len(v)) if v else 0}
+
+    return {"hours": hours, "deliv": deliv, "tot": tot,
+            "evening_share": evening / tot if tot else 0,
+            "ext_night": fx(2, "연장"), "cut_night": fx(2, "단축"),
+            "ext_all": fx(1, "연장"), "all_night": fx(2)}
+
+
+def time_parts(TM):
+    def card(title, fx, note):
+        cls = "pos" if fx["med"] > 0.003 else ("neg" if fx["med"] < -0.003 else "flat")
+        return (f'<div class="bcard {cls}"><h3>{title} <span style="font-size:12px;color:var(--mut);'
+                f'font-weight:400;">· {fx["n"]}건</span></h3>'
+                f'<span class="metric">매출(중앙값)<b class="{"ok" if fx["med"]>0 else "no"}">{fx["med"]*100:+.1f}%</b></span>'
+                f'<span class="metric">상승비율<b>{fx["rise"]*100:.0f}%</b></span>'
+                f'<span style="font-size:13px;color:var(--mut);">{note}</span></div>')
+    body = f"""
+  <div class="kpi">
+    <div><b>18-19시</b><span>피크 시간대</span></div>
+    <div><b>{TM['evening_share']*100:.0f}%</b><span>저녁 17~21시 비중</span></div>
+    <div><b>{TM['tot']/1e8:.0f}억</b><span>배달매출(시간대 합)</span></div>
+    <div><b class="ok">+{TM['ext_night']['med']*100:.1f}%</b><span>연장→야간배달</span></div>
+  </div>
+  <h2>시간대별 배달매출</h2><div class="card"><canvas id="t1" height="120"></canvas></div>
+  <div class="tip">⚠️ 시간대별은 <b>채널(배민/쿠팡) 분리가 안 됨</b> — 배달 전체 합산. 배달 대부분이 배민이라 추이 해석엔 충분.</div>
+  <h2>영업시간 변경 효과</h2>
+  {card("영업시간 연장 → 야간(21~24시) 배달", TM['ext_night'], "연장하면 야간 배달매출이 뚜렷이 상승")}
+  {card("영업시간 단축 → 야간 배달", TM['cut_night'], "단축하면 야간 매출 감소")}
+  {card("영업시간 연장 → 배달 전체", TM['ext_all'], "전체 배달도 소폭 상승")}
+  <div class="win"><b>인사이트:</b> 저녁 17~21시가 배달의 핵심. <b>영업시간 연장은 야간 배달매출을 올린다</b>(연장 +{TM['ext_night']['med']*100:.1f}% vs 단축 {TM['cut_night']['med']*100:+.1f}%).</div>
+"""
+    hours = json.dumps(TM["hours"])
+    deliv = json.dumps(TM["deliv"])
+    script = f"""
+let _timeDone=false;
+function initTime(){{
+  if(_timeDone)return; _timeDone=true;
+  new Chart(t1,{{type:'bar',data:{{labels:{hours},datasets:[{{label:'배달매출',data:{deliv},backgroundColor:'#1a8c34'}}]}},
+    options:{{plugins:{{legend:{{display:false}},tooltip:{{callbacks:{{label:c=>(c.parsed.y/1e8).toFixed(2)+'억원'}}}}}},
+    scales:{{x:{{title:{{display:true,text:'시(0~23)'}}}},y:{{ticks:{{callback:v=>(v/1e8).toFixed(0)+'억'}}}}}}}}}});
+}}
+"""
+    return body, script
+
+
 def gen_combined(D, EFF):
     """3개 패널을 탭으로 묶은 단일 통합관리 파일."""
     prog = gen_progress(D)
     board = gen_board(D, EFF)
     dash_body, dash_script = dashboard_parts(D, EFF)
+    TM = time_data()
+    time_body, time_script = time_parts(TM)
     tabcss = """
 .topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
 .topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
@@ -295,20 +362,23 @@ def gen_combined(D, EFF):
 <div class="tabs">
   <div class="tab on" data-t="board">📈 분석 보드</div>
   <div class="tab" data-t="dash">📊 대시보드</div>
+  <div class="tab" data-t="time">⏰ 시간대</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
   <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>{board}</div>
   <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
+  <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
-<script>{dash_script}
+<script>{dash_script}{time_script}
 function show(t){{
   document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   document.getElementById(t).style.display='';
   document.querySelector('.tab[data-t="'+t+'"]').classList.add('on');
   if(t==='dash')initDashboard();
+  if(t==='time')initTime();
 }}
 document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
 </script>
