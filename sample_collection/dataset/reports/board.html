@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>📈 육식사관학교 배민 분석 보드</title>
+<style>
+:root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
+*{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#f8f9fa;}
+.wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;} h1{font-size:28px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 28px;}
+h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);} h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+code{background:#f1f3f5;padding:2px 7px;border-radius:5px;font-family:Consolas,monospace;font-size:13px;color:#c92a2a;}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;} th{background:#f1f3f5;}
+.ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;} .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;margin-right:6px;} .t-try{background:#fff3bf;color:#e8590c;} .t-win{background:#ebfbee;color:#2f9e44;}
+.tip{background:var(--b2);border-left:4px solid var(--b);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.warn{background:#fff9db;border-left:4px solid var(--o);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.win{background:#ebfbee;border-left:4px solid var(--g);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+ol,ul{margin:8px 0;padding-left:22px;} li{margin:4px 0;font-size:14.3px;}
+.timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:3px solid var(--line);} .ev{position:relative;margin:0 0 18px;}
+.ev::before{content:'';position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--b);} .ev.good::before{border-color:var(--g);} .ev.fail::before{border-color:var(--r);}
+.ev h4{margin:0 0 4px;font-size:15px;} .ev p{margin:3px 0;font-size:14px;}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13.5px;} .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;} .arrow{color:var(--mut);font-weight:700;}
+.kpi{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;} .kpi div{flex:1;min-width:130px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;} .kpi b{display:block;font-size:24px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
+.bcard{border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid var(--line);background:#fff;} .bcard.pos{border-left:6px solid var(--g);} .bcard.neg{border-left:6px solid var(--r);} .bcard.flat{border-left:6px solid var(--mut);}
+.bcard h3{margin:0 0 8px;color:var(--ink);} .metric{display:inline-block;margin:4px 16px 4px 0;font-size:13px;} .metric b{font-size:18px;display:block;}
+.foot{margin-top:40px;color:var(--mut);font-size:13px;text-align:center;}
+</style></head><body><div class="wrap">
+<h1>📈 육식사관학교 배민 분석 보드</h1><p class="sub">변경 → 매출 직접 영향 · 6개월</p>
+  <h2>📊 분석 보드 — 변경이 배민 매출에 준 영향</h2>
+  <div class="kpi">
+    <div><b>181</b><span>매장</span></div>
+    <div><b>35,897,593,431</b><span>배민 매출(원)</span></div>
+    <div><b>60%</b><span>배민 비중</span></div>
+    <div><b>±14일</b><span>전후 비교창</span></div>
+  </div>
+  <div class="tip">각 변경 전후 <b>±14일 일평균 배민매출</b> 비교(신규오픈 30일 보정).
+  <b>DiD</b>는 브랜드 전체 추세를 빼 계절성을 제거한 '순수 효과'. <b>상관관계이며 인과는 아님.</b></div>
+  
+    <div class="bcard pos">
+      <h3>광고 예산 증액 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 92건 분석 · 효과 있음(+)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+4.7%</b></span>
+      <span class="metric">건수<b>+3.2%</b></span>
+      <span class="metric">객단가<b>+0.6%</b></span>
+      <span class="metric">추세보정(DiD)<b class="ok">+1.3%</b></span>
+      <span class="metric">상승비율<b>62%</b></span>
+    </div>
+    <div class="bcard flat">
+      <h3>광고 시작(최초) <span style="font-size:12px;color:var(--mut);font-weight:400;">· 77건 분석 · 효과 미미</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.8%</b></span>
+      <span class="metric">건수<b>+0.8%</b></span>
+      <span class="metric">객단가<b>+0.1%</b></span>
+      <span class="metric">추세보정(DiD)<b class="ok">+0.0%</b></span>
+      <span class="metric">상승비율<b>56%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>즉시할인 시작 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 791건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="no">-3.2%</b></span>
+      <span class="metric">건수<b>-3.5%</b></span>
+      <span class="metric">객단가<b>+0.1%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-1.6%</b></span>
+      <span class="metric">상승비율<b>43%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>휴무일 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 773건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.8%</b></span>
+      <span class="metric">건수<b>+2.1%</b></span>
+      <span class="metric">객단가<b>-0.2%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-0.5%</b></span>
+      <span class="metric">상승비율<b>56%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>배달가능시간 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 371건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+1.2%</b></span>
+      <span class="metric">건수<b>+1.7%</b></span>
+      <span class="metric">객단가<b>-0.5%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-1.6%</b></span>
+      <span class="metric">상승비율<b>51%</b></span>
+    </div>
+    <div class="bcard neg">
+      <h3>영업시간 변경 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 2059건 분석 · 효과 없음/역효과(−)</span></h3>
+      <span class="metric">매출(중앙값)<b class="ok">+0.3%</b></span>
+      <span class="metric">건수<b>+0.3%</b></span>
+      <span class="metric">객단가<b>+0.0%</b></span>
+      <span class="metric">추세보정(DiD)<b class="no">-2.0%</b></span>
+      <span class="metric">상승비율<b>51%</b></span>
+    </div>
+  <div class="win"><b>요약:</b> 광고 예산 <b>증액</b>이 가장 뚜렷한 양(+) — 추세보정 후에도 매출 상승.
+  <b>즉시할인</b>은 건수도 안 늘고 추세보정 후 효과 없음(빠질 때 켜는 반응적 사용).</div>
+
+  <h2>매출 상위 15개 매장</h2>
+  <table><tr><th>매장</th><th class="num">배민매출(원)</th><th class="num">광고변경</th><th class="num">할인</th><th class="num">영업시간</th></tr><tr><td>육식사관학교 인천구월점</td><td class='num'>674,653,200</td><td class='num'>1</td><td class='num'>9</td><td class='num'>70</td></tr><tr><td>육식사관학교목포하당점</td><td class='num'>637,334,300</td><td class='num'>8</td><td class='num'>4</td><td class='num'>2</td></tr><tr><td>육식사관학교 광주상무점</td><td class='num'>518,593,100</td><td class='num'>2</td><td class='num'>8</td><td class='num'>34</td></tr><tr><td>육식사관학교광주용봉점</td><td class='num'>441,322,200</td><td class='num'>1</td><td class='num'>5</td><td class='num'>7</td></tr><tr><td>육식사관학교남구점</td><td class='num'>435,284,310</td><td class='num'>37</td><td class='num'>10</td><td class='num'>2</td></tr><tr><td>육식사관학교평택서정점</td><td class='num'>434,414,700</td><td class='num'>200</td><td class='num'>10</td><td class='num'>17</td></tr><tr><td>육식사관학교울산달동점</td><td class='num'>433,906,100</td><td class='num'>5</td><td class='num'>5</td><td class='num'>32</td></tr><tr><td>육식사관학교안산중앙점</td><td class='num'>405,746,300</td><td class='num'>3</td><td class='num'>16</td><td class='num'>1</td></tr><tr><td>육식사관학교첨단점</td><td class='num'>402,716,600</td><td class='num'>68</td><td class='num'>5</td><td class='num'>3</td></tr><tr><td>육식사관학교용산점</td><td class='num'>397,745,600</td><td class='num'>6</td><td class='num'>1</td><td class='num'>26</td></tr><tr><td>육식사관학교 강동천호점</td><td class='num'>392,661,500</td><td class='num'>2</td><td class='num'>17</td><td class='num'>16</td></tr><tr><td>육식사관학교진주상대점</td><td class='num'>385,927,000</td><td class='num'>7</td><td class='num'>13</td><td class='num'>1</td></tr><tr><td>육식사관학교부산연산점</td><td class='num'>384,052,100</td><td class='num'>2</td><td class='num'>20</td><td class='num'>7</td></tr><tr><td>육식사관학교 광주광산점</td><td class='num'>369,476,800</td><td class='num'>1</td><td class='num'>4</td><td class='num'>7</td></tr><tr><td>육식사관학교 신기점</td><td class='num'>366,173,500</td><td class='num'>3</td><td class='num'>11</td><td class='num'>0</td></tr></table>
+
+<p class="foot">생성: 메이트포스 자동수집 + 배민 변경이력 결합 · sample_collection/</p>
+</div></body></html>

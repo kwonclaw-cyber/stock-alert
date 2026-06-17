@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>📊 육식사관학교 매출 분석 대시보드</title>
+<style>
+:root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
+*{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#f8f9fa;}
+.wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;} h1{font-size:28px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 28px;}
+h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);} h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+code{background:#f1f3f5;padding:2px 7px;border-radius:5px;font-family:Consolas,monospace;font-size:13px;color:#c92a2a;}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;} th{background:#f1f3f5;}
+.ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;} .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;margin-right:6px;} .t-try{background:#fff3bf;color:#e8590c;} .t-win{background:#ebfbee;color:#2f9e44;}
+.tip{background:var(--b2);border-left:4px solid var(--b);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.warn{background:#fff9db;border-left:4px solid var(--o);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+.win{background:#ebfbee;border-left:4px solid var(--g);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+ol,ul{margin:8px 0;padding-left:22px;} li{margin:4px 0;font-size:14.3px;}
+.timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:3px solid var(--line);} .ev{position:relative;margin:0 0 18px;}
+.ev::before{content:'';position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--b);} .ev.good::before{border-color:var(--g);} .ev.fail::before{border-color:var(--r);}
+.ev h4{margin:0 0 4px;font-size:15px;} .ev p{margin:3px 0;font-size:14px;}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13.5px;} .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;} .arrow{color:var(--mut);font-weight:700;}
+.kpi{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;} .kpi div{flex:1;min-width:130px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;} .kpi b{display:block;font-size:24px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
+.bcard{border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid var(--line);background:#fff;} .bcard.pos{border-left:6px solid var(--g);} .bcard.neg{border-left:6px solid var(--r);} .bcard.flat{border-left:6px solid var(--mut);}
+.bcard h3{margin:0 0 8px;color:var(--ink);} .metric{display:inline-block;margin:4px 16px 4px 0;font-size:13px;} .metric b{font-size:18px;display:block;}
+.foot{margin-top:40px;color:var(--mut);font-size:13px;text-align:center;}
+</style></head><body><div class="wrap">
+<h1>📊 육식사관학교 매출 분석 대시보드</h1><p class="sub">배민 6개월 · 매장·채널·변경효과</p>
+  <div class="kpi">
+    <div><b>35,897,593,431</b><span>배민 6개월 매출(원)</span></div>
+    <div><b>181</b><span>매장</span></div>
+    <div><b>60%</b><span>배민 비중</span></div>
+    <div><b>198,329,245</b><span>매장당 평균(원)</span></div>
+  </div>
+  <h2>월별 배민 매출 추이</h2><div class="card"><canvas id="c1" height="110"></canvas></div>
+  <h2>채널 매출 비중</h2><div class="card"><canvas id="c2" height="110"></canvas></div>
+  <h2>매출 상위 10개 매장</h2><div class="card"><canvas id="c3" height="140"></canvas></div>
+  <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const D={"months": ["25-12", "26-01", "26-02", "26-03", "26-04", "26-05", "26-06"], "bm": [2792692991, 5773993025, 4938983130, 5787197692, 5880591620, 7118203230, 3605931743], "tot": [4639930071, 9571020003, 8221466751, 9705589607, 10052595344, 11955727541, 6065698243], "chL": ["배민", "쿠팡이츠", "요기요", "땡겨요", "내점/포스", "먹깨비", "전화/기타"], "chV": [37592891821, 23773506170, 1287501800, 290867540, 167563059, 52257000, 34368210], "topL": ["인천구월점", "목포하당점", "광주상무점", "광주용봉점", "남구점", "평택서정점", "울산달동점", "안산중앙점", "첨단점", "용산점"], "topV": [674653200, 637334300, 518593100, 441322200, 435284310, 434414700, 433906100, 405746300, 402716600, 397745600], "eL": ["광고 예산 증액", "광고 시작(최초)", "즉시할인 시작", "휴무일 변경", "배달가능시간 변경", "영업시간 변경"], "eAmt": [4.7, 1.8, -3.2, 1.8, 1.2, 0.3], "eDid": [1.3, 0.0, -1.6, -0.5, -1.6, -2.0]};
+const won=v=>v.toLocaleString();
+new Chart(c1,{type:'bar',data:{labels:D.months,datasets:[
+  {label:'배민매출',data:D.bm,backgroundColor:'#1a8c34'},
+  {label:'전체매출',type:'line',data:D.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
+  options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}},scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+new Chart(c2,{type:'doughnut',data:{labels:D.chL,datasets:[{data:D.chV,
+  backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
+  options:{plugins:{tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원'}}}}});
+new Chart(c3,{type:'bar',data:{labels:D.topL,datasets:[{label:'배민매출',data:D.topV,backgroundColor:'#1971c2'}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+new Chart(c4,{type:'bar',data:{labels:D.eL,datasets:[
+  {label:'매출효과(중앙값,%)',data:D.eAmt,backgroundColor:'#74c0fc'},
+  {label:'추세보정 DiD(%)',data:D.eDid,backgroundColor:'#1971c2'}]},
+  options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}});
+</script>
+
+<p class="foot">생성: 메이트포스 자동수집 + 배민 변경이력 결합 · sample_collection/</p>
+</div></body></html>
