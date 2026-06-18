@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "회의록 — 녹음 & Notion 업로드",
-  description: "회의를 녹음·텍스트 변환하고 Notion에 업로드하는 사내 도구",
+  title: "미팅비서 by 권기백",
+  description: "회의를 녹음·텍스트 변환하고 Notion에 업로드하는 도구",
 };
 
 export default function RootLayout({
