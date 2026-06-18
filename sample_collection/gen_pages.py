@@ -247,9 +247,17 @@ function initDashboard(){
     {label:'배민매출',data:DASH.bm,backgroundColor:'#1a8c34'},
     {label:'전체매출',type:'line',data:DASH.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
     options:{scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}});
+  const chTot=DASH.chV.reduce((a,b)=>a+b,0);
   new Chart(c2,{type:'doughnut',data:{labels:DASH.chL,datasets:[{data:DASH.chV,
     backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
-    options:{plugins:{tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원'}}}}});
+    plugins:[ChartDataLabels],
+    options:{plugins:{
+      datalabels:{color:'#fff',font:{weight:'bold',size:12},
+        formatter:(v)=>{const p=v/chTot*100; return p>=4?p.toFixed(0)+'%':'';}},
+      tooltip:{callbacks:{label:c=>c.label+': '+won(c.parsed)+'원 ('+(c.parsed/chTot*100).toFixed(1)+'%)'}},
+      legend:{position:'right',labels:{generateLabels:ch=>ch.data.labels.map((l,i)=>({
+        text:l+' '+(ch.data.datasets[0].data[i]/chTot*100).toFixed(1)+'%',
+        fillStyle:ch.data.datasets[0].backgroundColor[i],index:i}))}}}}});
   new Chart(c3,{type:'bar',data:{labels:DASH.topL,datasets:[{label:'배민매출',data:DASH.topV,backgroundColor:'#1971c2'}]},
     options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
   new Chart(c4,{type:'bar',data:{labels:DASH.eL,datasets:[
@@ -298,6 +306,70 @@ function renderStore(i){
 """
 
 
+COMPARE_JS = r"""
+let _cmpChart=null,_cmpDone=false;
+const wonF=v=>(v==null?'-':v.toLocaleString()+'원');
+const hhmm=m=>{if(m==null)return'-';let h=Math.floor(m/60),mm=m%60;return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');};
+function initCompare(){
+  if(_cmpDone)return; _cmpDone=true;
+  const a=document.getElementById('selA'), b=document.getElementById('selB');
+  CF.forEach((s,i)=>{const o1=document.createElement('option'),o2=document.createElement('option');
+    o1.value=i;o1.textContent=s.name+' ('+(s.amt/1e8).toFixed(1)+'억)';
+    o2.value=i;o2.textContent=o1.textContent; a.appendChild(o1); b.appendChild(o2);});
+  a.selectedIndex=0; b.selectedIndex=Math.min(1,CF.length-1);
+  a.addEventListener('change',renderCmp); b.addEventListener('change',renderCmp);
+  renderCmp();
+}
+function pct(x){return (x>=0?'+':'')+(x*100).toFixed(0)+'%';}
+function renderCmp(){
+  const A=CF[+document.getElementById('selA').value], B=CF[+document.getElementById('selB').value];
+  // 차트: 월별 배민매출
+  if(_cmpChart)_cmpChart.destroy();
+  _cmpChart=new Chart(cmpChart,{type:'bar',data:{labels:CFM,datasets:[
+    {label:'🟢 '+A.name,data:A.m,backgroundColor:'#2f9e44'},
+    {label:'🔵 '+B.name,data:B.m,backgroundColor:'#1971c2'}]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString()+'원'}}},scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
+  // 비교표
+  const dm=s=>{const d=s.dmix||{};return '소액'+(d.small||0)+'·큰'+(d.big||0)+'·배달팁'+(d.tip||0);};
+  const row=(label,va,vb)=>'<tr><td>'+label+'</td><td class="num">'+va+'</td><td class="num">'+vb+'</td></tr>';
+  document.getElementById('cmpTable').innerHTML=
+    '<table><tr><th>지표</th><th class="num">🟢 표본 '+A.name+'</th><th class="num">🔵 대상 '+B.name+'</th></tr>'+
+    row('배민 6개월 매출',wonF(A.amt),wonF(B.amt))+
+    row('일평균 배민매출',wonF(A.daily),wonF(B.daily))+
+    row('배민 비중',Math.round(A.share*100)+'%',Math.round(B.share*100)+'%')+
+    row('야간(21~24시) 배달비중',Math.round(A.night*100)+'%',Math.round(B.night*100)+'%')+
+    row('광고 변경수 / 월예산',A.nad+' / '+wonF(A.budget),B.nad+' / '+wonF(B.budget))+
+    row('즉시할인(유형)',A.ndisc+' ('+dm(A)+')',B.ndisc+' ('+dm(B)+')')+
+    row('영업종료시각(최근)',hhmm(A.close),hhmm(B.close))+
+    row('영업시간 변경수',A.nhour,B.nhour)+'</table>';
+  // 컨설팅
+  let out=[];
+  const add=(cls,t)=>out.push('<div class="bcard '+cls+'"><h3>'+t.h+'</h3><p style="margin:0;font-size:14px;">'+t.b+'</p></div>');
+  // 매출
+  const r=B.daily/A.daily;
+  if(r<0.9) add('neg',{h:'매출 격차',b:'대상 일평균 배민매출이 표본의 <b>'+Math.round(r*100)+'%</b> 수준('+wonF(B.daily)+' vs '+wonF(A.daily)+'). 아래 운영 차이를 개선 여지로 검토.'});
+  else if(r>1.1) add('pos',{h:'매출 우위',b:'대상이 표본보다 일평균 매출이 높음('+Math.round(r*100)+'%). 표본을 역으로 벤치마크할 여지.'});
+  else add('flat',{h:'매출 유사',b:'두 매장 일평균 배민매출이 비슷('+wonF(B.daily)+' vs '+wonF(A.daily)+').'});
+  // 광고
+  if((B.budget||0) < (A.budget||0)*0.8 || B.nad < A.nad)
+    add('neg',{h:'광고 투자 부족 가능',b:'표본은 광고변경 '+A.nad+'건·월예산 '+wonF(A.budget)+', 대상은 '+B.nad+'건·'+wonF(B.budget)+'. 광고 예산 증액이 매출과 가장 뚜렷한 양(+) 신호였음 → <b>대상 광고 강화 검토</b>.'});
+  else add('pos',{h:'광고 운영 양호',b:'대상 광고 투자가 표본과 대등하거나 그 이상.'});
+  // 할인
+  const aGood=(A.dmix.tip||0)+(A.dmix.big||0), bSmall=(B.dmix.small||0), bGood=(B.dmix.tip||0)+(B.dmix.big||0);
+  if(aGood>0 && bGood===0 && bSmall>0)
+    add('neg',{h:'할인 설계 차이',b:'표본은 <b>배달팁·4천원+ 할인</b>(효과 확인된 유형)을 쓰는데, 대상은 <b>소액 고정할인 위주</b>(효과 낮음). 대상 할인을 배달팁/큰할인 중심으로 재설계 권장.'});
+  else add('flat',{h:'할인 운영',b:'표본 '+dm2(A)+' / 대상 '+dm2(B)+'.'});
+  // 영업시간
+  if(A.close!=null && B.close!=null && B.close < A.close-15)
+    add('neg',{h:'마감시간 짧음',b:'대상 영업종료 <b>'+hhmm(B.close)+'</b> vs 표본 <b>'+hhmm(A.close)+'</b>. 영업시간 연장은 야간 배달매출을 올렸음('+'표본 야간비중 '+Math.round(A.night*100)+'%) → <b>마감 연장 검토</b>.'});
+  else if(A.close!=null && B.close!=null && B.close > A.close+15)
+    add('pos',{h:'마감시간 우위',b:'대상이 표본보다 늦게까지 영업('+hhmm(B.close)+' vs '+hhmm(A.close)+').'});
+  document.getElementById('cmpAdvice').innerHTML=out.join('');
+}
+function dm2(s){const d=s.dmix||{};return '소액'+(d.small||0)+'·큰'+(d.big||0)+'·배달팁'+(d.tip||0);}
+"""
+
+
 def dashboard_parts(D, EFF):
     months = MONTHS
     bm = [round(D["monthly"].get(m, 0)) for m in months]
@@ -332,7 +404,8 @@ def dashboard_parts(D, EFF):
     return body, script
 
 
-CHARTJS = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
+CHARTJS = ('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
+           '<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>')
 
 
 def time_data():
@@ -490,6 +563,87 @@ def gen_report(D, EFF, TM):
 <body><div class="wrap">{report_inner(D, EFF, TM)}</div></body></html>""")
 
 
+def store_features(D):
+    """매장별 운영 특성(비교/컨설팅용)."""
+    import analyze_discount as DISC
+    shop2mate = T.load_shop2mate()
+    series, _, _ = T.load_time()
+    night_share = {}
+    for mate, s in series.items():
+        deliv = sum(v[1] for v in s.values())
+        night = sum(v[2] for v in s.values())
+        night_share[mate] = (night / deliv) if deliv else 0
+
+    feat = {}  # shop -> {budget, close, dmix}
+    for f in glob.glob(os.path.join(DS, "stores", "*.json")):
+        d = json.load(open(f, encoding="utf-8"))
+        shop = str(d.get("shopNumber", ""))
+        budget, bts = None, ""
+        for ev in d.get("ad", []) or []:
+            if ev.get("historyType") != "CPC_BUDGET":
+                continue
+            try:
+                b = json.loads(ev.get("afterValue") or "").get("cpc", {}).get("monthlyBudget")
+            except Exception:
+                b = None
+            ts = ev.get("createdAt") or ""
+            if b is not None and ts >= bts:
+                budget, bts = b, ts
+        close, cts = None, ""
+        dmix = {"small": 0, "big": 0, "tip": 0, "pct": 0, "other": 0}
+        for ev in d.get("shop", []) or []:
+            if ev.get("changedItem") == "SHOP_OPERATION_HOUR_MODIFY":
+                ts = ev.get("createdAt") or ""
+                c = T.parse_close(ev.get("afterState"))
+                if c is not None and ts >= cts:
+                    close, cts = c, ts
+        for ev in d.get("instantDiscount", []) or []:
+            if ev.get("type") != "ACTIVATE":
+                continue
+            b = DISC.classify(ev.get("name"))
+            key = ({"1000원": "small", "2000원": "small", "3000원": "small", "4000원+": "big",
+                    "배달팁": "tip", "%할인": "pct"}).get(b, "other")
+            dmix[key] += 1
+        feat[shop] = {"budget": budget, "close": close, "dmix": dmix}
+
+    out = []
+    for s in D["stores"]:
+        sh = s["shop"]
+        if not sh:
+            continue
+        days = int(s["days"]) or 1
+        fe = feat.get(sh, {"budget": None, "close": None, "dmix": {}})
+        out.append({"shop": sh, "name": s["store"],
+                    "amt": int(s["amt"]), "daily": round(int(s["amt"]) / days),
+                    "share": round(float(s["baemin_share"]), 3),
+                    "m": [int(s[f"m_{m}"]) for m in MONTHS],
+                    "nad": int(s["n_ad"]), "ndisc": int(s["n_disc"]), "nhour": int(s["n_hour"]),
+                    "budget": fe["budget"], "close": fe["close"],
+                    "night": round(night_share.get(shop2mate.get(sh), 0), 3),
+                    "dmix": fe["dmix"]})
+    return out
+
+
+def compare_parts(D):
+    cf = json.dumps(store_features(D), ensure_ascii=False)
+    body = """
+  <p class="sub">표본매장(잘되는/기준)과 대상매장(진단 대상)을 골라 운영을 비교하고 컨설팅 코멘트를 받습니다.</p>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 14px;">
+    <div><div style="font-size:12px;color:var(--mut);font-weight:700;">🟢 표본매장 (기준)</div>
+      <select id="selA" style="font-size:15px;padding:8px 12px;border:2px solid #2f9e44;border-radius:8px;min-width:260px;"></select></div>
+    <div><div style="font-size:12px;color:var(--mut);font-weight:700;">🔵 대상매장 (진단)</div>
+      <select id="selB" style="font-size:15px;padding:8px 12px;border:2px solid #1971c2;border-radius:8px;min-width:260px;"></select></div>
+  </div>
+  <div class="card"><canvas id="cmpChart" height="110"></canvas></div>
+  <div id="cmpTable"></div>
+  <h2>🧠 비교 컨설팅</h2>
+  <div id="cmpAdvice"></div>
+"""
+    months = json.dumps([m[2:] for m in MONTHS])
+    script = "const CF=" + cf + ";\nconst CFM=" + months + ";\n" + COMPARE_JS
+    return body, script
+
+
 def gen_combined(D, EFF):
     """패널들을 탭으로 묶은 단일 통합관리 파일."""
     prog = gen_progress(D)
@@ -498,7 +652,7 @@ def gen_combined(D, EFF):
     TM = time_data()
     time_body, time_script = time_parts(TM)
     drill_body, drill_script = drilldown_parts(D)
-    report = report_inner(D, EFF, TM)
+    cmp_body, cmp_script = compare_parts(D)
     tabcss = """
 .topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
 .topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
@@ -506,9 +660,6 @@ def gen_combined(D, EFF):
 .tab{padding:14px 20px;font-size:14px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
 .tab:hover{background:#f1f3f5;} .tab.on{color:#1971c2;border-bottom-color:#1971c2;}
 .panel-title{font-size:26px;margin:8px 0 2px;} .panel-sub{color:var(--mut);margin:0 0 20px;}
-.btn{background:#1971c2;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;}
-.btn:hover{background:#1864ab;}
-@media print{.topbar,.tabs,.noprint{display:none!important;} .panel{display:none!important;} #report{display:block!important;} .wrap{max-width:none;padding:0;} h2{page-break-after:avoid;} .card,table{page-break-inside:avoid;}}
 """
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -520,7 +671,7 @@ def gen_combined(D, EFF):
   <div class="tab" data-t="dash">📊 대시보드</div>
   <div class="tab" data-t="time">⏰ 시간대</div>
   <div class="tab" data-t="drill">🏪 매장별</div>
-  <div class="tab" data-t="report">📄 리포트 생성</div>
+  <div class="tab" data-t="cmp">⚖️ 표본vs대상</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
@@ -528,16 +679,10 @@ def gen_combined(D, EFF):
   <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
-  <div class="panel" id="report" style="display:none">
-    <div class="noprint" style="margin:0 0 18px;display:flex;gap:10px;align-items:center;">
-      <button class="btn" onclick="window.print()">🖨 PDF로 저장 (인쇄)</button>
-      <span style="color:var(--mut);font-size:13px;">인쇄 대화상자에서 '대상 → PDF로 저장'을 선택하세요. 이 탭 내용만 출력됩니다.</span>
-    </div>
-    {report}
-  </div>
+  <div class="panel" id="cmp" style="display:none"><h1 class="panel-title">⚖️ 표본매장 vs 대상매장</h1>{cmp_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
-<script>{dash_script}{time_script}{drill_script}
+<script>{dash_script}{time_script}{drill_script}{cmp_script}
 function show(t){{
   document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
@@ -546,6 +691,7 @@ function show(t){{
   if(t==='dash')initDashboard();
   if(t==='time')initTime();
   if(t==='drill')initDrill();
+  if(t==='cmp')initCompare();
 }}
 document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
 </script>
