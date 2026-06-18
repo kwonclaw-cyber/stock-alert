@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이미지 합치기 생성기</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    background: #0b0f14; color: #e6edf3;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .hint {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #9fb0c0;
+    line-height: 1.6; margin: 12px 0 16px;
+  }
+  .drop {
+    border: 2px dashed rgba(255,255,255,.2); border-radius: 12px;
+    background: rgba(255,255,255,.02); padding: 32px; text-align: center;
+    color: #8b9bab; font-size: 14px; cursor: pointer; transition: .15s; margin-bottom: 16px;
+  }
+  .drop:hover, .drop.over { border-color: rgba(52,211,153,.5); color: #cfe; }
+  .drop b { color: #cdd9e5; }
+  .opts {
+    display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px;
+  }
+  .opts label { display: flex; align-items: center; gap: 8px; }
+  .opts .muted { color: #7d8fa0; }
+  .seg button {
+    background: transparent; color: #8b9bab; border: 1px solid rgba(255,255,255,.15);
+    border-radius: 7px; padding: 6px 12px; font-size: 13px; cursor: pointer; transition: .15s;
+  }
+  .seg button + button { margin-left: 4px; }
+  .seg button.active { border-color: rgba(52,211,153,.5); background: rgba(52,211,153,.1); color: #6ee7b7; }
+  input[type=number] {
+    width: 64px; background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 6px; color: #fff; padding: 5px 8px; font-size: 13px;
+  }
+  input[type=color] { width: 36px; height: 28px; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; background: transparent; cursor: pointer; padding: 2px; }
+  .list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .card {
+    position: relative; width: 128px; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; overflow: hidden; background: rgba(0,0,0,.3); cursor: grab;
+  }
+  .card.dragging { opacity: .4; }
+  .card img { width: 100%; height: 96px; object-fit: contain; background: rgba(0,0,0,.4); display: block; }
+  .card .meta { display: flex; justify-content: space-between; padding: 4px 6px; font-size: 11px; color: #7d8fa0; }
+  .card .tools {
+    position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between;
+    padding: 4px; background: linear-gradient(rgba(0,0,0,.7), transparent); opacity: 0; transition: .15s;
+  }
+  .card:hover .tools { opacity: 1; }
+  .card .tools button {
+    background: rgba(0,0,0,.6); color: #fff; border: 0; border-radius: 4px;
+    padding: 2px 7px; font-size: 12px; cursor: pointer;
+  }
+  .card .tools .del { background: rgba(220,38,38,.75); }
+  .actions { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+  .btn {
+    border: 1px solid rgba(255,255,255,.15); background: transparent; color: #cdd9e5;
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; transition: .15s;
+  }
+  .btn:hover { border-color: rgba(255,255,255,.3); }
+  .btn.primary { background: #10b981; color: #022; border-color: #10b981; font-weight: 600; }
+  .btn.primary:hover { background: #34d399; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.ghost { border: 0; color: #7d8fa0; }
+  .result { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); border-radius: 12px; padding: 12px; }
+  .result p { margin: 0 0 8px; font-size: 12px; color: #7d8fa0; }
+  .result img { max-width: 100%; max-height: 70vh; display: block; object-fit: contain; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧩 이미지 합치기 생성기</h1>
+  <div class="hint">
+    <span>💡</span>
+    <p>여러 이미지를 <b>가로</b> 또는 <b>세로</b>로 이어붙여 한 장으로 만들어요. 파일 선택·드래그·<b>Ctrl+V</b>(캡처 붙여넣기)로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. 정렬·간격·여백·배경색을 조절할 수 있어요.</p>
+  </div>
+
+  <div class="drop" id="drop">
+    여기로 이미지를 <b>드래그</b>하거나 클릭해서 선택하세요 · <b>Ctrl+V</b>로 캡처 붙여넣기도 돼요
+    <input type="file" id="file" accept="image/*" multiple class="hidden">
+  </div>
+
+  <div class="opts">
+    <label><span class="muted">방향</span>
+      <span class="seg" id="dir">
+        <button data-v="horizontal" class="active">↔ 가로</button>
+        <button data-v="vertical">↕ 세로</button>
+      </span>
+    </label>
+    <label><span class="muted" id="alignLabel">세로 정렬</span>
+      <span class="seg" id="align">
+        <button data-v="start" id="alignStart">위</button>
+        <button data-v="center" class="active">가운데</button>
+        <button data-v="end" id="alignEnd">아래</button>
+      </span>
+    </label>
+    <label><span class="muted">간격</span><input type="number" id="gap" min="0" value="0"><span class="muted">px</span></label>
+    <label><span class="muted">여백</span><input type="number" id="pad" min="0" value="0"><span class="muted">px</span></label>
+    <label><span class="muted">배경</span>
+      <input type="color" id="bg" value="#0b0f14">
+      <label class="muted" style="gap:4px"><input type="checkbox" id="transparent"> 투명</label>
+    </label>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="actions">
+    <button class="btn primary" id="generate" disabled>🧩 합치기</button>
+    <button class="btn primary hidden" id="download">⬇ 다운로드</button>
+    <button class="btn ghost hidden" id="clear">전체 비우기</button>
+  </div>
+
+  <div class="result hidden" id="resultBox">
+    <p>결과 미리보기 (이미지를 우클릭하거나 다운로드 버튼으로 저장)</p>
+    <img id="resultImg" alt="합쳐진 이미지">
+  </div>
+</div>
+
+<script>
+(function () {
+  let items = []; // { id, name, url, img, w, h }
+  let dir = "horizontal";
+  let align = "center";
+  let resultUrl = null;
+  let dragIndex = null;
+  let seq = 0;
+
+  const $ = (id) => document.getElementById(id);
+  const drop = $("drop"), fileInput = $("file"), listEl = $("list");
+
+  function addFiles(files) {
+    const imgs = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    let pending = imgs.length;
+    if (!pending) return;
+    imgs.forEach((f) => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        items.push({ id: "i" + seq++, name: f.name || "image", url, img, w: img.naturalWidth, h: img.naturalHeight });
+        if (--pending === 0) { resultUrl = null; render(); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); if (--pending === 0) { resultUrl = null; render(); } };
+      img.src = url;
+    });
+  }
+
+  function render() {
+    listEl.innerHTML = "";
+    items.forEach((it, i) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.draggable = true;
+      card.title = "드래그해서 순서 이동";
+      card.innerHTML =
+        '<img src="' + it.url + '" alt="">' +
+        '<div class="meta"><span>' + it.w + '×' + it.h + '</span><span>#' + (i + 1) + '</span></div>' +
+        '<div class="tools"><span><button data-act="left">◀</button> <button data-act="right">▶</button></span>' +
+        '<button class="del" data-act="del">✕</button></div>';
+      card.addEventListener("dragstart", () => { dragIndex = i; card.classList.add("dragging"); });
+      card.addEventListener("dragend", () => card.classList.remove("dragging"));
+      card.addEventListener("dragover", (e) => e.preventDefault());
+      card.addEventListener("drop", () => onDrop(i));
+      card.querySelectorAll("button").forEach((b) => {
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const act = b.dataset.act;
+          if (act === "del") removeAt(i);
+          else if (act === "left") move(i, -1);
+          else if (act === "right") move(i, 1);
+        });
+      });
+      listEl.appendChild(card);
+    });
+    $("generate").disabled = items.length === 0;
+    $("generate").textContent = "🧩 합치기 (" + items.length + ")";
+    $("clear").classList.toggle("hidden", items.length === 0);
+    if (!resultUrl) { $("resultBox").classList.add("hidden"); $("download").classList.add("hidden"); }
+  }
+
+  function removeAt(i) { URL.revokeObjectURL(items[i].url); items.splice(i, 1); resultUrl = null; render(); }
+  function move(i, d) {
+    const j = i + d; if (j < 0 || j >= items.length) return;
+    [items[i], items[j]] = [items[j], items[i]]; resultUrl = null; render();
+  }
+  function onDrop(target) {
+    if (dragIndex == null || dragIndex === target) return;
+    const [m] = items.splice(dragIndex, 1); items.splice(target, 0, m);
+    dragIndex = null; resultUrl = null; render();
+  }
+
+  function generate() {
+    if (!items.length) return;
+    const horiz = dir === "horizontal";
+    const gap = Math.max(0, +$("gap").value || 0);
+    const pad = Math.max(0, +$("pad").value || 0);
+    const transparent = $("transparent").checked;
+    const bg = $("bg").value;
+
+    const crosses = items.map((it) => (horiz ? it.h : it.w));
+    const mains = items.map((it) => (horiz ? it.w : it.h));
+    const crossMax = Math.max.apply(null, crosses);
+    const mainTotal = mains.reduce((a, b) => a + b, 0) + gap * (items.length - 1);
+
+    const totalW = (horiz ? mainTotal : crossMax) + pad * 2;
+    const totalH = (horiz ? crossMax : mainTotal) + pad * 2;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = totalW; canvas.height = totalH;
+    const ctx = canvas.getContext("2d");
+    if (!transparent) { ctx.fillStyle = bg; ctx.fillRect(0, 0, totalW, totalH); }
+
+    let cursor = pad;
+    items.forEach((it) => {
+      const crossSize = horiz ? it.h : it.w;
+      let crossOff = pad;
+      if (align === "center") crossOff = pad + (crossMax - crossSize) / 2;
+      else if (align === "end") crossOff = pad + (crossMax - crossSize);
+      const x = horiz ? cursor : crossOff;
+      const y = horiz ? crossOff : cursor;
+      ctx.drawImage(it.img, x, y, it.w, it.h);
+      cursor += (horiz ? it.w : it.h) + gap;
+    });
+
+    resultUrl = canvas.toDataURL("image/png");
+    $("resultImg").src = resultUrl;
+    $("resultBox").classList.remove("hidden");
+    $("download").classList.remove("hidden");
+  }
+
+  function updateAlignLabels() {
+    const h = dir === "horizontal";
+    $("alignLabel").textContent = h ? "세로 정렬" : "가로 정렬";
+    $("alignStart").textContent = h ? "위" : "왼쪽";
+    $("alignEnd").textContent = h ? "아래" : "오른쪽";
+  }
+
+  // 이벤트 바인딩
+  drop.addEventListener("click", () => fileInput.click());
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault(); drop.classList.remove("over");
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener("change", (e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; });
+
+  window.addEventListener("paste", (e) => {
+    const files = Array.from(e.clipboardData.items)
+      .filter((i) => i.type.startsWith("image/"))
+      .map((i) => i.getAsFile()).filter(Boolean);
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+
+  $("dir").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    dir = b.dataset.v; resultUrl = null;
+    $("dir").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    updateAlignLabels(); render();
+  });
+  $("align").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    align = b.dataset.v; resultUrl = null;
+    $("align").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    render();
+  });
+  ["gap", "pad", "bg"].forEach((id) => $(id).addEventListener("input", () => { resultUrl = null; render(); }));
+  $("transparent").addEventListener("change", () => {
+    $("bg").disabled = $("transparent").checked; resultUrl = null; render();
+  });
+
+  $("generate").addEventListener("click", generate);
+  $("download").addEventListener("click", () => {
+    if (!resultUrl) return;
+    const a = document.createElement("a");
+    a.href = resultUrl; a.download = "merged-" + Date.now() + ".png"; a.click();
+  });
+  $("clear").addEventListener("click", () => {
+    items.forEach((it) => URL.revokeObjectURL(it.url));
+    items = []; resultUrl = null; render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
