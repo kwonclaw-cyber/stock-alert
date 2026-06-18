@@ -310,19 +310,22 @@ COMPARE_JS = r"""
 let _cmpChart=null,_cmpDone=false;
 const wonF=v=>(v==null?'-':v.toLocaleString()+'원');
 const hhmm=m=>{if(m==null)return'-';let h=Math.floor(m/60),mm=m%60;return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');};
+const cmpLab=s=>s.name+' ('+(s.amt/1e8).toFixed(1)+'억)';
+let _cmpMap={};
 function initCompare(){
   if(_cmpDone)return; _cmpDone=true;
+  CF.forEach((s,i)=>{_cmpMap[cmpLab(s)]=i;});
   const a=document.getElementById('selA'), b=document.getElementById('selB');
-  CF.forEach((s,i)=>{const o1=document.createElement('option'),o2=document.createElement('option');
-    o1.value=i;o1.textContent=s.name+' ('+(s.amt/1e8).toFixed(1)+'억)';
-    o2.value=i;o2.textContent=o1.textContent; a.appendChild(o1); b.appendChild(o2);});
-  a.selectedIndex=0; b.selectedIndex=Math.min(1,CF.length-1);
+  a.value=cmpLab(CF[0]); b.value=cmpLab(CF[Math.min(1,CF.length-1)]);
   a.addEventListener('change',renderCmp); b.addEventListener('change',renderCmp);
+  a.addEventListener('input',renderCmp); b.addEventListener('input',renderCmp);
   renderCmp();
 }
 function pct(x){return (x>=0?'+':'')+(x*100).toFixed(0)+'%';}
 function renderCmp(){
-  const A=CF[+document.getElementById('selA').value], B=CF[+document.getElementById('selB').value];
+  const ia=_cmpMap[document.getElementById('selA').value], ib=_cmpMap[document.getElementById('selB').value];
+  if(ia==null||ib==null)return;
+  const A=CF[ia], B=CF[ib];
   // 차트: 월별 배민매출
   if(_cmpChart)_cmpChart.destroy();
   _cmpChart=new Chart(cmpChart,{type:'bar',data:{labels:CFM,datasets:[
@@ -624,17 +627,96 @@ def store_features(D):
     return out
 
 
+def _perstore_uplift(sales, first, days):
+    res = A.study(sales, first, days, ramp=A.RAMP)
+    d = defaultdict(list)
+    for r in res:
+        d[r["shop"]].append(r["amt_pct"])
+    return {k: mean(v) for k, v in d.items()}
+
+
+def recommend_samples(D, topn=10):
+    """할인·우가클광고·영업시간연장으로 매출상승 효과가 컸던 매장 추천."""
+    import analyze_discount as DISC
+    from datetime import date as _date
+    sales, first = A.load_sales()
+    bud = A.ad_budget_events()
+    inc = sorted(set((s, t) for s, t, bb, ab in bud if bb is not None and ab is not None and ab > bb))
+    ad_up = _perstore_uplift(sales, first, inc)
+    bigtip = set()
+    for f in glob.glob(os.path.join(DS, "stores", "*.json")):
+        d = json.load(open(f, encoding="utf-8"))
+        shop = str(d.get("shopNumber", ""))
+        for ev in d.get("instantDiscount", []) or []:
+            if ev.get("type") != "ACTIVATE":
+                continue
+            if DISC.classify(ev.get("name")) in ("4000원+", "배달팁"):
+                ts = ev.get("modifiedAt") or ""
+                if ts:
+                    bigtip.add((shop, _date(int(ts[:4]), int(ts[5:7]), int(ts[8:10]))))
+    disc_up = _perstore_uplift(sales, first, sorted(bigtip))
+    # 영업시간 연장 → 야간배달 상승 (매장별)
+    shop2mate = T.load_shop2mate()
+    mate2shop = {m: s for s, m in shop2mate.items()}
+    series, _, _ = T.load_time()
+    firstT = {m: min(s) for m, s in series.items() if s}
+    hour_up = defaultdict(list)
+    for mate, t, kind in T.hour_events(shop2mate):
+        if kind != "연장":
+            continue
+        s = series.get(mate)
+        if not s or (t - firstT[mate]).days < A.RAMP:
+            continue
+        pre, post = T.wmean(s, t, -A.WIN, -1, 1), T.wmean(s, t, 1, A.WIN, 1)  # 배달 전체(안정적)
+        if pre and post and pre[1] >= A.MINOBS and post[1] >= A.MINOBS and pre[0] > 0:
+            sh = mate2shop.get(mate)
+            if sh:
+                hour_up[sh].append(min((post[0] - pre[0]) / pre[0], 1.0))  # 과도값 캡
+    hour_up = {k: mean(v) for k, v in hour_up.items()}
+    name = {s["shop"]: s["store"] for s in D["stores"]}
+    amt = {s["shop"]: int(s["amt"]) for s in D["stores"]}
+    cand = []
+    for shop in set(ad_up) | set(disc_up) | set(hour_up):
+        if amt.get(shop, 0) < 1e8:
+            continue
+        reasons = []
+        if ad_up.get(shop, 0) >= 0.05:
+            reasons.append(("우가클 광고", min(ad_up[shop], 1.0)))
+        if disc_up.get(shop, 0) >= 0.05:
+            reasons.append(("배달팁·큰할인", min(disc_up[shop], 1.0)))
+        if hour_up.get(shop, 0) >= 0.05:
+            reasons.append(("영업시간 연장", hour_up[shop]))
+        if reasons:
+            cand.append({"name": name.get(shop, shop), "amt": amt.get(shop, 0),
+                         "reasons": reasons, "score": sum(u for _, u in reasons)})
+    cand.sort(key=lambda x: -x["score"])
+    return cand[:topn]
+
+
 def compare_parts(D):
-    cf = json.dumps(store_features(D), ensure_ascii=False)
-    body = """
-  <p class="sub">표본매장(잘되는/기준)과 대상매장(진단 대상)을 골라 운영을 비교하고 컨설팅 코멘트를 받습니다.</p>
+    feats = store_features(D)
+    cf = json.dumps(feats, ensure_ascii=False)
+    recos = recommend_samples(D)
+    reco_rows = "".join(
+        f"<tr><td>{c['name']}</td><td class='num'>{c['amt']/1e8:.1f}억</td>"
+        f"<td>{' · '.join(f'{nm} +{u*100:.0f}%' for nm, u in c['reasons'])}</td></tr>"
+        for c in recos)
+    datalist = "".join(
+        f'<option value="{s["name"]} ({s["amt"]/1e8:.1f}억)"></option>' for s in feats)
+    body = f"""
+  <p class="sub">표본매장(잘되는/기준)과 대상매장(진단 대상)을 골라 운영을 비교하고 컨설팅 코멘트를 받습니다. <b>칸에 매장명을 입력하면 검색</b>됩니다.</p>
   <div style="display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 14px;">
     <div><div style="font-size:12px;color:var(--mut);font-weight:700;">🟢 표본매장 (기준)</div>
-      <select id="selA" style="font-size:15px;padding:8px 12px;border:2px solid #2f9e44;border-radius:8px;min-width:260px;"></select></div>
+      <input id="selA" list="storeDL" autocomplete="off" placeholder="매장명 검색…"
+        style="font-size:15px;padding:8px 12px;border:2px solid #2f9e44;border-radius:8px;min-width:280px;"></div>
     <div><div style="font-size:12px;color:var(--mut);font-weight:700;">🔵 대상매장 (진단)</div>
-      <select id="selB" style="font-size:15px;padding:8px 12px;border:2px solid #1971c2;border-radius:8px;min-width:260px;"></select></div>
+      <input id="selB" list="storeDL" autocomplete="off" placeholder="매장명 검색…"
+        style="font-size:15px;padding:8px 12px;border:2px solid #1971c2;border-radius:8px;min-width:280px;"></div>
   </div>
-  <div class="card"><canvas id="cmpChart" height="110"></canvas></div>
+  <datalist id="storeDL">{datalist}</datalist>
+  <div class="win" style="margin-bottom:6px;"><b>🟢 추천 표본매장</b> — 할인·우가클광고·영업시간 조정으로 <b>매출상승 효과가 컸던</b> 매장(전후 ±14일, 5%↑). 표본으로 골라 부진점과 비교해 보세요.</div>
+  <table><tr><th>매장</th><th class="num">배민매출</th><th>효과 본 레버(상승폭)</th></tr>{reco_rows}</table>
+  <div class="card" style="margin-top:16px;"><canvas id="cmpChart" height="110"></canvas></div>
   <div id="cmpTable"></div>
   <h2>🧠 비교 컨설팅</h2>
   <div id="cmpAdvice"></div>
