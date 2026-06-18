@@ -57,6 +57,7 @@ async function summarize(transcript: string): Promise<string> {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY 미설정");
 
   const prompt = `다음은 회의를 음성인식으로 받아쓴 전문입니다. 받아쓰기 특성상 오탈자나 끊김이 있을 수 있으니 맥락으로 자연스럽게 보정해서 이해하세요.
+각 줄이 '이름: 발언' 형태로 화자가 표시돼 있으면, 누가 무엇을 말했는지 반영해서 정리하세요.
 
 아래 형식의 한국어 마크다운으로 간결하게 정리해주세요.
 
