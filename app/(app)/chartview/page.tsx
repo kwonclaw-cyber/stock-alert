@@ -67,6 +67,45 @@ function RenderMarkdown({ text }: { text: string }) {
   );
 }
 
+type NewsItem = {
+  title: string;
+  link: string;
+  pubDate: string;
+  score?: number;
+  label?: "긍정" | "부정" | "중립";
+  reason?: string;
+};
+
+type NewsStats = { avg: number; positive: number; negative: number; neutral: number; total: number };
+
+function SentimentBar({ stats }: { stats: NewsStats }) {
+  const total = stats.total || 1;
+  const posW = (stats.positive / total) * 100;
+  const negW = (stats.negative / total) * 100;
+  const neuW = (stats.neutral / total) * 100;
+  const avgScore = stats.avg;
+  const label = avgScore > 0.15 ? "긍정적" : avgScore < -0.15 ? "부정적" : "중립적";
+  const labelColor = avgScore > 0.15 ? "text-red-400" : avgScore < -0.15 ? "text-blue-400" : "text-white/50";
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-white/50">전체 감성</span>
+        <span className={`font-semibold ${labelColor}`}>{label} ({avgScore >= 0 ? "+" : ""}{avgScore.toFixed(2)})</span>
+      </div>
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div style={{ width: `${posW}%` }} className="bg-red-400 transition-all" />
+        <div style={{ width: `${neuW}%` }} className="bg-white/20 transition-all" />
+        <div style={{ width: `${negW}%` }} className="bg-blue-400 transition-all" />
+      </div>
+      <div className="flex gap-4 text-xs text-white/40">
+        <span><span className="text-red-400">■</span> 긍정 {stats.positive}건</span>
+        <span><span className="text-white/30">■</span> 중립 {stats.neutral}건</span>
+        <span><span className="text-blue-400">■</span> 부정 {stats.negative}건</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ChartViewPage() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -79,6 +118,9 @@ export default function ChartViewPage() {
   const [loading, setLoading] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsStats, setNewsStats] = useState<NewsStats | null>(null);
+  const [newsLoading, setNewsLoading] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiRef = useRef<HTMLDivElement>(null);
 
@@ -110,12 +152,33 @@ export default function ChartViewPage() {
     }, 300);
   }
 
+  const fetchNews = useCallback(async (sym: string) => {
+    setNewsLoading(true);
+    setNews([]);
+    setNewsStats(null);
+    try {
+      const res = await fetch(`/api/news?symbol=${encodeURIComponent(sym)}`);
+      const data = await res.json();
+      if (!data.error) {
+        setNews(data.items ?? []);
+        setNewsStats(data.stats ?? null);
+      }
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNews(symbol);
+  }, [symbol, fetchNews]);
+
   function selectSymbol(r: SearchResult) {
     setSymbol(r.symbol);
     setSymbolName(r.name);
     setQuery("");
     setSearchResults([]);
     setAiText("");
+    fetchNews(r.symbol);
   }
 
   async function runAiAnalysis() {
@@ -262,6 +325,84 @@ export default function ChartViewPage() {
           <StockChart candles={candles} height={420} />
         ) : (
           <div className="flex h-[400px] items-center justify-center text-white/25 text-sm">데이터 없음</div>
+        )}
+      </div>
+
+      {/* 뉴스 감성 분석 */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-white">📰 뉴스 감성 분석</h3>
+            <p className="text-xs text-white/35 mt-0.5">Yahoo Finance RSS + Claude 감성 점수</p>
+          </div>
+          <button
+            onClick={() => fetchNews(symbol)}
+            disabled={newsLoading}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/50 hover:text-white disabled:opacity-40 transition"
+          >
+            {newsLoading ? "분석 중..." : "새로고침"}
+          </button>
+        </div>
+
+        {newsLoading ? (
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-lg bg-white/5" />
+            ))}
+          </div>
+        ) : news.length > 0 ? (
+          <div className="space-y-4">
+            {newsStats && <SentimentBar stats={newsStats} />}
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {news.map((item, i) => {
+                const hasScore = item.score !== undefined;
+                const scoreColor = !hasScore ? "text-white/30"
+                  : item.score! > 0.1 ? "text-red-400"
+                  : item.score! < -0.1 ? "text-blue-400"
+                  : "text-white/40";
+                const bgColor = !hasScore ? ""
+                  : item.score! > 0.1 ? "border-red-500/15 bg-red-500/5"
+                  : item.score! < -0.1 ? "border-blue-500/15 bg-blue-500/5"
+                  : "border-white/8";
+                return (
+                  <a
+                    key={i}
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`flex items-start gap-3 rounded-lg border p-3 hover:bg-white/10 transition ${bgColor || "border-white/8"}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white/80 line-clamp-2 leading-relaxed">{item.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {item.pubDate && (
+                          <span className="text-[10px] text-white/25">
+                            {new Date(item.pubDate).toLocaleDateString("ko-KR")}
+                          </span>
+                        )}
+                        {item.reason && (
+                          <span className={`text-[10px] ${scoreColor}`}>{item.reason}</span>
+                        )}
+                      </div>
+                    </div>
+                    {hasScore && (
+                      <div className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${
+                        item.score! > 0.1 ? "bg-red-500/20 text-red-300"
+                        : item.score! < -0.1 ? "bg-blue-500/20 text-blue-300"
+                        : "bg-white/10 text-white/40"
+                      }`}>
+                        {item.score! >= 0 ? "+" : ""}{item.score!.toFixed(1)}
+                      </div>
+                    )}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-white/20 text-sm">
+            뉴스를 불러올 수 없습니다 (Yahoo Finance RSS 미지원 종목일 수 있습니다)
+          </div>
         )}
       </div>
 
