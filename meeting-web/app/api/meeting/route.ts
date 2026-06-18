@@ -96,25 +96,36 @@ ${transcript}`;
   return json.content?.[0]?.text ?? "";
 }
 
-/** Notion 페이지 생성 후 URL 반환 */
-async function createNotionPage(title: string, blocks: Block[]): Promise<string> {
-  const token = process.env.NOTION_API_KEY;
-  if (!token) throw new Error("NOTION_API_KEY 미설정");
+/** 입력값(페이지/DB URL 또는 ID)에서 32자리 Notion ID만 추출 */
+function extractNotionId(input?: string): string {
+  if (!input) return "";
+  const m = input.replace(/-/g, "").match(/[0-9a-fA-F]{32}/);
+  return m ? m[0] : input.trim();
+}
 
-  const dbId = process.env.NOTION_DATABASE_ID?.trim();
-  const pageId = process.env.NOTION_PARENT_PAGE_ID?.trim();
+type NotionTarget = { token?: string; pageId?: string; dbId?: string; titleProp?: string };
+
+/** Notion 페이지 생성 후 URL 반환. 사용자가 지정한 토큰/위치를 우선 사용하고, 없으면 서버 기본값. */
+async function createNotionPage(title: string, blocks: Block[], target: NotionTarget = {}): Promise<string> {
+  const token = (target.token && target.token.trim()) || process.env.NOTION_API_KEY;
+  if (!token) {
+    throw new Error("Notion 토큰이 없습니다. 페이지의 'Notion 설정'에서 통합 토큰을 입력하세요.");
+  }
+
+  const dbId = extractNotionId(target.dbId) || process.env.NOTION_DATABASE_ID?.trim() || "";
+  const pageId = extractNotionId(target.pageId) || process.env.NOTION_PARENT_PAGE_ID?.trim() || "";
 
   let parent: Record<string, string>;
   let properties: Record<string, unknown>;
   if (dbId) {
-    const titleProp = process.env.NOTION_TITLE_PROPERTY?.trim() || "이름";
+    const titleProp = (target.titleProp && target.titleProp.trim()) || process.env.NOTION_TITLE_PROPERTY?.trim() || "이름";
     parent = { database_id: dbId };
     properties = { [titleProp]: { title: [{ text: { content: title } }] } };
   } else if (pageId) {
     parent = { page_id: pageId };
     properties = { title: { title: [{ text: { content: title } }] } };
   } else {
-    throw new Error("NOTION_DATABASE_ID 또는 NOTION_PARENT_PAGE_ID 환경변수가 필요합니다.");
+    throw new Error("저장할 Notion 페이지(또는 데이터베이스)가 지정되지 않았습니다. 'Notion 설정'에서 페이지를 지정하세요.");
   }
 
   const headers = {
@@ -154,11 +165,16 @@ export async function POST(req: NextRequest) {
   let title = "";
   let transcript = "";
   let wantSummary = true;
+  const notion: NotionTarget = {};
   try {
     const body = await req.json();
     title = String(body?.title ?? "").trim();
     transcript = String(body?.transcript ?? "").trim();
     wantSummary = body?.summarize !== false;
+    notion.token = String(body?.notionToken ?? "");
+    notion.pageId = String(body?.notionPageId ?? "");
+    notion.dbId = String(body?.notionDbId ?? "");
+    notion.titleProp = String(body?.notionTitleProp ?? "");
   } catch {
     return NextResponse.json({ ok: false, error: "잘못된 요청입니다." }, { status: 400 });
   }
@@ -194,7 +210,7 @@ export async function POST(req: NextRequest) {
   blocks.push(...transcriptToBlocks(transcript));
 
   try {
-    const url = await createNotionPage(title, blocks);
+    const url = await createNotionPage(title, blocks, notion);
     return NextResponse.json({ ok: true, url, title, summarized: Boolean(summary), note });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
