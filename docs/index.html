@@ -254,11 +254,13 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
 
   <section id="histView" style="display:none">
     <h2>업로드 기록 <span class="muted" id="histCount" style="font-weight:400"></span></h2>
-    <div class="note">업로드한 원본 파일(POS 매출·물류 원장·전월 데이터)을 <b>일자별로 기억</b>합니다. <b>불러오기</b>로 그 파일을 다시 적용하고, <b>내보내기/가져오기(.zip)</b>로 다른 PC와 주고받을 수 있어요. (이 PC 브라우저에 저장)</div>
+    <div class="note">업로드한 원본 파일(POS 매출·물류 원장·전월 데이터)을 <b>일자별로 기억</b>합니다. 파일을 올리면 <b>다음에 열 때 자동으로 복원</b>되어 바로 계산됩니다. <b>내보내기/가져오기(.zip)</b>에는 파일과 <b>내 설정(수동매칭·입력·메모 등)이 함께 담겨</b> 다른 PC/사람에게 그대로 전달됩니다.</div>
     <div class="opts" style="margin:10px 0">
-      <button class="ghost" id="histExport">전체 내보내기(.zip)</button>
+      <button class="ghost" id="histExport">전체 내보내기(파일+설정 .zip)</button>
       <label class="ghost" style="border:1px solid var(--accent);color:var(--accent);padding:9px 16px;border-radius:8px;cursor:pointer">가져오기(.zip)<input type="file" id="histImport" accept=".zip" style="display:none"></label>
-      <button class="ghost" id="histClear">전체 삭제</button>
+      <button class="ghost" id="setExport">내 설정만 내보내기(.json)</button>
+      <label class="ghost" style="border:1px solid var(--accent);color:var(--accent);padding:9px 16px;border-radius:8px;cursor:pointer">설정 가져오기(.json)<input type="file" id="setImport" accept=".json" style="display:none"></label>
+      <button class="ghost" id="histClear">업로드 기록 전체삭제</button>
     </div>
     <div class="tablewrap"><table><thead><tr><th class="l">일시</th><th class="l">종류</th><th class="l">파일</th><th>크기</th><th class="l"></th></tr></thead><tbody id="histBody"></tbody></table></div>
   </section>
@@ -1711,25 +1713,25 @@ function showWarnings(res){
 function tryEnable(){ document.getElementById("calcBtn").disabled=!(FILES.pos.length&&FILES.logi&&LOGI_AGG); }
 
 // 파일 처리
-function processLogi(file){ readRows(file, rows=>{ const r=parseLogi(rows);
-  if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); return; }
+function processLogi(file, cb){ readRows(file, rows=>{ const r=parseLogi(rows);
+  if(r.error){ setMsg(`<div class="msg err">${r.error}</div>`); if(cb)cb(); return; }
   LOGI_AGG=r.agg; STORE_DIR=r.dir; SIS_BY_MONTH=r.sis||{}; LOGI_TOTAL=r.tot||{}; MONTHS=Object.keys(r.agg).sort();
   const sel=document.getElementById("curMonth"); sel.innerHTML="";
   MONTHS.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
   sel.value=MONTHS[MONTHS.length-1];
   renderExtra();   // 샵인샵 자동행 갱신
-  tryEnable();
+  tryEnable(); if(cb)cb();
 }); }
-function processPos(files){ POS={}; let done=0, err=null;
-  files.forEach(f=>readRows(f, rows=>{ const e=parsePos(rows,POS); if(e)err=e; if(++done===files.length){ if(err)setMsg(`<div class="msg err">${err}</div>`); tryEnable(); } })); }
-function processBuy(file){ readRows(file, rows=>{ // 상품코드 -> 매입가 보충
-  const hr=findHeader(rows,["상품코드","매입가"]); if(hr<0){ setMsg(`<div class="msg err">매입가 파일에서 상품코드/매입가 컬럼을 못 찾았습니다.</div>`); return; }
+function processPos(files, cb){ POS={}; let done=0, err=null;
+  files.forEach(f=>readRows(f, rows=>{ const e=parsePos(rows,POS); if(e)err=e; if(++done===files.length){ if(err)setMsg(`<div class="msg err">${err}</div>`); tryEnable(); if(cb)cb(); } })); }
+function processBuy(file, cb){ readRows(file, rows=>{ // 상품코드 -> 매입가 보충
+  const hr=findHeader(rows,["상품코드","매입가"]); if(hr<0){ setMsg(`<div class="msg err">매입가 파일에서 상품코드/매입가 컬럼을 못 찾았습니다.</div>`); if(cb)cb(); return; }
   const H=rows[hr].map(c=>String(c||"").replace(/\s/g,"")); const ci={code:colIndex(H,["상품코드"]),price:colIndex(H,["매입가"],["기존","구매팀"])};
   let n=0; for(let r=hr+1;r<rows.length;r++){ const c=toCode(rows[r][ci.code]); if(!c)continue; const p=toNum(rows[r][ci.price]); if(p>0){ setBuyPrice(c,p); n++; } }
-  document.querySelector('#drop-buy [data-file]').textContent=`매입가 ${n}건 보충·저장됨`;
-  if(LAST)rerun();
+  const l=document.querySelector('#drop-buy [data-file]'); if(l)l.textContent=`매입가 ${n}건 보충·저장됨`;
+  if(LAST)rerun(); if(cb)cb();
 }); }
-function processPrev(file){ readRows(file, rows=>{ PREVRES=parsePrev(rows); if(LAST)rerun(); }); }
+function processPrev(file, cb){ readRows(file, rows=>{ PREVRES=parsePrev(rows); if(LAST)rerun(); if(cb)cb(); }); }
 
 // ===== 메이트포스 자동수집 (PC 도우미 mate_helper 호출) =====
 const HELPER_URL = "http://localhost:8765";
@@ -1823,31 +1825,64 @@ async function renderHist(){
   body.querySelectorAll(".hist-load").forEach(b=>b.addEventListener("click",async e=>{ const rec=await histGet(e.target.dataset.id); if(rec)loadUploadRecord(rec); }));
   body.querySelectorAll(".hist-del").forEach(b=>b.addEventListener("click",async e=>{ if(confirm("이 업로드 기록을 삭제할까요?")){ await histDel(e.target.dataset.id); renderHist(); } }));
 }
+// 모든 사용자 설정(수동매칭·입력·메모·일정 등 monthlyClose.* 전체) 수집/적용
+function collectSettings(){ const o={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf("monthlyClose.")===0) o[k]=localStorage.getItem(k); } return o; }
+function applySettings(obj){ let n=0; Object.keys(obj||{}).forEach(k=>{ if(k.indexOf("monthlyClose.")===0){ localStorage.setItem(k,obj[k]); n++; } }); return n; }
+function dlBlob(blob, name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
 document.getElementById("histExport").addEventListener("click",async ()=>{
-  const recs=await histAll(); if(!recs.length){ alert("내보낼 기록이 없습니다."); return; }
   if(typeof JSZip==="undefined"){ alert("압축 라이브러리 로드 실패"); return; }
+  const recs=await histAll();
   const zip=new JSZip();
   const manifest=recs.map(r=>({id:r.id, ts:r.ts, kind:r.kind, files:r.files.map((f,i)=>({name:f.name, size:f.size, path:r.id+"/"+i+"_"+f.name}))}));
   recs.forEach(r=>r.files.forEach((f,i)=>zip.file(r.id+"/"+i+"_"+f.name, f.b64, {base64:true})));
   zip.file("manifest.json", JSON.stringify(manifest));
+  zip.file("settings.json", JSON.stringify(collectSettings()));   // 내 설정 함께 포함
   const blob=await zip.generateAsync({type:"blob"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`업로드기록_${new Date().toISOString().slice(0,10)}.zip`; a.click();
+  dlBlob(blob, `월마감_전체_${new Date().toISOString().slice(0,10)}.zip`);
 });
 document.getElementById("histImport").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
   try{
     const zip=await JSZip.loadAsync(file);
-    const mf=zip.file("manifest.json"); if(!mf){ alert("올바른 백업(.zip)이 아닙니다."); return; }
-    const manifest=JSON.parse(await mf.async("string"));
-    for(const m of manifest){ const files=[];
-      for(const f of m.files){ const zf=zip.file(f.path); if(!zf)continue; files.push({name:f.name, size:f.size, b64:await zf.async("base64")}); }
-      await histPut({id:m.id, ts:m.ts, kind:m.kind, files});
-    }
-    renderHist(); alert("가져오기 완료");
+    const mf=zip.file("manifest.json");
+    if(mf){ const manifest=JSON.parse(await mf.async("string"));
+      for(const m of manifest){ const files=[];
+        for(const f of m.files){ const zf=zip.file(f.path); if(!zf)continue; files.push({name:f.name, size:f.size, b64:await zf.async("base64")}); }
+        await histPut({id:m.id, ts:m.ts, kind:m.kind, files}); } }
+    const sf=zip.file("settings.json");
+    if(sf){ applySettings(JSON.parse(await sf.async("string"))); }
+    alert("가져오기 완료 — 설정과 파일을 적용하기 위해 새로고침합니다.");
+    location.reload();
   }catch(x){ alert("가져오기 오류: "+x.message); }
   e.target.value="";
 });
-document.getElementById("histClear").addEventListener("click",async ()=>{ if(confirm("업로드 기록을 모두 삭제할까요?")){ await histClearAll(); renderHist(); } });
+document.getElementById("setExport").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(collectSettings(),null,2)],{type:"application/json"});
+  dlBlob(blob, `월마감_설정_${new Date().toISOString().slice(0,10)}.json`);
+});
+document.getElementById("setImport").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return; const r=new FileReader();
+  r.onload=()=>{ try{ const n=applySettings(JSON.parse(r.result)); alert(`설정 ${n}건 적용 — 새로고침합니다.`); location.reload(); }catch(x){ alert("설정 JSON 오류: "+x.message); } };
+  r.readAsText(f); e.target.value="";
+});
+document.getElementById("histClear").addEventListener("click",async ()=>{ if(confirm("업로드 기록(저장된 파일)을 모두 삭제할까요? 설정은 유지됩니다.")){ await histClearAll(); renderHist(); } });
+
+// 열 때 마지막 업로드 파일 자동 복원(그냥 업로드된 채로 기억)
+async function autoRestoreUploads(){
+  if(!window.indexedDB) return;
+  let recs=[]; try{ recs=await histAll(); }catch(e){ return; }
+  if(!recs.length) return;
+  const latest={}; recs.forEach(r=>{ if(!latest[r.kind]||r.ts>latest[r.kind].ts)latest[r.kind]=r; });
+  const blobsOf=rec=>rec.files.map(f=>{ const b=b64ToBlob(f.b64); try{b.name=f.name;}catch(_){} return b; });
+  const setLabel=(kind,txt)=>{ const l=document.querySelector("#drop-"+kind+" [data-file]"); if(l)l.textContent=txt; };
+  try{
+    if(latest.logi){ const bs=blobsOf(latest.logi); FILES.logi=bs[0]; setLabel("logi",latest.logi.files[0].name+" (기억됨)"); await new Promise(r=>processLogi(bs[0],r)); }
+    if(latest.prev){ const bs=blobsOf(latest.prev); FILES.prev=bs[0]; setLabel("prev",latest.prev.files[0].name+" (기억됨)"); await new Promise(r=>processPrev(bs[0],r)); }
+    if(latest.pos){ const bs=blobsOf(latest.pos); FILES.pos=bs; setLabel("pos",latest.pos.files.map(f=>f.name).join(", ")+" (기억됨)"); await new Promise(r=>processPos(bs,r)); }
+    if(LOGI_AGG && FILES.pos && FILES.pos.length){ rerun(); setMsg(`<div class="msg ok">이전에 올린 파일을 자동으로 불러왔습니다. (업로드 기록 탭에서 관리)</div>`); }
+  }catch(e){ console.error("autoRestore",e); }
+}
+autoRestoreUploads();
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
 ["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(id==="curMonth")renderExtra(); if(LAST)rerun(); }));
