@@ -76,10 +76,24 @@ def match_and_write(mate, manifest_csv, out_csv):
     for sn, nm in man.items():
         man_by_norm.setdefault(norm(nm), []).append((sn, nm))
 
+    # 수동 매칭 오버라이드(웹 위젯에서 받은 dataset/manual_map.csv): mate_code -> shopNumber
+    manual = {}
+    mpath = os.path.join(os.path.dirname(out_csv), "manual_map.csv")
+    if os.path.exists(mpath):
+        for r in csv.DictReader(open(mpath, encoding="utf-8-sig")):
+            code, sn = (r.get("mate_code") or "").strip(), (r.get("shopNumber") or "").strip()
+            if code and sn:
+                manual[code] = sn
+
     rows = []
     used_sn = set()
     pending = []  # 1차(정확) 매칭 실패분 → 2차(부분일치) 시도
     for code, mname in sorted(mate.items()):
+        if code in manual:
+            sn = manual[code]
+            used_sn.add(sn)
+            rows.append([code, mname, sn, man.get(sn, "(manual)"), "manual"])
+            continue
         cands = man_by_norm.get(norm(mname), [])
         if len(cands) == 1:
             sn, bn = cands[0]

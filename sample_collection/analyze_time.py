@@ -27,7 +27,7 @@ def dt(s):
 def load_shop2mate():
     m = {}
     for r in csv.DictReader(open(os.path.join(DS, "store_map.csv"), encoding="utf-8-sig")):
-        if r["status"] in ("matched", "matched_fuzzy") and r["shopNumber"] and r["mate_code"]:
+        if r["status"] in ("matched", "matched_fuzzy", "manual") and r["shopNumber"] and r["mate_code"]:
             m[r["shopNumber"]] = r["mate_code"]
     return m
 

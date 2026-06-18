@@ -22,7 +22,7 @@ def load_store_map():
     m = {}
     path = os.path.join(DS, "store_map.csv")
     for r in csv.DictReader(open(path, encoding="utf-8-sig")):
-        if r["status"] in ("matched", "matched_fuzzy") and r["mate_code"] and r["shopNumber"]:
+        if r["status"] in ("matched", "matched_fuzzy", "manual") and r["mate_code"] and r["shopNumber"]:
             m[r["mate_code"]] = (r["shopNumber"], r["baemin_name"])
     return m
 

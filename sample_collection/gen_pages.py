@@ -178,6 +178,46 @@ def gen_progress(D):
     return b
 
 
+def unmatched_lists():
+    mate, bae = [], []
+    for r in csv.DictReader(open(os.path.join(DS, "store_map.csv"), encoding="utf-8-sig")):
+        if r["status"] in ("mate_only", "ambiguous") and r["mate_code"]:
+            mate.append((r["mate_code"], r["mate_name"]))
+        if r["status"] == "baemin_only" and r["shopNumber"]:
+            bae.append((r["shopNumber"], r["baemin_name"]))
+    return mate, bae
+
+
+def gen_match_widget():
+    mate, bae = unmatched_lists()
+    bae_dl = "".join(f'<option value="{nm} [{sh}]"></option>' for sh, nm in bae)
+    rows = ""
+    for code, nm in mate:
+        rows += (f"<tr><td><b>{nm}</b><br><span style='color:var(--mut);font-size:12px;'>메이트 {code}</span></td>"
+                 f"<td><input list='baeDL' placeholder='배민 매장 검색 / 매장명 입력' "
+                 f"style='width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:6px;'></td>"
+                 f"<td><button class='btn' style='padding:6px 12px;font-size:13px;' "
+                 f"onclick=\"addPair('{code}',this)\">매칭 추가</button></td></tr>")
+    um_mate = json.dumps({c: n for c, n in mate}, ensure_ascii=False)
+    widget = f"""
+  <div class="card" id="matchCard">
+    <h3>🔗 매장 수동 매칭 <span style="font-size:12px;color:var(--mut);font-weight:400;">· 자동연결 안 된 매장 (메이트 {len(mate)} · 배민 {len(bae)})</span></h3>
+    <p style="font-size:13.5px;margin:2px 0 10px;">매출(메이트)엔 있으나 배민 변경이력과 자동연결이 안 된 매장입니다.
+    오른쪽 칸에 <b>배민 매장을 검색해 고르거나 매장명을 입력</b>하고 ‘매칭 추가’를 누르세요.
+    결과를 <b>CSV로 다운로드</b>해 보내주시면 영구 반영(<code>dataset/manual_map.csv</code>)합니다. (브라우저에 자동 저장됨)</p>
+    <table style="font-size:13px;"><tr><th>메이트 매장(매출)</th><th>배민 매장 지정</th><th></th></tr>{rows}</table>
+    <datalist id="baeDL">{bae_dl}</datalist>
+    <div style="margin:12px 0 6px;display:flex;gap:8px;align-items:center;">
+      <b>매칭 결과</b>
+      <button class="btn" style="padding:6px 12px;font-size:13px;background:#2f9e44;" onclick="dlMatch()">⬇ CSV 다운로드</button>
+      <button class="btn" style="padding:6px 12px;font-size:13px;background:#868e96;" onclick="clearMatch()">비우기</button>
+    </div>
+    <div id="matchOut"></div>
+  </div>
+"""
+    return widget, "const UM_MATE=" + um_mate + ";\n" + MATCH_JS
+
+
 def gen_board(D, EFF):
     cards = ""
     for name, e in EFF:
@@ -236,6 +276,46 @@ def load_depth_rows():
                 f"<td class='num'>{float(r['rise'])*100:.0f}%</td></tr>")
     return out
 
+
+# ---- 차트 JS (일반 문자열: 중괄호 escape 불필요) ----
+MATCH_JS = r"""
+let pairs=JSON.parse(localStorage.getItem('uksik_manualmap')||'[]');
+function _msave(){localStorage.setItem('uksik_manualmap',JSON.stringify(pairs));renderPairs();}
+function addPair(code,btn){
+  const inp=btn.closest('tr').querySelector('input'); const v=(inp.value||'').trim(); if(!v)return;
+  const m=v.match(/\[(\d+)\]/); const shop=m?m[1]:'';
+  pairs=pairs.filter(p=>p.code!==code); pairs.push({code:code,name:UM_MATE[code]||code,shop:shop,target:v}); _msave();
+}
+function delPair(i){pairs.splice(i,1);_msave();}
+function clearMatch(){if(confirm('매칭 결과를 모두 비울까요?')){pairs=[];_msave();}}
+function renderPairs(){
+  const el=document.getElementById('matchOut'); if(!el)return;
+  el.innerHTML = pairs.length? '<table><tr><th>메이트코드</th><th>메이트 매장</th><th>지정한 배민 매장</th><th></th></tr>'+
+    pairs.map((p,i)=>'<tr><td>'+p.code+'</td><td>'+p.name+'</td><td>'+p.target+'</td>'+
+    '<td><span class="hidebtn" style="position:static;" onclick="delPair('+i+')">✕</span></td></tr>').join('')+'</table>'
+    : '<p style="color:#868e96;font-size:13px;">아직 매칭한 항목이 없습니다.</p>';
+}
+function dlMatch(){
+  if(!pairs.length){alert('매칭한 항목이 없습니다.');return;}
+  const csv='mate_code,shopNumber,target\n'+pairs.map(p=>p.code+','+p.shop+',"'+(p.target||'').replace(/"/g,'')+'"').join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));
+  a.download='manual_map.csv';document.body.appendChild(a);a.click();a.remove();
+}
+function initMatch(){renderPairs();}
+"""
+
+HIDE_JS = r"""
+function addHideButtons(){
+  document.querySelectorAll('.card,.bcard').forEach(el=>{
+    if(el.dataset.hb)return; el.dataset.hb='1';
+    const b=document.createElement('span'); b.className='hidebtn'; b.textContent='✕'; b.title='이 카드 숨기기';
+    b.onclick=()=>{el.style.display='none';};
+    if(getComputedStyle(el).position==='static')el.style.position='relative';
+    el.appendChild(b);
+  });
+}
+function showAllCards(){document.querySelectorAll('.card,.bcard').forEach(el=>{el.style.display='';});}
+"""
 
 # ---- 차트 JS (일반 문자열: 중괄호 escape 불필요) ----
 DASH_JS = r"""
@@ -302,6 +382,7 @@ function renderStore(i){
     '<div style="padding:4px 0;border-bottom:1px solid #f1f3f5;"><b>'+e[0]+'</b> '+
     '<span class="tag" style="background:#e7f5ff;color:#1971c2;">'+e[1]+'</span> '+
     '<span style="color:#868e96;">'+e[2]+'</span></div>').join('') : '<p style="color:#868e96;">표시할 변경 없음</p>';
+  if(window.addHideButtons)addHideButtons();
 }
 """
 
@@ -368,6 +449,7 @@ function renderCmp(){
   else if(A.close!=null && B.close!=null && B.close > A.close+15)
     add('pos',{h:'마감시간 우위',b:'대상이 표본보다 늦게까지 영업('+hhmm(B.close)+' vs '+hhmm(A.close)+').'});
   document.getElementById('cmpAdvice').innerHTML=out.join('');
+  if(window.addHideButtons)addHideButtons();
 }
 function dm2(s){const d=s.dmix||{};return '소액'+(d.small||0)+'·큰'+(d.big||0)+'·배달팁'+(d.tip||0);}
 """
@@ -735,19 +817,25 @@ def gen_combined(D, EFF):
     time_body, time_script = time_parts(TM)
     drill_body, drill_script = drilldown_parts(D)
     cmp_body, cmp_script = compare_parts(D)
+    match_widget, match_script = gen_match_widget()
     tabcss = """
-.topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;}
+.topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;}
 .topbar b{font-size:18px;} .topbar span{font-size:12px;opacity:.8;margin-left:10px;}
+.topbar .showall{background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:7px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.topbar .showall:hover{background:rgba(255,255,255,.32);}
 .tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;position:sticky;top:0;z-index:10;overflow-x:auto;}
 .tab{padding:14px 20px;font-size:14px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
 .tab:hover{background:#f1f3f5;} .tab.on{color:#1971c2;border-bottom-color:#1971c2;}
 .panel-title{font-size:26px;margin:8px 0 2px;} .panel-sub{color:var(--mut);margin:0 0 20px;}
+.hidebtn{position:absolute;top:6px;right:9px;cursor:pointer;color:#ced4da;font-size:13px;font-weight:700;line-height:1;}
+.hidebtn:hover{color:#e03131;}
 """
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>육식사관학교 빅데이터 통합관리</title>
 <style>{CSS}{tabcss}</style>{CHARTJS}</head><body>
-<div class="topbar"><b>🗂️ 육식사관학교 빅데이터 통합관리</b><span>배민 6개월 · {D['n_stores']}매장 · {won(D['baemin_total'])}원</span></div>
+<div class="topbar"><div><b>🗂️ 육식사관학교 빅데이터 통합관리</b><span>배민 6개월 · {D['n_stores']}매장 · {won(D['baemin_total'])}원</span></div>
+<button class="showall" onclick="showAllCards()">🔄 숨긴 카드 모두 보이기</button></div>
 <div class="tabs">
   <div class="tab on" data-t="board">📈 분석 보드</div>
   <div class="tab" data-t="dash">📊 대시보드</div>
@@ -757,14 +845,14 @@ def gen_combined(D, EFF):
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
-  <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>{board}</div>
+  <div class="panel" id="board"><h1 class="panel-title">📈 배민 분석 보드</h1><p class="panel-sub">변경 → 매출 직접 영향 · 6개월</p>{match_widget}{board}</div>
   <div class="panel" id="dash" style="display:none"><h1 class="panel-title">📊 매출 분석 대시보드</h1><p class="panel-sub">배민 6개월 · 매장·채널·변경효과</p>{dash_body}</div>
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
   <div class="panel" id="cmp" style="display:none"><h1 class="panel-title">⚖️ 표본매장 vs 대상매장</h1>{cmp_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
-<script>{dash_script}{time_script}{drill_script}{cmp_script}
+<script>{dash_script}{time_script}{drill_script}{cmp_script}{match_script}{HIDE_JS}
 function show(t){{
   document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
@@ -774,8 +862,10 @@ function show(t){{
   if(t==='time')initTime();
   if(t==='drill')initDrill();
   if(t==='cmp')initCompare();
+  addHideButtons();
 }}
 document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
+initMatch(); addHideButtons();
 </script>
 </body></html>"""
 
