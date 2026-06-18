@@ -467,6 +467,16 @@ def render_html(report_type, brand_blocks, grand_cur, grand_prev, cur_range, pre
 
     brand_sections = "\n".join(render_brand_section(b, compare_label) for b in brand_blocks)
 
+    # AI 분석은 ai_text가 있을 때만 섹션 표시 (꺼져 있으면 크레딧 미사용 → 섹션 생략)
+    ai_section = ""
+    if ai_text:
+        ai_section = f"""
+      <h3 style="margin-top:32px;">AI 분석</h3>
+      <div style="background:#f8f9fa; padding:16px; border-radius:8px; line-height:1.6; font-size:14px;">
+        {ai_text}
+      </div>
+"""
+
     brand_count = len(brand_blocks)
     cur_range_str = f"{cur_range[0]} ~ {cur_range[1]}" if cur_range[0] != cur_range[1] else f"{cur_range[0]}"
     prev_range_str = f"{prev_range[0]} ~ {prev_range[1]}" if prev_range[0] != prev_range[1] else f"{prev_range[0]}"
@@ -509,10 +519,7 @@ def render_html(report_type, brand_blocks, grand_cur, grand_prev, cur_range, pre
 
       {brand_sections}
 
-      <h3 style="margin-top:32px;">AI 분석</h3>
-      <div style="background:#f8f9fa; padding:16px; border-radius:8px; line-height:1.6; font-size:14px;">
-        {ai_text}
-      </div>
+      {ai_section}
 
       <p style="margin-top:24px; font-size:12px; color:#aaa;">
         본 메일은 자동 발송됩니다. matetech.co.kr 데이터 기반.
@@ -606,17 +613,23 @@ if __name__ == "__main__":
     print(f"\n전체 합계 현재: {grand_cur['count']:,}건 / {grand_cur['amount']:,}원")
     print(f"전체 합계 비교: {grand_prev['count']:,}건 / {grand_prev['amount']:,}원")
 
-    try:
-        ai_text = get_ai_analysis(
-            report_type, brand_blocks, grand_cur, grand_prev, cur_range, prev_range,
-        )
-        print("AI 분석 완료")
-    except Exception as e:
-        print(f"AI 분석 실패 (메일은 계속 발송): {e}")
-        ai_text = (
-            f"<span style='color:#aaa;'>AI 분석을 가져오지 못했습니다.<br>"
-            f"({type(e).__name__}: {str(e)[:200]})</span>"
-        )
+    # AI 분석은 기본적으로 꺼져 있어 Claude 크레딧을 쓰지 않는다.
+    # 다시 켜려면 환경변수 ENABLE_AI_ANALYSIS=true 로 설정.
+    ai_text = None
+    if os.environ.get("ENABLE_AI_ANALYSIS", "").strip().lower() in ("1", "true", "on", "yes"):
+        try:
+            ai_text = get_ai_analysis(
+                report_type, brand_blocks, grand_cur, grand_prev, cur_range, prev_range,
+            )
+            print("AI 분석 완료")
+        except Exception as e:
+            print(f"AI 분석 실패 (메일은 계속 발송): {e}")
+            ai_text = (
+                f"<span style='color:#aaa;'>AI 분석을 가져오지 못했습니다.<br>"
+                f"({type(e).__name__}: {str(e)[:200]})</span>"
+            )
+    else:
+        print("AI 분석 비활성화됨 (크레딧 미사용). 켜려면 ENABLE_AI_ANALYSIS=true")
 
     html = render_html(
         report_type, brand_blocks, grand_cur, grand_prev,
