@@ -16,6 +16,7 @@ const TABS = [
   { href: "/dwelling", label: "무인의 거처" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
+  { href: "/merge", label: "이미지합치기" },
   { href: "/changelog", label: "패치노트" },
 ];
 
