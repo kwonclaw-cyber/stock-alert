@@ -1239,6 +1239,10 @@ function itemCore(name){ return String(name||"").replace(/\[[^\]]*\]/g,"").repla
 const ITEMSYN_KEY="monthlyClose.itemSyn.v1";
 let ITEM_SYN=(()=>{ try{const v=JSON.parse(localStorage.getItem(ITEMSYN_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
 function saveItemSyn(){ localStorage.setItem(ITEMSYN_KEY, JSON.stringify(ITEM_SYN)); }
+// 발주 품목 비교에서 숨긴 품목(핵심품명 기준) — 합계·상태집계에서도 제외, 영구 저장
+const ITEMHIDE_KEY="monthlyClose.itemHide.v1";
+let ITEM_HIDE=(()=>{ try{const v=JSON.parse(localStorage.getItem(ITEMHIDE_KEY)); return Array.isArray(v)?v:[];}catch(e){return [];} })();
+function saveItemHide(){ localStorage.setItem(ITEMHIDE_KEY, JSON.stringify(ITEM_HIDE)); }
 let CMP_PICK=null;   // 발주 품목 비교 "합치기" 1차 선택 상태
 // 정상 판정 기준: 이 매장 발주율이 표준매장 발주율의 N% 이상이면 정상, 미만이면 사입의심
 const CMPTH_KEY="monthlyClose.cmpTh.v1";
@@ -1272,7 +1276,7 @@ function renderCompareResult(res, logi){
   const cl={};
   codes.forEach(c=>{ const r=find(c); if(!cl[r])cl[r]={refAmt:0,stAmt:0,names:[],codes:[],cores:{}};
     cl[r].refAmt+=items[c].refAmt; cl[r].stAmt+=items[c].stAmt; cl[r].names.push(items[c].name); cl[r].codes.push(c); if(items[c].core)cl[r].cores[items[c].core]=1; });
-  const rows=Object.values(cl).map(g=>{
+  let rows=Object.values(cl).map(g=>{
     g.names.sort((a,b)=>b.length-a.length);
     const refR=g.refAmt/refSales, stR=g.stAmt/stSales, expGap=(refR-stR)*stSales;
     // 발주율(매출 대비) 기준: 표준 발주율의 CMP_TH% 이상이면 정상, 미만이면 사입의심, 0이면 미발주
@@ -1282,6 +1286,10 @@ function renderCompareResult(res, logi){
   const rank=s=>({"미발주":3,"사입의심":2,"정상":1,"표준외":0})[s]||0;
   rows.sort((a,b)=>(rank(b.status)-rank(a.status))||(b.expGap-a.expGap)||(b.stAmt-a.stAmt));
   if(!rows.length){ box.innerHTML='<div class="msg warn">표준매장·이 매장의 전용 발주 데이터가 없습니다.</div>'; return; }
+  // 숨긴 품목 분리 (합계·상태집계에서 제외)
+  const isHidden=r=>r.cores.some(c=>ITEM_HIDE.indexOf(c)>=0);
+  const hiddenRows=rows.filter(isHidden);
+  rows=rows.filter(r=>!isHidden(r));
   const flagged=rows.filter(r=>r.status==="미발주"||r.status==="사입의심");
   const totalGap=flagged.reduce((s,r)=>s+Math.max(r.expGap,0),0);
   const cnt={}; rows.forEach(r=>cnt[r.status]=(cnt[r.status]||0)+1);
@@ -1294,7 +1302,8 @@ function renderCompareResult(res, logi){
     <td class="num">${won(r.stAmt)}<br><span class="sub">${pct(r.stR)}</span></td>
     <td class="num">${r.expGap>0?won(r.expGap):"-"}</td>
     <td class="l"><span class="badge" style="background:${SC[r.status]};color:#fff;border-color:${SC[r.status]}">${r.status}</span></td>
-    <td class="l"><button class="ghost cmp-merge-btn" data-cores='${esc(JSON.stringify(r.cores))}' style="padding:3px 10px;font-size:12px">합치기</button></td></tr>`).join("");
+    <td class="l" style="white-space:nowrap"><button class="ghost cmp-merge-btn" data-cores='${esc(JSON.stringify(r.cores))}' style="padding:3px 9px;font-size:12px">합치기</button> <button class="ghost cmp-hide-btn" data-cores='${esc(JSON.stringify(r.cores))}' style="padding:3px 9px;font-size:12px;color:#868e96;border-color:#ced4da">숨기기</button></td></tr>`).join("");
+  const hiddenHtml = hiddenRows.length ? `<div class="note" style="background:#f1f3f5;border-color:#dee2e6">숨긴 품목 <b>${hiddenRows.length}개</b> (합계·상태 집계에서 제외됨): ${hiddenRows.map(r=>`${esc(r.name)} <a href="#" class="cmp-unhide" data-cores='${esc(JSON.stringify(r.cores))}' style="font-size:11px">복원</a>`).join(" · ")} &nbsp; <a href="#" id="cmpUnhideAll" style="font-size:11px">전체 복원</a></div>` : "";
   box.innerHTML=`<div class="msg ${flagged.length?'warn':'ok'}">표준매장 <b>${ref.name}</b>(매출 ${won(ref.cur.sales)}) 대비 — 전용발주 <b>${rows.length}개 품목</b> (정상 ${cnt["정상"]||0} · 사입의심 ${cnt["사입의심"]||0} · 미발주 ${cnt["미발주"]||0} · 표준외 ${cnt["표준외"]||0})${flagged.length?` · 미발주+사입의심 사입예상금액 <b>${won(totalGap)}원</b>`:" · 사입의심 없음"}</div>
     <div class="opts" style="margin:0 0 8px"><label>정상 기준: 이 매장 발주율이 표준 발주율의 <input class="box" id="cmpTh" type="number" min="1" max="100" value="${CMP_TH}" style="width:64px;text-align:right"> % 이상 → <b style="color:#2b8a3e">정상</b>, 미만 → <b style="color:#f59f00">사입의심</b> <span class="muted">(표준 대비 −${(100-CMP_TH).toFixed(0)}%까지 정상)</span></label>
       <button id="cmpImgBtn" style="padding:5px 12px">📷 매장 전달용 이미지</button>
@@ -1304,8 +1313,22 @@ function renderCompareResult(res, logi){
       <div>표준매장 <b>${esc(ref.name.replace(/_/g," "))}</b> 매출 <b>${won(ref.cur.sales)}원</b></div>
       <div>선택매장 <b>${esc(store.name.replace(/_/g," "))}</b> 매출 <b>${won(store.cur.sales)}원</b></div>
       <div>사입예상금액 합계 <b style="color:#e8590c">${won(totalGap)}원</b></div></div>
-    <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>사입예상금액</th><th class="l">상태</th><th class="l">합치기</th></tr></thead>
-    <tbody>${tr}</tbody></table></div>`;
+    <div class="tablewrap"><table><thead><tr><th class="l">전용상품</th><th>표준매장(발주율)</th><th>이 매장(발주율)</th><th>사입예상금액</th><th class="l">상태</th><th class="l">합치기 / 숨기기</th></tr></thead>
+    <tbody>${tr}</tbody></table></div>${hiddenHtml}`;
+  box.querySelectorAll(".cmp-hide-btn").forEach(btn=>btn.addEventListener("click",()=>{
+    let cores; try{ cores=JSON.parse(btn.dataset.cores); }catch(e){ cores=[]; }
+    cores.forEach(c=>{ if(c&&ITEM_HIDE.indexOf(c)<0)ITEM_HIDE.push(c); });
+    saveItemHide(); renderCompareResult(res, logi);
+  }));
+  box.querySelectorAll(".cmp-unhide").forEach(a=>a.addEventListener("click",e=>{ e.preventDefault();
+    let cores; try{ cores=JSON.parse(a.dataset.cores); }catch(x){ cores=[]; }
+    ITEM_HIDE=ITEM_HIDE.filter(c=>cores.indexOf(c)<0); saveItemHide(); renderCompareResult(res, logi);
+  }));
+  const unhideAll=document.getElementById("cmpUnhideAll");
+  if(unhideAll) unhideAll.addEventListener("click",e=>{ e.preventDefault();
+    const present=new Set(); hiddenRows.forEach(r=>r.cores.forEach(c=>present.add(c)));
+    ITEM_HIDE=ITEM_HIDE.filter(c=>!present.has(c)); saveItemHide(); renderCompareResult(res, logi);
+  });
   const imgBtn=document.getElementById("cmpImgBtn");
   if(imgBtn) imgBtn.addEventListener("click",()=>makeCompareImage(ref, store, rows, totalGap));
   const thEl=document.getElementById("cmpTh");
