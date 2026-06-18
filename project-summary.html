@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Alert 프로젝트 요약</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; color: #fff; font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 2rem; font-weight: 800; margin-bottom: 6px; }
+  .subtitle { color: rgba(255,255,255,0.4); font-size: 0.875rem; margin-bottom: 48px; }
+  h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #34d399; }
+  h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; color: #fff; }
+  .section { margin-bottom: 48px; }
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card.new {
+    border-color: rgba(52,211,153,0.3);
+    background: rgba(52,211,153,0.05);
+  }
+  .tag {
+    display: inline-block;
+    background: rgba(52,211,153,0.15);
+    color: #34d399;
+    border: 1px solid rgba(52,211,153,0.3);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .tag.blue { background: rgba(96,165,250,0.15); color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+  .tag.orange { background: rgba(251,146,60,0.15); color: #fb923c; border-color: rgba(251,146,60,0.3); }
+  .tag.purple { background: rgba(167,139,250,0.15); color: #a78bfa; border-color: rgba(167,139,250,0.3); }
+  .tag.gray { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.1); }
+  p { color: rgba(255,255,255,0.65); font-size: 0.875rem; }
+  ul { list-style: none; margin-top: 8px; }
+  ul li { color: rgba(255,255,255,0.6); font-size: 0.8rem; padding: 3px 0; padding-left: 12px; position: relative; }
+  ul li::before { content: '·'; position: absolute; left: 0; color: #34d399; }
+  .file-tree {
+    background: #0a0c10;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.8;
+  }
+  .file-tree .dir { color: #60a5fa; }
+  .file-tree .new-file { color: #34d399; }
+  .file-tree .note { color: rgba(255,255,255,0.25); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; color: rgba(255,255,255,0.35); font-weight: 500; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); vertical-align: top; }
+  td:first-child { font-weight: 500; color: #fff; white-space: nowrap; }
+  .env-block {
+    background: #0a0c10;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    line-height: 2;
+  }
+  .env-key { color: #60a5fa; }
+  .env-val { color: #34d399; }
+  .env-comment { color: rgba(255,255,255,0.25); }
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .flow-step {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+  }
+  .flow-arrow { color: rgba(255,255,255,0.2); font-size: 1rem; }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .deploy-step {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .deploy-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 24px;
+    height: 24px;
+    background: rgba(52,211,153,0.2);
+    color: #34d399;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content h4 { font-size: 0.85rem; font-weight: 600; color: #fff; margin-bottom: 3px; }
+  .step-content p { font-size: 0.78rem; }
+  code {
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: monospace;
+    font-size: 0.8em;
+    color: #a78bfa;
+  }
+  .separator { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 48px 0; }
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    color: #34d399;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header-badge">📦 kwonclaw-cyber/stock-alert · claude/lucid-hamilton-hmvg60</div>
+  <h1>Stock Alert 프로젝트</h1>
+  <p class="subtitle">Next.js 15 + React 19 + Tailwind CSS v4 · 2026-06-18 기준</p>
+
+  <!-- 탭 구성 -->
+  <div class="section">
+    <h2>🗂 전체 탭 구성</h2>
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="tag gray">기존</div>
+        <h3>길드 운영 (8탭)</h3>
+        <ul>
+          <li>길드별 멤버현황</li>
+          <li>박사장길드 내실현황판</li>
+          <li>타길드 내실현황</li>
+          <li>보스타이머</li>
+          <li>광산타이머</li>
+          <li>철타이머</li>
+          <li>일숙 / 일정 / 거처</li>
+          <li>히든추리 / 정보공유 / 패치노트</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>📈 주식차트</h3>
+        <ul>
+          <li>토스증권 Open API 연동</li>
+          <li>캔들스틱 차트 (TradingView)</li>
+          <li>1분 ~ 주봉 인터벌</li>
+          <li>현재가 5초 자동 갱신</li>
+          <li>종목 검색</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>🔬 백테스트</h3>
+        <ul>
+          <li>전략 조건 빌더 (EMA/RSI/MACD/BB/ATR)</li>
+          <li>에쿼티 커브 차트</li>
+          <li>샤프·소르티노·칼마 지수</li>
+          <li>TP1/TP2/트레일링 스탑</li>
+          <li>거래내역 테이블</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>🤖 AI 분석</h3>
+        <ul>
+          <li>8가지 전략 템플릿</li>
+          <li>Claude Haiku 스트리밍</li>
+          <li>백테스트 방법론 분석</li>
+          <li>트레이딩 플랜 빌더</li>
+          <li>MA·RSI 전략 설계</li>
+          <li>전략 비교 / 손실 진단 / 심리 코칭</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>📊 마켓오버뷰</h3>
+        <ul>
+          <li>나스닥 · 달러/원 · 필반 · 코스피 · 코스닥</li>
+          <li>스파크라인 (3개월 추이)</li>
+          <li>30초 자동 갱신</li>
+          <li>카드 클릭 → 52주 상세</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>🔥 거래량순위</h3>
+        <ul>
+          <li>미국 / 한국 / 암호화폐 탭</li>
+          <li>거래량 비율 강조 (2x↑ 주황)</li>
+          <li>30초 자동 갱신</li>
+        </ul>
+      </div>
+      <div class="card new">
+        <div class="tag">신규 추가</div>
+        <h3>🔍 차트분석</h3>
+        <ul>
+          <li>종목 검색 (한국·미국·암호화폐)</li>
+          <li>캔들차트 1시간~1개월</li>
+          <li>📰 뉴스 감성 분석</li>
+          <li>AI 차트 분석 (스트리밍)</li>
+          <li>지지·저항·포지션 판단</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <hr class="separator">
+
+  <!-- 뉴스 감성 분석 -->
+  <div class="section">
+    <h2>📰 뉴스 감성 분석 흐름</h2>
+    <div class="flow">
+      <div class="flow-step">종목 선택</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Yahoo Finance RSS</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Claude Haiku 일괄 분석</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">-1.0 ~ +1.0 감성 점수</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">바 차트 + 뉴스 목록 표시</div>
+    </div>
+    <p style="margin-top:12px;">뉴스 API 호출 1회로 최대 12건 분석 · 5분 캐시</p>
+  </div>
+
+  <hr class="separator">
+
+  <!-- 백테스트 엔진 -->
+  <div class="section">
+    <h2>🔬 백테스트 엔진 구조</h2>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="tag blue">기술 지표</div>
+        <h3>순수 TypeScript 구현</h3>
+        <ul>
+          <li>EMA / SMA (지수·단순 이동평균)</li>
+          <li>RSI — Wilder 평활화</li>
+          <li>MACD (fast/slow/signal)</li>
+          <li>볼린저 밴드</li>
+          <li>ATR (Average True Range)</li>
+          <li>VWAP</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag blue">성과 지표</div>
+        <h3>10가지 메트릭</h3>
+        <ul>
+          <li>총수익률 / 연환산수익률</li>
+          <li>샤프 비율 (252일 기준)</li>
+          <li>소르티노 비율 (하방 전용)</li>
+          <li>칼마 비율 (연수익 ÷ 최대낙폭)</li>
+          <li>최대 낙폭 (에쿼티 커브 기준)</li>
+          <li>승률 / Profit Factor / 기댓값</li>
+          <li>평균 보유일수</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag blue">데이터 소스</div>
+        <h3>3개 데이터 피드</h3>
+        <ul>
+          <li>Yahoo Finance — 미국주식·지수·외환</li>
+          <li>Binance API — 암호화폐</li>
+          <li>토스증권 Open API — 한국주식</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag blue">진입/청산 로직</div>
+        <h3>룩어헤드 바이어스 없음</h3>
+        <ul>
+          <li>진입 조건 (AND 방식, 최대 5개)</li>
+          <li>필터 조건 (큰 그림 추세 필터)</li>
+          <li>청산 조건</li>
+          <li>SL — bar low 기준 즉시 청산</li>
+          <li>TP1 (50% 청산) / TP2 / 트레일링</li>
+          <li>포지션 크기: 리스크% or 고정%</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <hr class="separator">
+
+  <!-- 파일 구조 -->
+  <div class="section">
+    <h2>📁 추가된 파일 구조</h2>
+    <div class="file-tree">
+      <span class="dir">stock-alert/</span><br>
+      &nbsp;&nbsp;<span class="dir">app/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">stock/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 토스증권 API 프록시</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">market/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 5개 지수 시세</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">volume/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 거래량 순위</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">chartview/route.ts</span>&nbsp;&nbsp;&nbsp;<span class="note"># 종목 검색·캔들</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">news/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># RSS + 감성 분석</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">backtest/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 백테스트 실행</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">analyze/route.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># AI 분석 스트리밍</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">(app)/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">stock/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">market/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">volume/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">chartview/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">backtest/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">analyze/page.tsx</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">components/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">StockChart.tsx</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># TradingView lightweight-charts v5</span><br>
+      &nbsp;&nbsp;<span class="dir">lib/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">backtest/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">types.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 타입 정의</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">indicators.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 기술 지표 순수 구현</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">engine.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 백테스트 엔진</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new-file">datafeed.ts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note"># 데이터 피드 (Yahoo/Binance/Toss)</span>
+    </div>
+  </div>
+
+  <hr class="separator">
+
+  <!-- 환경 변수 -->
+  <div class="section">
+    <h2>🔑 환경 변수 설정</h2>
+    <div class="env-block">
+      <span class="env-comment"># ── 필수 ─────────────────────────────────</span><br>
+      <span class="env-key">SITE_PASSWORD</span>=<span class="env-val">your-password</span><br>
+      <span class="env-key">AUTH_SECRET</span>=<span class="env-val">your-long-random-secret</span><br>
+      <br>
+      <span class="env-comment"># ── 주식 차트 (토스증권) ──────────────────</span><br>
+      <span class="env-key">TOSS_INVEST_API_KEY</span>=<span class="env-val">tsck_live_xxxxxxxxxx</span><br>
+      <br>
+      <span class="env-comment"># ── AI 분석 + 뉴스 감성 ──────────────────</span><br>
+      <span class="env-key">ANTHROPIC_API_KEY</span>=<span class="env-val">sk-ant-xxxxxxxxxx</span><br>
+      <br>
+      <span class="env-comment"># ── 멀티유저 실시간 공유 (선택) ───────────</span><br>
+      <span class="env-key">KV_REST_API_URL</span>=<span class="env-val">https://xxx.upstash.io</span><br>
+      <span class="env-key">KV_REST_API_TOKEN</span>=<span class="env-val">AXxx...</span>
+    </div>
+  </div>
+
+  <hr class="separator">
+
+  <!-- Vercel 배포 가이드 -->
+  <div class="section">
+    <h2>🚀 Vercel 배포 방법 (5분)</h2>
+    <div class="card">
+      <div class="deploy-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>GitHub에 push</h4>
+          <p>현재 브랜치 <code>claude/lucid-hamilton-hmvg60</code>를 main에 머지하거나 직접 배포</p>
+        </div>
+      </div>
+      <div class="deploy-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>vercel.com 접속 → New Project</h4>
+          <p>GitHub 저장소 <code>kwonclaw-cyber/stock-alert</code> 선택 · Root Directory: <code>.</code> (기본값)</p>
+        </div>
+      </div>
+      <div class="deploy-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Environment Variables 입력</h4>
+          <p>위 환경 변수 4개 입력 (SITE_PASSWORD, AUTH_SECRET, TOSS_INVEST_API_KEY, ANTHROPIC_API_KEY)</p>
+        </div>
+      </div>
+      <div class="deploy-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Deploy 클릭</h4>
+          <p>약 1~2분 후 <code>your-project.vercel.app</code> URL 발급 · 이후 push 시 자동 재배포</p>
+        </div>
+      </div>
+      <div class="deploy-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h4>(선택) Vercel KV 연결</h4>
+          <p>Storage 탭 → Upstash Redis 생성 → 프로젝트 연결 → 여러 명이 실시간 데이터 공유 가능</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="separator">
+
+  <!-- 기술 스택 -->
+  <div class="section">
+    <h2>🛠 기술 스택</h2>
+    <table>
+      <tr><th>구분</th><th>기술</th><th>용도</th></tr>
+      <tr><td>프레임워크</td><td>Next.js 15 + React 19</td><td>SSR + API Routes</td></tr>
+      <tr><td>스타일</td><td>Tailwind CSS v4</td><td>다크 테마 UI</td></tr>
+      <tr><td>차트</td><td>lightweight-charts v5</td><td>TradingView 캔들차트</td></tr>
+      <tr><td>AI</td><td>Claude Haiku API</td><td>감성분석·전략분석·스트리밍</td></tr>
+      <tr><td>주식 데이터</td><td>토스증권 Open API</td><td>한국 주식 시세</td></tr>
+      <tr><td>글로벌 데이터</td><td>Yahoo Finance (비공식)</td><td>미국주식·지수·외환</td></tr>
+      <tr><td>암호화폐</td><td>Binance Public API</td><td>코인 시세·거래량</td></tr>
+      <tr><td>뉴스</td><td>Yahoo Finance RSS</td><td>종목 뉴스 수집</td></tr>
+      <tr><td>인증</td><td>jose (JWT)</td><td>비밀번호 게이트</td></tr>
+      <tr><td>저장소</td><td>Vercel KV (Upstash)</td><td>멀티유저 실시간 공유</td></tr>
+      <tr><td>배포</td><td>Vercel</td><td>자동 CI/CD</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
