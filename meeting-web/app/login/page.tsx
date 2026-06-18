@@ -38,7 +38,13 @@ function LoginForm() {
   return (
     <main className="login-wrap">
       <div className="login-card">
-        <h1 className="login-title">🎙️ 회의록</h1>
+        <div className="login-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="산들그린" width={84} height={84} />
+          <div className="brand-ko">산들그린</div>
+          <div className="brand-en">sandeulgreen</div>
+        </div>
+        <h1 className="login-title">🎙️ 미팅비서 <span className="by">by 권기백</span></h1>
         <p className="login-sub">녹음 · 텍스트 변환 · Notion 업로드 · 접속 인증</p>
         <form onSubmit={handleSubmit}>
           <label className="label" htmlFor="password">접속 비밀번호</label>
