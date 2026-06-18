@@ -235,16 +235,22 @@ def save():
         now = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
         title = f"회의록 {now}"
 
-    try:
-        summary = summarize_meeting(transcript)
-    except Exception as e:  # 요약 실패해도 전문은 업로드
-        summary = f"## 한 줄 요약\nAI 요약 생성에 실패했습니다. ({type(e).__name__}: {str(e)[:200]})"
+    # 요약 사용 여부: UI 체크박스(summarize) + 키 존재 여부로 결정.
+    # 끄거나 키가 없으면 Claude를 호출하지 않으므로 크레딧이 들지 않는다.
+    want_summary = data.get("summarize", True) and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    summary = None
+    note = None
+    if want_summary:
+        try:
+            summary = summarize_meeting(transcript)
+        except Exception as e:  # 크레딧 부족 등 → 요약만 생략하고 전문은 저장
+            summary = None
+            note = f"AI 요약은 생략되었습니다 ({type(e).__name__}). 전문은 정상 저장됩니다."
 
     blocks = []
-    blocks += markdown_to_blocks(summary)
-    blocks.append({
-        "object": "block", "type": "divider", "divider": {},
-    })
+    if summary:
+        blocks += markdown_to_blocks(summary)
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
     blocks.append({
         "object": "block", "type": "heading_2",
         "heading_2": {"rich_text": _rich_text("🎙️ 회의 전문")},
@@ -259,7 +265,7 @@ def save():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Notion 업로드 실패: {e}"}), 500
 
-    return jsonify({"ok": True, "url": url, "title": title})
+    return jsonify({"ok": True, "url": url, "title": title, "summarized": bool(summary), "note": note})
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +312,13 @@ INDEX_HTML = r"""<!DOCTYPE html>
 
   <div class="row">
     <input id="title" type="text" placeholder="회의 제목 (비우면 날짜·시간 자동)">
+  </div>
+
+  <div class="row" style="margin-top:-4px;">
+    <label style="font-size:14px; color:#555; display:flex; align-items:center; gap:6px; cursor:pointer;">
+      <input type="checkbox" id="summarize" checked>
+      AI 요약 포함 <span style="color:#999;">(Claude 크레딧 필요 · 끄면 전문만 저장)</span>
+    </label>
   </div>
 
   <div class="row">
@@ -445,11 +458,17 @@ saveBtn.addEventListener('click', async () => {
     const res = await fetch('/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: document.getElementById('title').value, transcript }),
+      body: JSON.stringify({
+        title: document.getElementById('title').value,
+        transcript,
+        summarize: document.getElementById('summarize').checked,
+      }),
     });
     const data = await res.json();
     if (data.ok) {
-      showResult('✅ 저장 완료: <a href="' + data.url + '" target="_blank">' + data.title + ' — Notion에서 열기</a>', true);
+      let msg = '✅ 저장 완료: <a href="' + data.url + '" target="_blank">' + data.title + ' — Notion에서 열기</a>';
+      if (data.note) msg += '<br><span style="color:#e8590c;">⚠️ ' + data.note + '</span>';
+      showResult(msg, true);
       setStatus('완료', false);
     } else {
       showResult('❌ ' + data.error, false);
@@ -473,7 +492,8 @@ def selftest():
 
     실행: python meeting_notes.py --selftest
     """
-    missing = [k for k in ("ANTHROPIC_API_KEY", "NOTION_API_KEY") if not os.environ.get(k)]
+    # Notion 연결만 필수. Claude(요약)는 선택 — 크레딧이 없어도 점검을 통과한다.
+    missing = [] if os.environ.get("NOTION_API_KEY") else ["NOTION_API_KEY"]
     if not (os.environ.get("NOTION_DATABASE_ID") or os.environ.get("NOTION_PARENT_PAGE_ID")):
         missing.append("NOTION_DATABASE_ID 또는 NOTION_PARENT_PAGE_ID")
     if missing:
@@ -490,16 +510,22 @@ def selftest():
     now = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
     title = f"[셀프테스트] 회의록 {now}"
 
-    print("1) Claude 요약 생성 중...")
-    try:
-        summary = summarize_meeting(sample)
-        print("   ✅ 요약 생성 완료")
-    except Exception as e:
-        print(f"   ❌ 요약 실패: {type(e).__name__}: {str(e)[:300]}")
-        return 1
+    summary = None
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        print("1) Claude 요약 생성 중...")
+        try:
+            summary = summarize_meeting(sample)
+            print("   ✅ 요약 생성 완료")
+        except Exception as e:
+            print(f"   ⚠️ 요약 생략 (크레딧 부족 등): {type(e).__name__}: {str(e)[:200]}")
+            print("      → 요약 없이 전문만 저장하는 방식으로 계속 진행합니다.")
+    else:
+        print("1) ANTHROPIC_API_KEY 없음 → 요약 생략 (전문만 저장)")
 
-    blocks = markdown_to_blocks(summary)
-    blocks.append({"object": "block", "type": "divider", "divider": {}})
+    blocks = []
+    if summary:
+        blocks += markdown_to_blocks(summary)
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
     blocks.append({
         "object": "block", "type": "heading_2",
         "heading_2": {"rich_text": _rich_text("🎙️ 회의 전문")},
