@@ -187,10 +187,12 @@ export async function POST(req: NextRequest) {
 
   let templateId: string;
   let params: Record<string, string>;
+  let _prompt: string | undefined;
   try {
     const body = await req.json();
     templateId = body.templateId;
     params = body.params ?? {};
+    _prompt = body._prompt; // 직접 프롬프트 전달 허용
   } catch {
     return new Response(JSON.stringify({ error: '잘못된 요청 형식입니다.' }), {
       status: 400,
@@ -199,13 +201,17 @@ export async function POST(req: NextRequest) {
   }
 
   let prompt: string;
-  try {
-    prompt = buildPrompt(templateId, params);
-  } catch (e: unknown) {
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : '템플릿 오류' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+  if (_prompt) {
+    prompt = _prompt;
+  } else {
+    try {
+      prompt = buildPrompt(templateId, params);
+    } catch (e: unknown) {
+      return new Response(
+        JSON.stringify({ error: e instanceof Error ? e.message : '템플릿 오류' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
   }
 
   const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
