@@ -17,6 +17,7 @@ const TABS = [
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
   { href: "/changelog", label: "패치노트" },
+  { href: "/stock", label: "📈 주식차트" },
 ];
 
 type Tab = (typeof TABS)[number];
