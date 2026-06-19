@@ -3,6 +3,14 @@
 :root {
   --background: #0b0e14;
   --foreground: #e6e8eb;
+  color-scheme: dark;
+}
+
+/* 라이트 모드: html.light 일 때 적용 */
+html.light {
+  --background: #f4f6f9;
+  --foreground: #1a1c20;
+  color-scheme: light;
 }
 
 html,
@@ -16,6 +24,7 @@ body {
   background: var(--background);
   font-family: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 * {
@@ -23,3 +32,51 @@ body {
   /* 모든 글씨 볼드 */
   font-weight: 700 !important;
 }
+
+/* =========================================================
+   라이트 모드 색상 오버라이드
+   다크 기준으로 하드코딩된 유틸 클래스를 라이트용으로 재매핑한다.
+   (컴포넌트는 그대로 두고 globals.css 한 곳에서만 보정)
+   ========================================================= */
+
+/* 흰색 텍스트 → 어두운 텍스트 */
+html.light .text-white { color: #16181d; }
+html.light .text-white\/85 { color: rgba(20, 22, 28, 0.85); }
+html.light .text-white\/80 { color: rgba(20, 22, 28, 0.8); }
+html.light .text-white\/75 { color: rgba(20, 22, 28, 0.75); }
+html.light .text-white\/70 { color: rgba(20, 22, 28, 0.7); }
+html.light .text-white\/60 { color: rgba(20, 22, 28, 0.62); }
+html.light .text-white\/55 { color: rgba(20, 22, 28, 0.58); }
+html.light .text-white\/50 { color: rgba(20, 22, 28, 0.55); }
+html.light .text-white\/45 { color: rgba(20, 22, 28, 0.5); }
+html.light .text-white\/40 { color: rgba(20, 22, 28, 0.48); }
+html.light .text-white\/35 { color: rgba(20, 22, 28, 0.45); }
+html.light .text-white\/30 { color: rgba(20, 22, 28, 0.42); }
+html.light .text-white\/20 { color: rgba(20, 22, 28, 0.35); }
+
+/* 흰색 테두리 → 어두운 테두리 */
+html.light .border-white\/30 { border-color: rgba(20, 22, 28, 0.22); }
+html.light .border-white\/25 { border-color: rgba(20, 22, 28, 0.2); }
+html.light .border-white\/20 { border-color: rgba(20, 22, 28, 0.18); }
+html.light .border-white\/15 { border-color: rgba(20, 22, 28, 0.14); }
+html.light .border-white\/10 { border-color: rgba(20, 22, 28, 0.1); }
+html.light .border-white\/5 { border-color: rgba(20, 22, 28, 0.07); }
+
+/* hover 시 테두리/텍스트 진해짐도 보정 */
+html.light .hover\:border-white\/25:hover { border-color: rgba(20, 22, 28, 0.3); }
+html.light .hover\:text-white:hover { color: #000; }
+
+/* 흰색 반투명 배경 → 옅은 회색 배경 */
+html.light .bg-white\/30 { background-color: rgba(20, 22, 28, 0.12); }
+html.light .bg-white\/10 { background-color: rgba(20, 22, 28, 0.06); }
+html.light .bg-white\/5 { background-color: rgba(20, 22, 28, 0.04); }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(20, 22, 28, 0.08); }
+html.light .hover\:bg-white\/5:hover { background-color: rgba(20, 22, 28, 0.05); }
+
+/* 카드/패널 배경(다크 hex) → 밝은 배경 */
+html.light .bg-\[\#15171c\] { background-color: #ffffff; }
+html.light .bg-\[\#23262e\] { background-color: #e9ecf1; }
+html.light .bg-\[\#1a1d24\] { background-color: #eef0f4; }
+html.light .bg-\[\#0e1014\] { background-color: #e6e9ee; }
+html.light .bg-\[\#11261d\] { background-color: #e4f5ec; } /* 초록 강조 */
+html.light .bg-\[\#2a1416\] { background-color: #fdeaea; } /* 빨강 강조 */
