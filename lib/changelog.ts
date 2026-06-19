@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.9.0",
+    date: "2026-06-19",
+    changes: [
+      "라이트/다크 모드 전환 버튼 추가 (헤더 우측, 각자 브라우저에 저장)",
+      "'업데이트' 탭 이름을 '패치노트'로 변경",
+    ],
+  },
+  {
     version: "1.8.0",
     date: "2026-06-16",
     changes: [
