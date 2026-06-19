@@ -1,6 +1,5 @@
 import yfinance as yf
 import feedparser
-import anthropic
 import smtplib
 import re
 from email.mime.text import MIMEText
@@ -123,43 +122,6 @@ def get_theme_data():
           <td style="padding:6px 12px; color:#555; font-size:13px;">{stock_names}</td>
         </tr>"""
     return rows, data
-
-def get_ai_analysis(index_data, theme_data, news_list):
-    index_text = "\n".join([f"- {k}: {v:+.2f}%" for k, v in index_data.items()])
-    theme_text = "\n".join([f"- {name}: {pct:+.2f}%" for name, pct, _ in theme_data])
-    news_text  = "\n".join(news_list[:9])
-
-    prompt = f"""다음은 오늘 미국 주식 시장 데이터입니다. 한국 투자자 관점에서 분석해주세요.
-
-[주요 지수]
-{index_text}
-
-[테마별 등락]
-{theme_text}
-
-[주요 뉴스]
-{news_text}
-
-다음 형식으로 한국어로 작성해주세요:
-
-1. **시장 총평** (2~3문장): 간밤 미국 시장 전반적인 흐름 요약
-2. **주목할 테마** (2~3개): 오늘 한국 시장에서 주목할 테마와 이유
-3. **리스크 요인** (1~2개): 오늘 주의해야 할 위험 요소
-4. **오늘의 한 줄 전략**: 오늘 한국 주식 투자 방향 한 문장"""
-
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = message.content[0].text
-
-    # 마크다운 볼드(**text**) → HTML <strong>
-    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-    # 줄바꿈 → <br>
-    text = text.replace("\n", "<br>")
-    return text
 
 def send_email(subject, html_body):
     sender   = os.environ["GMAIL_ADDRESS"]
