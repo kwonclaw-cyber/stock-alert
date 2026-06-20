@@ -121,11 +121,15 @@ export type Mine = {
   nav: number; // 네비 동선 그룹 (0=미등록, 1·2·3)
 };
 
+/** 지도 좌표 보정 거점 (게임좌표 ↔ 지도 마커 위치) */
+export type CalibPoint = { cx: string; cz: string; x: number | null; y: number | null };
+
 /** 광산타이머 상태 */
 export type MineState = {
   mines: Mine[];
   defaultCooldownMin: number; // 새 광산 기본 쿨타임
   mapImage: string | null; // 광산 지도 (data URL)
+  calib: { p1: CalibPoint; p2: CalibPoint }; // 좌표 거점 2곳(보정)
 };
 
 /** 일숙(일일 숙제) — 문파원별 숙제 완료 체크 */
@@ -223,7 +227,7 @@ export function defaultData(): AppData {
         memo: "",
       },
     ],
-    mine: { mines: [], defaultCooldownMin: 60, mapImage: null },
+    mine: { mines: [], defaultCooldownMin: 60, mapImage: null, calib: { p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } } },
     iron: { guildId: MAIN_GUILD, cooldownMin: 0, manualMembers: [], records: {} },
     daily: {
       guildId: MAIN_GUILD,
@@ -347,6 +351,16 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     })),
     defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
     mapImage: input.mine?.mapImage ?? null,
+    calib: ((): MineState["calib"] => {
+      const c = input.mine?.calib;
+      const pt = (p: Partial<CalibPoint> | undefined): CalibPoint => ({
+        cx: p?.cx ?? "",
+        cz: p?.cz ?? "",
+        x: typeof p?.x === "number" ? p.x : null,
+        y: typeof p?.y === "number" ? p.y : null,
+      });
+      return { p1: pt(c?.p1), p2: pt(c?.p2) };
+    })(),
   };
 
   const iron: IronState = {

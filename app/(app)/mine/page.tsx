@@ -6,7 +6,7 @@ import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { fileToDataUrl } from "../../components/imageUtil";
-import { uid, type Mine } from "@/lib/data";
+import { uid, type Mine, type CalibPoint } from "@/lib/data";
 import { confirmDelete } from "@/lib/confirmDelete";
 
 function remain(lastDoneAt: string | null, cooldownMin: number, now: number) {
@@ -134,22 +134,18 @@ export default function MinePage() {
   if (!data) return <Loading />;
   const mine = data.mine;
 
-  // 지도 보정: '마커+좌표'를 둘 다 가진 기준점 2곳으로 게임좌표→지도(%) 변환식을 도출한다.
-  const refs = mine.mines.filter((m) => hasMarker(m) && hasCoords(m));
-  let calib: ((cx: number, cz: number) => { x: number; y: number }) | null = null;
-  for (let i = 0; i < refs.length && !calib; i++) {
-    for (let j = i + 1; j < refs.length; j++) {
-      const a = refs[i], b = refs[j];
-      const ax = numOr(a.cx)!, az = numOr(a.cz)!, bx = numOr(b.cx)!, bz = numOr(b.cz)!;
-      if (ax !== bx && az !== bz) {
-        calib = (cx, cz) => ({
-          x: clamp(a.x! + ((cx - ax) * (b.x! - a.x!)) / (bx - ax)),
-          y: clamp(a.y! + ((cz - az) * (b.y! - a.y!)) / (bz - az)),
-        });
-        break;
-      }
-    }
-  }
+  // 지도 보정: '좌표 거점 2곳'(좌표+마커)으로 게임좌표→지도(%) 변환식을 도출한다.
+  const calibPts = mine.calib;
+  const calib: ((cx: number, cz: number) => { x: number; y: number }) | null = (() => {
+    const a = calibPts.p1, b = calibPts.p2;
+    const ax = numOr(a.cx), az = numOr(a.cz), bx = numOr(b.cx), bz = numOr(b.cz);
+    if (a.x == null || a.y == null || b.x == null || b.y == null) return null;
+    if (ax == null || az == null || bx == null || bz == null || ax === bx || az === bz) return null;
+    return (cx, cz) => ({
+      x: clamp(a.x! + ((cx - ax) * (b.x! - a.x!)) / (bx - ax)),
+      y: clamp(a.y! + ((cz - az) * (b.y! - a.y!)) / (bz - az)),
+    });
+  })();
   // 지도 이미지 상 위치(%): 마커가 있으면 마커, 없으면 좌표(보정 시) 환산
   const imgPos = (m: Mine): { x: number; y: number } | null =>
     hasMarker(m) ? { x: m.x as number, y: m.y as number }
@@ -263,6 +259,10 @@ export default function MinePage() {
     fetch(`/api/nav?party=${party}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
   };
   const pickParty = (p: string) => { setParty(p); try { localStorage.setItem("mine-party", p); } catch { /* 무시 */ } };
+  // 좌표 거점(보정)
+  const setCalibCoord = (which: "p1" | "p2", axis: "cx" | "cz", v: string) => update((d) => { d.mine.calib[which][axis] = v; });
+  const toggleCalibMarker = (which: "p1" | "p2") => update((d) => { const p = d.mine.calib[which]; if (p.x == null) { p.x = 50; p.y = 50; } else { p.x = null; p.y = null; } });
+  const moveCalibMarker = (which: "p1" | "p2", x: number, y: number) => update((d) => { d.mine.calib[which].x = x; d.mine.calib[which].y = y; });
   const setNav = (id: string, g: number) => saveNav({ ...navMap, [id]: (navMap[id] ?? 0) === g ? 0 : g });
   const clearNav = () => saveNav({});
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
@@ -318,7 +318,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 서버 입장 후 <b>잘 아는 2곳</b>에서 그 자리에 <b>📍마커를 찍고</b> 게임 <b>좌표(X·Z)</b>도 입력하세요. 그러면 변환식이 잡혀서 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 길드/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 길드/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -348,6 +348,32 @@ export default function MinePage() {
         <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
           <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
         </div>
+      </div>
+
+      {/* 좌표 거점(지도 보정): 거점 2곳에 좌표 입력 + 지도 마커 → 좌표만으로 지도에 정확히 표시 */}
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-sm">
+        <span className="font-semibold text-amber-200">🎯 좌표 거점</span>
+        {(["p1", "p2"] as const).map((w, i) => {
+          const p = mine.calib[w];
+          return (
+            <span key={w} className="flex items-center gap-1 text-xs text-white/45">
+              <b className="text-amber-300">거점{i + 1}</b>
+              X<TextInput value={p.cx} onChange={(v) => setCalibCoord(w, "cx", v)} placeholder="X" className="w-14 !px-1 !py-1" />
+              Z<TextInput value={p.cz} onChange={(v) => setCalibCoord(w, "cz", v)} placeholder="Z" className="w-14 !px-1 !py-1" />
+              <button
+                onClick={() => toggleCalibMarker(w)}
+                className={`rounded-md border px-2 py-1 text-xs transition ${p.x != null ? "border-amber-400/60 bg-amber-400/15 text-amber-200" : "border-white/15 text-white/50 hover:text-white"}`}
+                title={p.x != null ? "지도에서 마커 제거" : "지도에 마커 생성(후 드래그로 위치)"}
+              >
+                {p.x != null ? "📍 마커 있음" : "📍 마커 생성"}
+              </button>
+            </span>
+          );
+        })}
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${calib ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-white/40"}`}>
+          {calib ? "보정 ✅" : "거점 2곳(좌표+마커) 필요"}
+        </span>
+        <span className="text-[11px] text-white/30">서버 입장 후 잘 아는 2곳의 좌표를 넣고 지도에 마커를 맞추세요. (마커 편집 모드에서 드래그)</span>
       </div>
 
       {/* 내 파티 선택 (파티별로 네비가 따로 공유됨) */}
@@ -504,6 +530,7 @@ export default function MinePage() {
           >
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
+            <CalibLayer calib={mine.calib} editMode={editMarkers} onMove={moveCalibMarker} />
           </MapPanel>
           {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
 
@@ -600,6 +627,7 @@ export default function MinePage() {
             <img src={mine.mapImage} alt="광산 지도" className="max-h-[88vh] max-w-full rounded-lg" />
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={decoratedAll} now={now} editMode={false} onMove={moveMarker} onComplete={complete} large />
+            <CalibLayer calib={mine.calib} editMode={false} onMove={moveCalibMarker} />
             <button onClick={() => setZoom(false)} className="absolute right-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">닫기 ✕</button>
           </div>
         </div>
@@ -807,6 +835,43 @@ function MarkerLayer({
             className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${draggable ? "cursor-grab active:cursor-grabbing" : isLoc ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode && hasMarker(m) ? "ring-2 ring-white/40" : ""} ${!isLoc && r.ready ? "animate-pulse" : ""} flex`}
           >
             {glyph}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 좌표 거점(보정) 마커. 마커 편집 모드에서 드래그로 위치를 맞춘다. */
+function CalibLayer({ calib, editMode, onMove }: {
+  calib: { p1: CalibPoint; p2: CalibPoint };
+  editMode: boolean;
+  onMove: (which: "p1" | "p2", x: number, y: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ which: "p1" | "p2"; x: number; y: number } | null>(null);
+  function toPct(clientX: number, clientY: number) {
+    const r = ref.current!.getBoundingClientRect();
+    return { x: clamp(((clientX - r.left) / r.width) * 100), y: clamp(((clientY - r.top) / r.height) * 100) };
+  }
+  return (
+    <div ref={ref} className="pointer-events-none absolute inset-0">
+      {(["p1", "p2"] as const).map((w, i) => {
+        const p = calib[w];
+        if (p.x == null || p.y == null) return null;
+        const x = drag?.which === w ? drag.x : p.x;
+        const y = drag?.which === w ? drag.y : p.y;
+        return (
+          <button
+            key={w}
+            title={`좌표 거점${i + 1} (X ${p.cx || "?"} · Z ${p.cz || "?"})${editMode ? " — 드래그로 위치 맞추기" : ""}`}
+            onPointerDown={(e) => { if (!editMode) return; e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDrag({ which: w, x: p.x!, y: p.y! }); }}
+            onPointerMove={(e) => { if (drag?.which === w) setDrag({ which: w, ...toPct(e.clientX, e.clientY) }); }}
+            onPointerUp={(e) => { if (drag?.which === w) { onMove(w, drag.x, drag.y); setDrag(null); } (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); }}
+            style={{ left: `${x}%`, top: `${y}%` }}
+            className={`pointer-events-auto absolute flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-400 px-1 text-[11px] font-bold text-black shadow ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+          >
+            🎯{i + 1}
           </button>
         );
       })}
