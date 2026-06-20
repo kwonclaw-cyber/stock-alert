@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.25.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 네비를 1~5로 확장 (4=보라·5=오렌지)",
+      "목록을 광산/채집장으로 구분해 각각 임박순으로 정렬",
+    ],
+  },
+  {
     version: "1.24.0",
     date: "2026-06-20",
     changes: [
