@@ -6,6 +6,15 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.28.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 전초 선택을 버튼으로 변경, '⛏ 광산 출발'·'🌿 채집장 출발' 버튼 추가",
+      "출발 버튼을 누르면 선택한 전초(또는 내 위치)부터 거리순으로 한 바퀴 동선을 구성하고 추천 동선에 '출발'부터 표기",
+      "모든 삭제 버튼에 확인창 추가, 리스트 폭 축소·지도/추천동선 영역 확대",
+    ],
+  },
+  {
     version: "1.27.1",
     date: "2026-06-20",
     changes: [
