@@ -43,7 +43,7 @@ export default function AmuletPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHelp>
-        <b>부적 시스템</b> 정보와 <b>계산기</b>예요. 아래 <b>계산기</b>에서 조합 개수·뽑기 가격을 맞추면 등급별로 필요한 <b>일반 부적 수·비용(진)</b>이 계산돼요. 옵션 효과표와 수치는 칸을 눌러 직접 수정할 수 있고, 참고 이미지도 붙여넣을 수 있어요. (모두에게 공유됨)
+        <b>부적 시스템</b> 정보와 <b>계산기</b>예요. 아래 <b>계산기</b>에서 조합 개수·뽑기 가격을 맞추면 등급별로 필요한 <b>일반 부적 수·비용(전)</b>이 계산돼요. 옵션 효과표와 수치는 칸을 눌러 직접 수정할 수 있고, 참고 이미지도 붙여넣을 수 있어요. (모두에게 공유됨)
       </PageHelp>
 
       {/* 계산기 */}
@@ -52,7 +52,7 @@ export default function AmuletPage() {
 
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Param label="조합 개수 (→상위 1개)" value={a.combineCount} onChange={(v) => update((d) => { d.amulet.combineCount = Number(v) || 0; })} />
-          <Param label="일반 뽑기 가격(진)" value={a.pullCostNormal} onChange={(v) => update((d) => { d.amulet.pullCostNormal = Number(v) || 0; })} />
+          <Param label="일반 뽑기 가격(전)" value={a.pullCostNormal} onChange={(v) => update((d) => { d.amulet.pullCostNormal = Number(v) || 0; })} />
           <Param label="리롤 비용(티켓)" value={a.rerollCostTicket} onChange={(v) => update((d) => { d.amulet.rerollCostTicket = Number(v) || 0; })} />
           <Param label="희귀 뽑기(티켓)" value={a.pullCostRareTicket} onChange={(v) => update((d) => { d.amulet.pullCostRareTicket = Number(v) || 0; })} />
         </div>
@@ -75,7 +75,7 @@ export default function AmuletPage() {
               <tr className="bg-white/[0.04] text-xs text-white/55">
                 <th className="px-3 py-2 text-left">목표 등급</th>
                 <th className="px-3 py-2 text-right">필요 일반 부적</th>
-                <th className="px-3 py-2 text-right">비용 (진)</th>
+                <th className="px-3 py-2 text-right">비용 (전)</th>
               </tr>
             </thead>
             <tbody>
@@ -85,7 +85,7 @@ export default function AmuletPage() {
                   <tr key={t.grade} className="border-t border-white/5">
                     <td className={`px-3 py-2 font-bold ${t.color}`}>{t.grade} 부적 × {q}</td>
                     <td className="px-3 py-2 text-right font-mono text-white/85">{won(need)}개</td>
-                    <td className="px-3 py-2 text-right font-mono text-amber-200/90">{won(need * price)}진</td>
+                    <td className="px-3 py-2 text-right font-mono text-amber-200/90">{won(need * price)}전</td>
                   </tr>
                 );
               })}
