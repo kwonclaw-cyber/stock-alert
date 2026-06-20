@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.35.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: '🎯 좌표 거점 1·2' 전용 보정 추가 (좌표 입력칸 + 마커 생성, 지도에서 드래그)",
+      "거점 2곳을 맞추면 좌표만 입력해도 실제 지도에 정확히 표시(공유)",
+    ],
+  },
+  {
     version: "1.34.0",
     date: "2026-06-20",
     changes: [
