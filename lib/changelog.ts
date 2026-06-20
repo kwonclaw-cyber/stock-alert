@@ -6,6 +6,15 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.21.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: '양조장(도착지)' 추가 — 채집장이 포함된 동선은 가장 가까운 양조장이 최종 도착지로 붙음",
+      "정보공유: 내용에 링크(유튜브·mp4·숲VOD·사진)를 넣으면 글 안에 바로 영상·사진 표시",
+      "정보공유: 글이 쓴 순서대로 쌓이고, 내용 길이에 따라 카드가 자동으로 늘어남",
+    ],
+  },
+  {
     version: "1.20.0",
     date: "2026-06-20",
     changes: [
