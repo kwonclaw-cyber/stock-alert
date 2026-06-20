@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.15.0",
+    date: "2026-06-20",
+    changes: [
+      "기본 탭 순서 재정렬",
+      "타이머 탭(보스·광산·철)을 ⏱ 노랑색으로 강조",
+    ],
+  },
+  {
     version: "1.14.0",
     date: "2026-06-20",
     changes: [
