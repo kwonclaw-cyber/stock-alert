@@ -16,6 +16,7 @@ const TABS = [
   { href: "/dwelling", label: "무인의 거처" },
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/villagemap", label: "마을지도" },
+  { href: "/amulet", label: "부적" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
   { href: "/changelog", label: "패치노트" },

@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.13.0",
+    date: "2026-06-20",
+    changes: [
+      "'부적' 탭 추가 — 부적 계산기(조합 개수·뽑기 가격으로 등급별 필요 일반부적·비용 계산)",
+      "고급·희귀 부적 옵션 효과표(직접 수정 가능) + 참고 이미지 카드",
+    ],
+  },
+  {
     version: "1.12.0",
     date: "2026-06-20",
     changes: [
