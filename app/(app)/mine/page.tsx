@@ -86,8 +86,9 @@ const KIND: Record<Kind, {
 };
 const kindOf = (m: Mine): (typeof KIND)[Kind] => KIND[(m.kind ?? "mine") as Kind] ?? KIND.mine;
 
-// 네비는 쿨타임(appdata)과 별도 키(/api/nav)로 공유한다.
-// → 쿨타임 저장이 네비를 덮어쓰지 않으면서, 파티원끼리 네비도 함께 본다.
+// 네비는 쿨타임(appdata)과 별도 키(/api/nav?party=)로 파티별 공유한다.
+// → 쿨타임 저장이 네비를 덮어쓰지 않고, 파티마다 별도 동선을 가진다.
+const PARTIES = ["1", "2", "3", "4"] as const;
 
 export default function MinePage() {
   const { data, update } = useStore();
@@ -101,20 +102,26 @@ export default function MinePage() {
   const [myZ, setMyZ] = useState("");
   const [startOutpostId, setStartOutpostId] = useState("");
   const [tripKind, setTripKind] = useState<"" | "mine" | "gather">("");
-  const [navMap, setNavMap] = useState<Record<string, number>>({}); // 공유 네비(/api/nav)
+  const [navMap, setNavMap] = useState<Record<string, number>>({}); // 파티 공유 네비(/api/nav)
+  const [party, setParty] = useState("1"); // 내가 속한 파티(로컬 선택)
   const navEditedAt = useRef(0); // 최근 네비 편집 시각(편집 직후 폴링 덮어쓰기 방지)
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  // 공유 네비 로드 + 주기 폴링 (편집 직후 1.5초는 폴링 결과 무시)
+  // 저장된 파티 선택 불러오기
+  useEffect(() => {
+    try { const p = localStorage.getItem("mine-party"); if (p && /^[1-6]$/.test(p)) setParty(p); } catch { /* 무시 */ }
+  }, []);
+  // 선택한 파티의 공유 네비 로드 + 주기 폴링 (편집 직후 1.5초는 폴링 결과 무시)
   useEffect(() => {
     let alive = true;
+    setNavMap({}); // 파티 전환 시 잠깐 비움
     const pull = async () => {
       if (Date.now() - navEditedAt.current < 1500) return;
       try {
-        const r = await fetch("/api/nav");
+        const r = await fetch(`/api/nav?party=${party}`);
         const m = (await r.json()) as Record<string, number>;
         if (alive && Date.now() - navEditedAt.current >= 1500) setNavMap(m || {});
       } catch { /* 무시 */ }
@@ -122,7 +129,7 @@ export default function MinePage() {
     pull();
     const id = setInterval(pull, 3000);
     return () => { alive = false; clearInterval(id); };
-  }, []);
+  }, [party]);
 
   if (!data) return <Loading />;
   const mine = data.mine;
@@ -227,12 +234,13 @@ export default function MinePage() {
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
-  // 네비는 별도 키(/api/nav)로 공유 저장 — 쿨타임 저장과 충돌하지 않음
+  // 네비는 별도 키(/api/nav?party=)로 파티별 공유 저장 — 쿨타임 저장과 충돌하지 않음
   const saveNav = (next: Record<string, number>) => {
     navEditedAt.current = Date.now();
     setNavMap(next);
-    fetch("/api/nav", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+    fetch(`/api/nav?party=${party}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
   };
+  const pickParty = (p: string) => { setParty(p); try { localStorage.setItem("mine-party", p); } catch { /* 무시 */ } };
   const setNav = (id: string, g: number) => saveNav({ ...navMap, [id]: (navMap[id] ?? 0) === g ? 0 : g });
   const clearNav = () => saveNav({});
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
@@ -318,6 +326,21 @@ export default function MinePage() {
         <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
           <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
         </div>
+      </div>
+
+      {/* 내 파티 선택 (파티별로 네비가 따로 공유됨) */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/25 bg-sky-400/[0.05] px-3 py-2 text-sm">
+        <span className="font-semibold text-sky-200">👥 내 파티</span>
+        {PARTIES.map((p) => (
+          <button
+            key={p}
+            onClick={() => pickParty(p)}
+            className={`h-7 w-9 rounded-md border text-xs font-bold transition ${party === p ? "border-sky-400/60 bg-sky-400/15 text-sky-200" : "border-white/15 text-white/50 hover:text-white"}`}
+          >
+            {p}
+          </button>
+        ))}
+        <span className="text-[11px] text-white/35">파티마다 네비가 따로 공유돼요. 같은 파티원끼리 같은 번호를 고르면 네비를 함께 봐요. (쿨타임은 전체 공유)</span>
       </div>
 
       {/* 출발: 전초(또는 내 위치) 선택 후 광산/채집장 한바퀴 동선 생성 */}

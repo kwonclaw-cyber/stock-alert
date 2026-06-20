@@ -39,7 +39,6 @@ const NAV_KEY = "naesu:nav"; // 광산&채집 네비(쿨타임과 분리 저장 
 
 const FILE_PATH = path.join(process.cwd(), ".data", "store.json");
 const VER_PATH = path.join(process.cwd(), ".data", "version");
-const NAV_PATH = path.join(process.cwd(), ".data", "nav.json");
 
 export const usingKv = Boolean(KV_URL && KV_TOKEN);
 
@@ -89,11 +88,15 @@ export async function writeData(data: AppData): Promise<number> {
   return version;
 }
 
-/** 광산&채집 네비(공유). { [spotId]: navGroup }. 쿨타임과 별도 키라 서로 안 덮어씀. */
-export async function readNav(): Promise<Record<string, number>> {
+/** 안전한 파티 식별자(1~6)로 정규화 */
+function navKey(party: string) { return `${NAV_KEY}:${party}`; }
+function navPath(party: string) { return path.join(process.cwd(), ".data", `nav-${party}.json`); }
+
+/** 광산&채집 네비(파티별 공유). { [spotId]: navGroup }. 쿨타임과 별도 키라 서로 안 덮어씀. */
+export async function readNav(party: string): Promise<Record<string, number>> {
   if (usingKv) {
     try {
-      const res = await fetch(`${KV_URL}/get/${NAV_KEY}`, {
+      const res = await fetch(`${KV_URL}/get/${navKey(party)}`, {
         headers: { Authorization: `Bearer ${KV_TOKEN}` },
         cache: "no-store",
       });
@@ -105,23 +108,23 @@ export async function readNav(): Promise<Record<string, number>> {
     return {};
   }
   try {
-    return JSON.parse(await fs.readFile(NAV_PATH, "utf8")) as Record<string, number>;
+    return JSON.parse(await fs.readFile(navPath(party), "utf8")) as Record<string, number>;
   } catch {
     return {};
   }
 }
 
-export async function writeNav(nav: Record<string, number>): Promise<void> {
+export async function writeNav(party: string, nav: Record<string, number>): Promise<void> {
   if (usingKv) {
-    await fetch(`${KV_URL}/set/${NAV_KEY}`, {
+    await fetch(`${KV_URL}/set/${navKey(party)}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${KV_TOKEN}` },
       body: JSON.stringify(nav),
     });
     return;
   }
-  await fs.mkdir(path.dirname(NAV_PATH), { recursive: true });
-  await fs.writeFile(NAV_PATH, JSON.stringify(nav), "utf8");
+  await fs.mkdir(path.dirname(navPath(party)), { recursive: true });
+  await fs.writeFile(navPath(party), JSON.stringify(nav), "utf8");
 }
 
 /** 현재 데이터 버전(마지막 저장 시각). 변경 감지용 경량 신호. */
