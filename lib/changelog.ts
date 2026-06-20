@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.12.0",
+    date: "2026-06-20",
+    changes: [
+      "'제작 및 재료 정보' 탭 추가 (무인의 거처처럼 캡처 카드 모음, 좌표칸 없음)",
+      "'마을지도' 탭 추가 (큰 카드에 지도 이미지 업로드)",
+    ],
+  },
+  {
     version: "1.11.0",
     date: "2026-06-20",
     changes: [

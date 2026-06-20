@@ -54,6 +54,14 @@ export type DwellingCard = {
   cz: string; // 게임 좌표 Z
 };
 
+/** 제작 및 재료 정보 카드 (무인의 거처와 동일하나 좌표 없음) */
+export type CraftingCard = {
+  id: string;
+  title: string;
+  image: string; // 캡처 이미지(data URL)
+  memo: string;
+};
+
 /** 수동 추가 문파원 (멤버현황에 없는 인원) */
 export type ManualMember = { id: string; name: string };
 
@@ -108,6 +116,8 @@ export type AppData = {
   infos: InfoPost[];
   events: EventItem[];
   dwellings: DwellingCard[];
+  craftings: CraftingCard[]; // 제작 및 재료 정보 카드
+  villageMap: string; // 마을지도 이미지(data URL)
   discordWebhook: string; // 디스코드 웹훅 URL
 };
 
@@ -158,6 +168,8 @@ export function defaultData(): AppData {
     infos: [],
     events: [],
     dwellings: [],
+    craftings: [],
+    villageMap: "",
     discordWebhook: "",
   };
 }
@@ -251,6 +263,13 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       cy: c.cy ?? "",
       cz: c.cz ?? "",
     })),
+    craftings: (input.craftings ?? []).map((c) => ({
+      id: c.id || uid(),
+      title: c.title ?? "",
+      image: c.image ?? "",
+      memo: c.memo ?? "",
+    })),
+    villageMap: input.villageMap ?? "",
     discordWebhook: input.discordWebhook ?? "",
   };
 }
