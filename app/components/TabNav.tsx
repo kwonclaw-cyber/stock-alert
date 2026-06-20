@@ -14,7 +14,7 @@ const TABS: Tab[] = [
   { href: "/iron", label: "철타이머", timer: true },
   { href: "/daily", label: "일숙" },
   { href: "/villagemap", label: "마을지도" },
-  { href: "/dwelling", label: "무인의 거처" },
+  { href: "/dwelling", label: "영단" },
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/amulet", label: "부적" },
   { href: "/imagemerge", label: "이미지 합치기 도우미" },

@@ -25,7 +25,7 @@ export default function DwellingPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHelp>
-        <b>무인의 거처</b> 정보를 카드로 모아두는 곳이에요. <b>카드 생성</b> 후 카드 안을 클릭하고 <b>Ctrl+V</b>로 캡처를 붙여넣으세요(드래그·파일선택도 가능). 이미지는 카드 크기에 맞춰 비율대로 들어가고, <b>클릭하면 원본 크기</b>로 볼 수 있어요. 제목·메모와 <b>XYZ 좌표</b>도 적어두세요.
+        <b>영단</b> 정보를 카드로 모아두는 곳이에요. <b>카드 생성</b> 후 카드 안을 클릭하고 <b>Ctrl+V</b>로 캡처를 붙여넣으세요(드래그·파일선택도 가능). 이미지는 카드 크기에 맞춰 비율대로 들어가고, <b>클릭하면 원본 크기</b>로 볼 수 있어요. 제목·메모도 적어두세요.
       </PageHelp>
 
       <div className="mb-4 flex items-center justify-between">
@@ -44,7 +44,7 @@ export default function DwellingPage() {
                 <TextInput
                   value={card.title}
                   onChange={(v) => update((d) => { d.dwellings[ci].title = v; })}
-                  placeholder="제목 (예: 무인의 거처 1층)"
+                  placeholder="제목 (예: 영단 1번)"
                   className="!text-left flex-1 font-semibold"
                 />
                 <button onClick={() => update((d) => { d.dwellings.splice(ci, 1); })} className="text-red-300/60 hover:text-red-300" title="카드 삭제">삭제</button>
@@ -59,19 +59,6 @@ export default function DwellingPage() {
                   placeholder="메모 (위치, 보상, 조건 등)"
                   rows={2}
                 />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-amber-300/80">좌표</span>
-                  {(["cx", "cy", "cz"] as const).map((axis) => (
-                    <label key={axis} className="flex items-center gap-1 text-xs text-white/45">
-                      {axis[1].toUpperCase()}
-                      <TextInput
-                        value={card[axis]}
-                        onChange={(v) => update((d) => { d.dwellings[ci][axis] = v; })}
-                        className="w-16 !py-1"
-                      />
-                    </label>
-                  ))}
-                </div>
               </div>
             </div>
           );

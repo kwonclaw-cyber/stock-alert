@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.18.0",
+    date: "2026-06-20",
+    changes: [
+      "'무인의 거처' 탭 이름을 '영단'으로 변경 + 좌표 입력칸 제거",
+    ],
+  },
+  {
     version: "1.17.1",
     date: "2026-06-20",
     changes: [
