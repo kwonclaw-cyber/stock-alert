@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.32.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 네비를 1~3으로 축소, '리셋' 버튼을 ↩️ 아이콘으로 작게 변경",
+    ],
+  },
+  {
     version: "1.31.0",
     date: "2026-06-20",
     changes: [
