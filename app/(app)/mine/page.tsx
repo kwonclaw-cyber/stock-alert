@@ -92,7 +92,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>목표</b>(여러 개)를 누르면 그 광산만, 없으면 전체 기준으로 동선을 그려줘요.
+        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>네비등록</b>(여러 개)을 누르면 그 광산만, 없으면 전체 기준으로 동선을 그려줘요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -140,10 +140,10 @@ export default function MinePage() {
                 <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? "text-emerald-400" : "text-white"}`}>{r.text}</span>
                 <button
                   onClick={() => toggleTarget(m.id)}
-                  title={m.target ? "동선 목표 해제" : "동선 목표로 선택"}
+                  title={m.target ? "네비 등록 해제" : "네비에 등록(동선)"}
                   className={`rounded-md border px-2 py-1 text-xs transition ${m.target ? "border-amber-400/60 bg-amber-400/15 text-amber-200" : "border-white/15 text-white/50 hover:text-white"}`}
                 >
-                  {m.target ? "★ 목표" : "목표"}
+                  {m.target ? "★ 네비등록" : "네비등록"}
                 </button>
                 <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
                 <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
@@ -191,14 +191,14 @@ export default function MinePage() {
               <span className="text-sm font-semibold text-white/70">
                 🧭 추천 동선{" "}
                 <span className={`text-xs font-medium ${usingTargets ? "text-amber-300" : "text-white/35"}`}>
-                  {usingTargets ? `목표 ${targetCount}곳` : `전체 ${route.length}곳`}
+                  {usingTargets ? `네비 ${targetCount}곳` : `전체 ${route.length}곳`}
                 </span>
                 <span className="ml-1 text-[10px] text-white/30">· {useCoords ? "좌표 기준" : "지도 기준"}</span>
               </span>
               <div className="flex items-center gap-2 text-xs text-white/45">
                 {usingTargets && (
                   <button onClick={clearTargets} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
-                    목표 해제
+                    네비 해제
                   </button>
                 )}
                 <button
@@ -211,7 +211,7 @@ export default function MinePage() {
             </div>
             {route.length === 0 ? (
               <p className="py-3 text-center text-xs text-white/30">
-                지도에 마커가 있으면 동선을 추천해요. 광산의 <b className="text-amber-300">목표</b>를 누르면 그 광산들만 동선에 반영돼요.
+                지도에 마커가 있으면 동선을 추천해요. 광산의 <b className="text-amber-300">네비등록</b>을 누르면 그 광산들만 동선에 반영돼요.
               </p>
             ) : (
               <ol className="space-y-1">
