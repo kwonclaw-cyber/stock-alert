@@ -13,7 +13,6 @@ const TABS: Tab[] = [
   { href: "/mine", label: "광산타이머", timer: true },
   { href: "/iron", label: "철타이머", timer: true },
   { href: "/daily", label: "일숙" },
-  { href: "/calendar", label: "일정" },
   { href: "/villagemap", label: "마을지도" },
   { href: "/dwelling", label: "무인의 거처" },
   { href: "/crafting", label: "제작 및 재료 정보" },
@@ -21,6 +20,7 @@ const TABS: Tab[] = [
   { href: "/imagemerge", label: "이미지 합치기 도우미" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
+  { href: "/calendar", label: "일정" },
   { href: "/changelog", label: "패치노트" },
 ];
 
@@ -45,7 +45,7 @@ export default function TabNav() {
   useEffect(() => {
     try {
       // 키 버전(v2): 기본 순서를 바꿨으므로 이전(tab-order) 저장값은 무시하고 새 기본 순서 적용
-      const saved = JSON.parse(localStorage.getItem("tab-order-v2") || "[]");
+      const saved = JSON.parse(localStorage.getItem("tab-order-v3") || "[]");
       if (Array.isArray(saved) && saved.length) setOrder(orderTabs(saved as string[]));
     } catch {
       // 무시
@@ -54,7 +54,7 @@ export default function TabNav() {
 
   function save(next: Tab[]) {
     setOrder(next);
-    try { localStorage.setItem("tab-order-v2", JSON.stringify(next.map((t) => t.href))); } catch { /* 무시 */ }
+    try { localStorage.setItem("tab-order-v3", JSON.stringify(next.map((t) => t.href))); } catch { /* 무시 */ }
   }
   function onDrop(target: number) {
     const from = dragIndex.current;
@@ -66,7 +66,7 @@ export default function TabNav() {
     save(next);
   }
   function reset() {
-    try { localStorage.removeItem("tab-order-v2"); } catch { /* 무시 */ }
+    try { localStorage.removeItem("tab-order-v3"); } catch { /* 무시 */ }
     setOrder(TABS);
   }
 

@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.15.1",
+    date: "2026-06-20",
+    changes: [
+      "기본 탭 순서: '일정'을 정보공유 뒤·패치노트 앞(뒤에서 2번째)으로 이동",
+    ],
+  },
+  {
     version: "1.15.0",
     date: "2026-06-20",
     changes: [
