@@ -24,15 +24,17 @@ export type HiddenEntry = {
 };
 
 /** 정보공유 글 (6. 정보공유) */
-export type InfoPost = {
+/** 게시판 글(정보공유·영단 공용). 본문에 [[img:id]] 토큰으로 사진이 본문 중간에 들어간다. */
+export type BoardImage = { id: string; url: string };
+export type BoardPost = {
   id: string;
   title: string;
-  body: string;
-  link: string;
+  body: string; // 텍스트 + 링크 + [[img:id]] 토큰
+  images: BoardImage[];
   author: string;
-  images: string[]; // 첨부 이미지(data URL)
   updatedAt: string; // ISO
 };
+export type InfoPost = BoardPost; // 호환용 별칭
 
 /** 일정/이벤트 (캘린더) */
 export type EventItem = {
@@ -134,7 +136,7 @@ export type AppData = {
   hiddenConclusion: string; // 종합 유추 결론
   infos: InfoPost[];
   events: EventItem[];
-  dwellings: DwellingCard[];
+  dwellings: BoardPost[]; // 영단(게시판형)
   craftings: CraftingCard[]; // 제작 및 재료 정보 카드
   villageMap: string; // 마을지도 이미지(data URL)
   amulet: AmuletState; // 부적 시스템
@@ -229,6 +231,29 @@ export function defaultData(): AppData {
 
 type LegacyGuild = Guild & { pickaxe5?: number };
 type LegacyHidden = Partial<HiddenEntry> & { target?: string; clue?: string; memo?: string };
+
+/** 구버전 글/카드(정보공유 InfoPost·영단 DwellingCard)를 게시판 글(BoardPost)로 변환 */
+function toBoardPost(p: Record<string, unknown>): BoardPost {
+  const images: BoardImage[] = [];
+  let body = typeof p.body === "string" ? p.body : typeof p.memo === "string" ? p.memo : "";
+  if (typeof p.link === "string" && p.link) body += (body ? "\n" : "") + p.link; // 구버전 링크 → 본문
+  const imgs = p.images;
+  if (Array.isArray(imgs)) {
+    for (const s of imgs) {
+      if (typeof s === "string") { const id = uid(); images.push({ id, url: s }); body += `\n[[img:${id}]]`; } // 구버전: 토큰 추가
+      else if (s && typeof (s as BoardImage).url === "string") { images.push({ id: (s as BoardImage).id || uid(), url: (s as BoardImage).url }); } // 신버전: 토큰 이미 본문에 있음
+    }
+  }
+  if (typeof p.image === "string" && p.image) { const id = uid(); images.push({ id, url: p.image }); body += `\n[[img:${id}]]`; } // 영단 단일 이미지
+  return {
+    id: (typeof p.id === "string" && p.id) || uid(),
+    title: typeof p.title === "string" ? p.title : "",
+    body,
+    images,
+    author: typeof p.author === "string" ? p.author : "",
+    updatedAt: typeof p.updatedAt === "string" ? p.updatedAt : new Date().toISOString(),
+  };
+}
 
 /** 저장된 데이터에 누락/구버전 필드가 있을 때 기본값과 병합·마이그레이션 */
 export function normalizeData(input: Partial<AppData> | null | undefined): AppData {
@@ -330,25 +355,9 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     daily,
     hidden,
     hiddenConclusion: input.hiddenConclusion ?? "",
-    infos: (input.infos ?? base.infos).map((p) => ({
-      id: p.id || uid(),
-      title: p.title ?? "",
-      body: p.body ?? "",
-      link: p.link ?? "",
-      author: p.author ?? "",
-      images: Array.isArray(p.images) ? p.images : [],
-      updatedAt: p.updatedAt ?? new Date().toISOString(),
-    })),
+    infos: (input.infos ?? []).map((p) => toBoardPost(p as Record<string, unknown>)),
     events: input.events ?? [],
-    dwellings: (input.dwellings ?? []).map((c) => ({
-      id: c.id || uid(),
-      title: c.title ?? "",
-      image: c.image ?? "",
-      memo: c.memo ?? "",
-      cx: c.cx ?? "",
-      cy: c.cy ?? "",
-      cz: c.cz ?? "",
-    })),
+    dwellings: (input.dwellings ?? []).map((c) => toBoardPost(c as Record<string, unknown>)),
     craftings: (input.craftings ?? []).map((c) => ({
       id: c.id || uid(),
       title: c.title ?? "",

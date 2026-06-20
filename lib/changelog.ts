@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.22.0",
+    date: "2026-06-20",
+    changes: [
+      "정보공유: 디스코드 웹훅 제거, 붙여넣은 사진·영상이 본문 '그 자리'에 삽입되도록 변경",
+      "영단 탭을 '영단(수정중)'으로 변경하고 정보공유와 동일한 게시판 형태로 교체",
+    ],
+  },
+  {
     version: "1.21.0",
     date: "2026-06-20",
     changes: [
