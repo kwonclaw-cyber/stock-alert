@@ -380,7 +380,7 @@ export default function MinePage() {
         {tripKind && !startName && <span className="text-[11px] text-amber-300/80">전초를 선택하거나 내 위치를 입력하면 출발지부터 동선이 그려져요.</span>}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_560px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* 광산 리스트 */}
         <div className="space-y-2">
           {mineList.length > 0 && (
