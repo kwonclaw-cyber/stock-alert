@@ -6,6 +6,15 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.20.0",
+    date: "2026-06-20",
+    changes: [
+      "광산타이머 → '광산&채집 타이머'로 변경, 채집장 생성 기능 추가(채집장=분홍 계열)",
+      "네비 1·2·3에 광산·채집장을 섞어서 한 동선으로 표시",
+      "정보공유 글에 사진 붙여넣기(Ctrl+V)·드래그 첨부 가능",
+    ],
+  },
+  {
     version: "1.19.0",
     date: "2026-06-20",
     changes: [

@@ -9,9 +9,9 @@ import { fileToDataUrl } from "../../components/imageUtil";
 import { uid, type Mine } from "@/lib/data";
 
 function remain(lastDoneAt: string | null, cooldownMin: number, now: number) {
-  if (!lastDoneAt || cooldownMin <= 0) return { ready: true, ms: -1, text: "채굴 가능" };
+  if (!lastDoneAt || cooldownMin <= 0) return { ready: true, ms: -1, text: "가능" };
   const ms = new Date(lastDoneAt).getTime() + cooldownMin * 60_000 - now;
-  if (ms <= 0) return { ready: true, ms: -1, text: "채굴 가능" };
+  if (ms <= 0) return { ready: true, ms: -1, text: "가능" };
   const sec = Math.floor(ms / 1000);
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -37,6 +37,35 @@ const NAV_BADGE: Record<number, string> = {
   2: "border-sky-400/60 bg-sky-400/15 text-sky-200",
   3: "border-amber-400/60 bg-amber-400/15 text-amber-200",
 };
+
+// 종류별 색 테마. 광산=초록, 채집장=분홍(rose) 계열로 구분한다.
+type Kind = "mine" | "gather";
+const KIND: Record<Kind, {
+  label: string; icon: string;
+  markerReady: string; // 지도 마커(완료 가능) 배경
+  rowReady: string; // 리스트 행(완료 가능) 테두리/배경
+  text: string; // 완료 가능 상태 글자색
+  pill: string; // 종류 배지
+  readyWord: string; // 완료 가능 문구
+}> = {
+  mine: {
+    label: "광산", icon: "⛏",
+    markerReady: "bg-emerald-500 border-emerald-200",
+    rowReady: "border-emerald-400/50 bg-emerald-400/[0.06]",
+    text: "text-emerald-400",
+    pill: "border-emerald-400/50 bg-emerald-400/15 text-emerald-200",
+    readyWord: "채굴 가능",
+  },
+  gather: {
+    label: "채집", icon: "🌿",
+    markerReady: "bg-rose-500 border-rose-200",
+    rowReady: "border-rose-400/50 bg-rose-400/[0.06]",
+    text: "text-rose-400",
+    pill: "border-rose-400/50 bg-rose-400/15 text-rose-200",
+    readyWord: "채집 가능",
+  },
+};
+const kindOf = (m: Mine) => KIND[m.kind === "gather" ? "gather" : "mine"];
 
 export default function MinePage() {
   const { data, update } = useStore();
@@ -95,9 +124,13 @@ export default function MinePage() {
   }
   function generate() {
     update((d) => {
-      d.mine.mines = Array.from({ length: Math.max(1, genCount) }, (_, i) => ({
-        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0,
-      }));
+      const gathers = d.mine.mines.filter((m) => m.kind === "gather"); // 채집장은 유지
+      d.mine.mines = [
+        ...Array.from({ length: Math.max(1, genCount) }, (_, i) => ({
+          id: uid(), name: `광산${i + 1}`, kind: "mine" as const, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0,
+        })),
+        ...gathers,
+      ];
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
@@ -114,7 +147,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. 각 광산의 <b className="text-emerald-300">네비 1</b>·<b className="text-sky-300">2</b>·<b className="text-amber-300">3</b> 버튼으로 사람별 동선을 나눌 수 있어요(색깔별로 표시, 안 누르면 전체 기준).
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b className="text-emerald-300">네비 1</b>·<b className="text-sky-300">2</b>·<b className="text-amber-300">3</b>으로 사람별 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나와요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -129,11 +162,14 @@ export default function MinePage() {
           개 생성
         </label>
         <Btn onClick={generate}>광산 일괄 생성</Btn>
-        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
+        <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind !== "gather").length + 1; d.mine.mines.push({ id: uid(), name: `광산${n}`, kind: "mine", cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 광산 추가
         </Btn>
-        <div className="ml-auto rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-sm">
-          <span className="text-white/60">채굴 가능</span> <b className="text-emerald-300">{readyCount}</b> / {mine.mines.length}
+        <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "gather").length + 1; d.mine.mines.push({ id: uid(), name: `채집장${n}`, kind: "gather", cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
+          + 채집장 추가
+        </Btn>
+        <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
+          <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {mine.mines.length}
         </div>
       </div>
 
@@ -142,8 +178,10 @@ export default function MinePage() {
         <div className="space-y-2">
           {sorted.map(({ m, idx, r }) => {
             const gi = mine.mines.findIndex((x) => x.id === m.id);
+            const k = kindOf(m);
             return (
-              <div key={m.id} className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 ${r.ready ? "border-emerald-400/50 bg-emerald-400/[0.06]" : "border-white/10 bg-[#15171c]"}`}>
+              <div key={m.id} className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 ${r.ready ? k.rowReady : "border-white/10 bg-[#15171c]"}`}>
+                <span className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-bold ${k.pill}`} title={m.kind === "gather" ? "채집장" : "광산"}>{k.icon} {k.label}</span>
                 <button
                   onClick={() => toggleMarker(m.id)}
                   className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
@@ -159,7 +197,7 @@ export default function MinePage() {
                   <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                   <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
                 </div>
-                <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? "text-emerald-400" : "text-white"}`}>{r.text}</span>
+                <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
                 <div className="flex items-center gap-1" title="네비 동선 그룹(1·2·3)에 등록 / 다시 누르면 해제">
                   <span className="text-[10px] text-white/35">네비</span>
                   {NAV_GROUPS.map((g) => (
@@ -180,7 +218,7 @@ export default function MinePage() {
             );
           })}
           {mine.mines.length === 0 && (
-            <p className="rounded-lg border border-dashed border-white/15 py-10 text-center text-sm text-white/30">광산이 없습니다. “광산 일괄 생성”을 눌러보세요.</p>
+            <p className="rounded-lg border border-dashed border-white/15 py-10 text-center text-sm text-white/30">광산·채집장이 없습니다. “광산 일괄 생성” 또는 “+ 채집장 추가”를 눌러보세요.</p>
           )}
         </div>
 
@@ -260,11 +298,11 @@ export default function MinePage() {
                             >
                               {i + 1}
                             </span>
-                            <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 캤으면 클릭(완료)">
-                              {c.m.name}
+                            <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 완료했으면 클릭">
+                              <span className="mr-0.5">{kindOf(c.m).icon}</span>{c.m.name}
                             </button>
-                            <span className={`ml-auto shrink-0 text-xs ${c.r.ready ? "text-emerald-400" : "text-amber-300"}`}>
-                              {c.r.ready ? "채굴 가능" : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
+                            <span className={`ml-auto shrink-0 text-xs ${c.r.ready ? kindOf(c.m).text : "text-amber-300"}`}>
+                              {c.r.ready ? kindOf(c.m).readyWord : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
                             </span>
                           </li>
                         ))}
@@ -348,8 +386,8 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
           <div
             key={s.m.id}
             style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
-            title={`${s.m.name} (X ${gx} · Z ${gz}) · ${s.r.text}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
-            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.r.ready ? "bg-emerald-500 border-emerald-200 text-black" : "bg-amber-500/90 border-amber-200 text-black"} ${s.r.ready ? "animate-pulse" : ""}`}
+            title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz}) · ${s.r.text}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
+            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.r.ready ? `${kindOf(s.m).markerReady} text-black` : "bg-amber-500/90 border-amber-200 text-black"} ${s.r.ready ? "animate-pulse" : ""}`}
           >
             {label(s.m, s.idx)}
           </div>
@@ -437,7 +475,7 @@ function MarkerLayer({
         const y = drag?.id === m.id ? drag.y : m.y;
         const size = large ? "h-7 min-w-7 text-xs" : "h-5 min-w-5 text-[10px]";
         const color = r.ready
-          ? "bg-emerald-500 border-emerald-200 text-black"
+          ? `${kindOf(m).markerReady} text-black`
           : "bg-amber-500/90 border-amber-200 text-black";
         return (
           <button

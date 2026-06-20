@@ -30,6 +30,7 @@ export type InfoPost = {
   body: string;
   link: string;
   author: string;
+  images: string[]; // 첨부 이미지(data URL)
   updatedAt: string; // ISO
 };
 
@@ -91,10 +92,11 @@ export type IronState = {
   records: Record<string, { lastDoneAt: string | null; daily: Record<string, number> }>;
 };
 
-/** 광산 1칸 */
+/** 광산/채집장 1칸 */
 export type Mine = {
   id: string;
   name: string; // 광산1 ...
+  kind: "mine" | "gather"; // 광산 / 채집장
   cooldownMin: number; // 쿨타임(분)
   lastDoneAt: string | null; // 마지막 완료(ISO)
   x: number | null; // 지도(이미지)상 위치 X (0~100%)
@@ -285,6 +287,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     mines: (input.mine?.mines ?? []).map((m) => ({
       id: m.id || uid(),
       name: m.name ?? "",
+      kind: (m as { kind?: unknown }).kind === "gather" ? "gather" : "mine",
       cooldownMin: Number(m.cooldownMin) || 0,
       lastDoneAt: m.lastDoneAt ?? null,
       x: typeof m.x === "number" ? m.x : null,
@@ -324,7 +327,15 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     daily,
     hidden,
     hiddenConclusion: input.hiddenConclusion ?? "",
-    infos: input.infos ?? base.infos,
+    infos: (input.infos ?? base.infos).map((p) => ({
+      id: p.id || uid(),
+      title: p.title ?? "",
+      body: p.body ?? "",
+      link: p.link ?? "",
+      author: p.author ?? "",
+      images: Array.isArray(p.images) ? p.images : [],
+      updatedAt: p.updatedAt ?? new Date().toISOString(),
+    })),
     events: input.events ?? [],
     dwellings: (input.dwellings ?? []).map((c) => ({
       id: c.id || uid(),
