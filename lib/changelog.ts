@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.33.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 지점 위치를 '좌표(X·Z) 최우선, 없으면 지도 마커' 순으로 정리(한 지점은 한 지도에만 표시)",
+    ],
+  },
+  {
     version: "1.32.0",
     date: "2026-06-20",
     changes: [
