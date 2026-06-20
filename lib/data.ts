@@ -135,6 +135,7 @@ export type AppData = {
   hidden: HiddenEntry[];
   hiddenConclusion: string; // 종합 유추 결론
   infos: InfoPost[];
+  liveNotes: BoardPost[]; // 긴급 라이브 정리(게시판형)
   events: EventItem[];
   dwellings: BoardPost[]; // 영단(게시판형)
   craftings: CraftingCard[]; // 제작 및 재료 정보 카드
@@ -220,6 +221,7 @@ export function defaultData(): AppData {
     hidden: [emptyHidden(), emptyHidden()],
     hiddenConclusion: "",
     infos: [],
+    liveNotes: [],
     events: [],
     dwellings: [],
     craftings: [],
@@ -356,6 +358,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     hidden,
     hiddenConclusion: input.hiddenConclusion ?? "",
     infos: (input.infos ?? []).map((p) => toBoardPost(p as Record<string, unknown>)),
+    liveNotes: (input.liveNotes ?? []).map((p) => toBoardPost(p as Record<string, unknown>)),
     events: input.events ?? [],
     dwellings: (input.dwellings ?? []).map((c) => toBoardPost(c as Record<string, unknown>)),
     craftings: (input.craftings ?? []).map((c) => ({

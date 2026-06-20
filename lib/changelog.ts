@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.26.0",
+    date: "2026-06-20",
+    changes: [
+      "정보공유/영단: '숨기기'가 완료된 글은 그대로 두고 입력창만 가리도록 수정",
+      "'긴급라이브정리' 탭 추가 (정보공유와 동일, 패치노트 앞)",
+    ],
+  },
+  {
     version: "1.25.0",
     date: "2026-06-20",
     changes: [
