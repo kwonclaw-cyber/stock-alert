@@ -145,7 +145,7 @@ export default function MinePage() {
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
 
   const readyCount = sorted.filter((x) => x.r.ready).length;
-  const placedCount = mine.mines.filter((m) => m.x != null).length;
+  const placedCount = mine.mines.filter((m) => m.x != null && !hasCoords(m)).length;
 
   // 출발지(전초 우선, 없으면 내 위치) 좌표/마커 계산
   const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
@@ -192,7 +192,7 @@ export default function MinePage() {
     const imgStart = !useCoords && sMarker ? [{ x: sMarker.x, y: sMarker.y }] : [];
     return {
       route: r,
-      imgLine: [...imgStart, ...r.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }))],
+      imgLine: [...imgStart, ...r.filter((s) => hasMarker(s.m) && !hasCoords(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }))],
       coordIds: useCoords ? r.map((s) => s.m.id) : [],
       coordStart: useCoords && sGame ? sGame : null,
     };
@@ -296,7 +296,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>쿨타임(완료)</b>도 <b>네비</b>도 길드/파티에 <b>실시간 공유</b>돼요(서로 따로 저장돼 충돌 없음). <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>위치는 좌표(X·Z)가 최우선</b>(좌표 미니맵에 표시), 좌표가 없으면 <b>지도 이미지의 📍마커</b>로 표시돼요(차선). <b>쿨타임(완료)</b>도 <b>네비</b>도 길드/파티에 <b>실시간 공유</b>돼요(서로 따로 저장돼 충돌 없음). <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -747,6 +747,7 @@ function MarkerLayer({
     <div ref={ref} className="pointer-events-none absolute inset-0">
       {mines.map(({ m, idx, r }) => {
         if (m.x == null || m.y == null) return null;
+        if (hasCoords(m)) return null; // 좌표가 있으면 좌표 미니맵에 표시(우선), 지도 이미지엔 안 띄움
         const x = drag?.id === m.id ? drag.x : m.x;
         const y = drag?.id === m.id ? drag.y : m.y;
         const size = large ? "h-7 min-w-7 text-xs" : "h-5 min-w-5 text-[10px]";
