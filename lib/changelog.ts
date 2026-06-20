@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.17.1",
+    date: "2026-06-20",
+    changes: [
+      "'강화정보' 탭 삭제",
+    ],
+  },
+  {
     version: "1.17.0",
     date: "2026-06-20",
     changes: [
