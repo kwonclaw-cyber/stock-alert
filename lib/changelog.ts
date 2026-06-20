@@ -6,10 +6,17 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.27.1",
+    date: "2026-06-20",
+    changes: [
+      "전달: 박사장 문파원 기준으로 변경 — 작성자 1명 제외 전원이 댓글 등록(남은 인원 표시)",
+    ],
+  },
+  {
     version: "1.27.0",
     date: "2026-06-20",
     changes: [
-      "'전달' 탭 추가 — 길드원 1명 지정 후 공지를 남기면, 지정 인원 제외 모두가 댓글로 응답 (남은 인원 표시)",
+      "'전달' 탭 추가 — 공지를 남기면 작성자 제외 문파원이 댓글로 응답",
     ],
   },
   {

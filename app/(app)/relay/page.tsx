@@ -6,15 +6,17 @@ import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { uid } from "@/lib/data";
+import { MAIN_GUILD_ID } from "@/lib/guilds";
 
 export default function RelayPage() {
   const { data, update } = useStore();
   const [draft, setDraft] = useState<Record<string, { author: string; text: string }>>({});
   if (!data) return <Loading />;
 
-  // 전체 길드원 이름(중복 제거, 빈 값 제외)
+  // 박사장 문파원 이름(중복 제거, 빈 값 제외)
+  const guild = data.guilds.find((g) => g.id === MAIN_GUILD_ID) ?? data.guilds[0];
   const members = Array.from(
-    new Set(data.guilds.flatMap((g) => g.members.map((m) => m.name.trim()).filter(Boolean))),
+    new Set((guild?.members ?? []).map((m) => m.name.trim()).filter(Boolean)),
   );
 
   const posts = data.relays;
@@ -35,11 +37,11 @@ export default function RelayPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        <b>길드원 1명을 지정</b>하고 할 말·공지를 남기면, <b>지정된 인원을 제외한 모두</b>가 그 글에 <b>댓글</b>로 응답하는 곳이에요. 누가 아직 안 남겼는지 <b>남은 인원</b>으로 한눈에 볼 수 있어요. (이름은 멤버현황 기준)
+        <b>작성자(글쓴이)</b>가 할 말·공지를 남기면, <b>작성자를 제외한 박사장 문파원 전원</b>이 그 글에 <b>댓글</b>로 등록하는 곳이에요. 누가 아직 안 남겼는지 <b>남은 인원</b>으로 한눈에 볼 수 있어요. (이름은 박사장 멤버현황 기준)
       </PageHelp>
 
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-white/50">지정 인원 빼고 모두 댓글 남기기</p>
+        <p className="text-sm text-white/50">작성자 빼고 문파원 모두 댓글 등록</p>
         <Btn
           variant="primary"
           onClick={() => update((s) => { s.relays.unshift({ id: uid(), title: "", body: "", target: "", author: "", comments: [], createdAt: new Date().toISOString() }); })}
@@ -66,18 +68,18 @@ export default function RelayPage() {
               </div>
 
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-white/55">대상(제외)</span>
+                <span className="text-white/55">작성자(글쓴이)</span>
                 <select
                   value={post.target}
                   onChange={(e) => update((s) => { s.relays[pi].target = e.target.value; })}
                   className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-sm text-white outline-none"
                 >
-                  <option value="" className="text-black">길드원 선택…</option>
+                  <option value="" className="text-black">작성자 선택…</option>
                   {members.map((n) => (
                     <option key={n} value={n} className="text-black">{n}</option>
                   ))}
                 </select>
-                {post.target && <span className="rounded-md border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">🔕 {post.target} (댓글 제외)</span>}
+                {post.target && <span className="rounded-md border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">✍ {post.target} (작성자·댓글 제외)</span>}
               </div>
 
               <TextArea
