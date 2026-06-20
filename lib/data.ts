@@ -1,4 +1,4 @@
-import { GUILDS, type Guild } from "./guilds";
+import { GUILDS, type Guild, type MemberStats } from "./guilds";
 
 /** 보스 타이머 (4. 보스타이머) */
 export type BossTimer = {
@@ -240,7 +240,28 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       : [0, 0, 0, 0, Number(lg.pickaxe5) || 0]; // 구버전 5성곡괭이 → 5성칸으로
     // 오타 수정: 오야 → 오아
     const name = g.id === "oya" && g.name === "오야" ? "오아" : g.name;
-    return { ...g, name, pickaxes };
+    // 멤버 필드 보정/마이그레이션 (구버전 택1 → 반지, attack/택2는 제거)
+    const members = (g.members ?? []).map((m) => {
+      const lm = m as MemberStats & { acc1?: string };
+      return {
+        name: lm.name ?? "",
+        job: lm.job ?? "",
+        weapon: lm.weapon ?? "",
+        internal: lm.internal ?? "",
+        evasion: lm.evasion ?? "",
+        atkSpeed: lm.atkSpeed ?? "",
+        sum: lm.sum ?? "",
+        helmet: lm.helmet ?? "",
+        armor: lm.armor ?? "",
+        belt: lm.belt ?? "",
+        shoes: lm.shoes ?? "",
+        ring: lm.ring ?? lm.acc1 ?? "",
+        health: lm.health ?? "",
+        dopingLuck: lm.dopingLuck ?? "",
+        mount: lm.mount ?? "",
+      };
+    });
+    return { ...g, name, pickaxes, members };
   });
 
   const hidden = (input.hidden ?? base.hidden).map((h) => {

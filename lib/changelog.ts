@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.16.0",
+    date: "2026-06-20",
+    changes: [
+      "내실현황 표를 새 형식으로 변경: 직업·무기·내공·[잠재(도핑X) 회피·공속·합]·[재련/강화 투구·갑옷·벨트·신발·반지]·체력·도핑운·탈것",
+      "공격력·장신구(택1/택2) 칸 제거, 반지·도핑운 칸 추가 (구버전 택1→반지 자동 이전)",
+    ],
+  },
+  {
     version: "1.15.2",
     date: "2026-06-20",
     changes: [
