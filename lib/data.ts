@@ -69,7 +69,7 @@ export type AmuletRow = { id: string; name: string; effect: string };
 export type AmuletState = {
   // 계산기 파라미터 (화면에서 수정 가능)
   combineCount: number; // 같은 등급 N개 → 상위 등급 1개
-  pullCostNormal: number; // 일반 부적 뽑기 가격(진)
+  pullCostNormal: number; // 일반 부적 뽑기 가격(전)
   rerollCostTicket: number; // 리롤 비용(별풍선티켓)
   pullCostRareTicket: number; // 희귀 부적 뽑기 가격(별풍선티켓)
   // 옵션 효과표

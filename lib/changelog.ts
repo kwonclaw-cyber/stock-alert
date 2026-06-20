@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.15.2",
+    date: "2026-06-20",
+    changes: [
+      "부적 계산기 비용 단위를 '진' → '전'으로 수정",
+    ],
+  },
+  {
     version: "1.15.1",
     date: "2026-06-20",
     changes: [
