@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.26.1",
+    date: "2026-06-20",
+    changes: [
+      "정보공유/영단/긴급라이브정리: '숨기기' 버튼을 '읽기 모드/편집 모드'로 변경",
+    ],
+  },
+  {
     version: "1.26.0",
     date: "2026-06-20",
     changes: [

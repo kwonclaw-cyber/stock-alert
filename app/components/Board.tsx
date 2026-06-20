@@ -144,9 +144,9 @@ export default function Board({
               <button
                 onClick={() => toggleEditor(post.id)}
                 className={`rounded-md border px-2 py-1 text-xs transition ${showEditor[post.id] ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
-                title={showEditor[post.id] ? "입력창 숨기기 (완료된 글만 보기)" : "입력창 열기 (수정)"}
+                title={showEditor[post.id] ? "읽기 모드로 (입력창 숨김)" : "편집 모드로 (입력창 열기)"}
               >
-                {showEditor[post.id] ? "숨기기" : "✏️ 숨기기 해제"}
+                {showEditor[post.id] ? "📖 읽기 모드" : "✏️ 편집 모드"}
               </button>
               <button onClick={() => mutate((list) => { list.splice(pi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
             </div>
@@ -165,7 +165,7 @@ export default function Board({
                 {renderContent(post.body, post.images, setZoom)}
               </div>
             ) : (
-              !showEditor[post.id] && <p className="py-3 text-center text-xs text-white/30">내용이 없어요. ‘✏️ 숨기기 해제’를 눌러 작성하세요.</p>
+              !showEditor[post.id] && <p className="py-3 text-center text-xs text-white/30">내용이 없어요. ‘✏️ 편집 모드’를 눌러 작성하세요.</p>
             )}
 
             <div className="mt-2 flex items-center justify-between gap-2">
