@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.19.0",
+    date: "2026-06-20",
+    changes: [
+      "정보공유: 링크에 유튜브·mp4·숲(SOOP) VOD 주소를 넣으면 글 안에서 바로 재생",
+    ],
+  },
+  {
     version: "1.18.0",
     date: "2026-06-20",
     changes: [

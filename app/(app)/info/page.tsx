@@ -8,6 +8,45 @@ import PageHelp from "../../components/PageHelp";
 import { sendDiscord } from "../../components/discord";
 import { uid } from "@/lib/data";
 
+/** 링크를 보고 인라인 재생 방식을 판별한다. */
+function getMedia(url: string): { kind: "video" | "iframe" | "none"; src: string } {
+  const u = (url || "").trim();
+  if (!u) return { kind: "none", src: "" };
+  // 직접 영상 파일(mp4/webm/ogg/mov)
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(u)) return { kind: "video", src: u };
+  // 유튜브 → 임베드
+  const yt = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/i);
+  if (yt) return { kind: "iframe", src: `https://www.youtube.com/embed/${yt[1]}` };
+  // SOOP(숲) VOD 플레이어 → 그대로 임베드
+  if (/vod\.sooplive\.com\/player\/\d+/i.test(u)) return { kind: "iframe", src: u };
+  return { kind: "none", src: "" };
+}
+
+/** 정보공유 글의 링크를 인라인 재생(영상/임베드)으로 보여준다. */
+function MediaPlayer({ url }: { url: string }) {
+  const m = getMedia(url);
+  if (m.kind === "video") {
+    return (
+      <video src={m.src} controls preload="metadata" className="mt-2 max-h-[70vh] w-full rounded-lg bg-black">
+        영상을 재생할 수 없어요.
+      </video>
+    );
+  }
+  if (m.kind === "iframe") {
+    return (
+      <div className="mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black">
+        <iframe
+          src={m.src}
+          className="h-full w-full"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function InfoPage() {
   const { data, update } = useStore();
   const [sent, setSent] = useState<string | null>(null);
@@ -26,7 +65,7 @@ export default function InfoPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        서버 <b>공략·꿀팁·공지</b>를 자유롭게 공유하는 게시판이에요. “새 글”로 추가하면 자동 저장돼요. <b>디스코드 웹훅</b>을 등록하면 글을 <b>디스코드로 전송</b>하거나, 보스 젠 알림을 채널로 자동 푸시할 수 있어요.
+        서버 <b>공략·꿀팁·공지</b>를 자유롭게 공유하는 게시판이에요. “새 글”로 추가하면 자동 저장돼요. 링크칸에 <b>유튜브·mp4·숲(SOOP) VOD</b> 주소를 넣으면 글 안에서 <b>바로 재생</b>돼요. <b>디스코드 웹훅</b>을 등록하면 글을 디스코드로 전송하거나 보스 젠 알림을 채널로 자동 푸시할 수 있어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#15171c] p-3">
@@ -96,11 +135,12 @@ export default function InfoPage() {
                 rows={4}
                 className="mb-2"
               />
-              <div className="flex flex-wrap gap-2">
+              <MediaPlayer url={post.link} />
+              <div className="mt-2 flex flex-wrap gap-2">
                 <TextInput
                   value={post.link}
                   onChange={(v) => update((d) => { d.infos[pi].link = v; })}
-                  placeholder="링크(선택) https://"
+                  placeholder="링크(선택) https:// · 유튜브/mp4/숲VOD는 자동 재생"
                   className="flex-1"
                 />
                 <TextInput
