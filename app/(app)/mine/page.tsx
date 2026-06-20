@@ -134,8 +134,30 @@ export default function MinePage() {
   if (!data) return <Loading />;
   const mine = data.mine;
 
+  // 지도 보정: '마커+좌표'를 둘 다 가진 기준점 2곳으로 게임좌표→지도(%) 변환식을 도출한다.
+  const refs = mine.mines.filter((m) => hasMarker(m) && hasCoords(m));
+  let calib: ((cx: number, cz: number) => { x: number; y: number }) | null = null;
+  for (let i = 0; i < refs.length && !calib; i++) {
+    for (let j = i + 1; j < refs.length; j++) {
+      const a = refs[i], b = refs[j];
+      const ax = numOr(a.cx)!, az = numOr(a.cz)!, bx = numOr(b.cx)!, bz = numOr(b.cz)!;
+      if (ax !== bx && az !== bz) {
+        calib = (cx, cz) => ({
+          x: clamp(a.x! + ((cx - ax) * (b.x! - a.x!)) / (bx - ax)),
+          y: clamp(a.y! + ((cz - az) * (b.y! - a.y!)) / (bz - az)),
+        });
+        break;
+      }
+    }
+  }
+  // 지도 이미지 상 위치(%): 마커가 있으면 마커, 없으면 좌표(보정 시) 환산
+  const imgPos = (m: Mine): { x: number; y: number } | null =>
+    hasMarker(m) ? { x: m.x as number, y: m.y as number }
+    : hasCoords(m) && calib ? calib(numOr(m.cx)!, numOr(m.cz)!)
+    : null;
+
   // 네비(nav)는 로컬 navMap에서 덮어쓴다. (KV의 m.nav는 사용하지 않음)
-  const decoratedAll = mine.mines.map((m, idx) => ({ m: { ...m, nav: navMap[m.id] ?? 0 }, idx, r: remain(m.lastDoneAt, m.cooldownMin, now) }));
+  const decoratedAll = mine.mines.map((m, idx) => ({ m: { ...m, nav: navMap[m.id] ?? 0 }, idx, r: remain(m.lastDoneAt, m.cooldownMin, now), ip: imgPos(m) }));
   // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장·전초는 위치 지점이라 타이머에서 제외.
   const sorted = decoratedAll.filter((s) => s.m.kind === "mine" || s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   // 목록은 광산/채집장을 각각 임박순으로 따로 정렬해 구분 표시
@@ -145,7 +167,7 @@ export default function MinePage() {
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
 
   const readyCount = sorted.filter((x) => x.r.ready).length;
-  const placedCount = mine.mines.filter((m) => m.x != null && !hasCoords(m)).length;
+  const placedCount = decoratedAll.filter((s) => s.ip).length;
 
   // 출발지(전초 우선, 없으면 내 위치) 좌표/마커 계산
   const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
@@ -189,10 +211,10 @@ export default function MinePage() {
       }
       r = [...r, best];
     }
-    const imgStart = !useCoords && sMarker ? [{ x: sMarker.x, y: sMarker.y }] : [];
+    const startImg = sMarker ? sMarker : sGame && calib ? calib(sGame.x, sGame.y) : null;
     return {
       route: r,
-      imgLine: [...imgStart, ...r.filter((s) => hasMarker(s.m) && !hasCoords(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }))],
+      imgLine: [...(startImg ? [startImg] : []), ...r.map((s) => s.ip).filter((p): p is { x: number; y: number } => !!p)],
       coordIds: useCoords ? r.map((s) => s.m.id) : [],
       coordStart: useCoords && sGame ? sGame : null,
     };
@@ -296,7 +318,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>위치는 좌표(X·Z)가 최우선</b>(좌표 미니맵에 표시), 좌표가 없으면 <b>지도 이미지의 📍마커</b>로 표시돼요(차선). <b>쿨타임(완료)</b>도 <b>네비</b>도 길드/파티에 <b>실시간 공유</b>돼요(서로 따로 저장돼 충돌 없음). <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 서버 입장 후 <b>잘 아는 2곳</b>에서 그 자리에 <b>📍마커를 찍고</b> 게임 <b>좌표(X·Z)</b>도 입력하세요. 그러면 변환식이 잡혀서 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 길드/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -459,7 +481,12 @@ export default function MinePage() {
         {/* 광산 지도 */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold text-white/70">🗺️ 광산 지도 <span className="text-xs font-normal text-white/35">(마커 {placedCount}/{mine.mines.length})</span></span>
+            <span className="text-sm font-semibold text-white/70">
+              🗺️ 광산 지도 <span className="text-xs font-normal text-white/35">(표시 {placedCount}/{mine.mines.length})</span>
+              <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${calib ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`} title={calib ? "기준점 2곳으로 좌표→지도 변환 적용됨" : "마커+좌표를 둘 다 가진 기준점 2곳이 있으면 좌표만으로 지도에 정확히 찍혀요"}>
+                {calib ? "좌표보정 ✅" : "좌표보정 필요"}
+              </span>
+            </span>
             {mine.mapImage && (
               <button
                 onClick={() => setEditMarkers((v) => !v)}
@@ -581,7 +608,7 @@ export default function MinePage() {
   );
 }
 
-type Decorated = { m: Mine; idx: number; r: { ready: boolean; ms: number; text: string } };
+type Decorated = { m: Mine; idx: number; r: { ready: boolean; ms: number; text: string }; ip: { x: number; y: number } | null };
 
 /** 좌표(게임 X·Z) 기반 미니맵. 지도 이미지가 없어도 좌표로 위치/동선을 표시한다. */
 function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: string; ids: string[]; start: { x: number; y: number } | null }[] }) {
@@ -745,11 +772,11 @@ function MarkerLayer({
 
   return (
     <div ref={ref} className="pointer-events-none absolute inset-0">
-      {mines.map(({ m, idx, r }) => {
-        if (m.x == null || m.y == null) return null;
-        if (hasCoords(m)) return null; // 좌표가 있으면 좌표 미니맵에 표시(우선), 지도 이미지엔 안 띄움
-        const x = drag?.id === m.id ? drag.x : m.x;
-        const y = drag?.id === m.id ? drag.y : m.y;
+      {mines.map(({ m, idx, r, ip }) => {
+        if (!ip) return null;
+        const draggable = editMode && hasMarker(m); // 좌표로 찍힌 지점은 좌표가 우선이라 드래그 비활성
+        const x = drag?.id === m.id ? drag.x : ip.x;
+        const y = drag?.id === m.id ? drag.y : ip.y;
         const size = large ? "h-7 min-w-7 text-xs" : "h-5 min-w-5 text-[10px]";
         const isLoc = m.kind === "brew" || m.kind === "outpost";
         const color = m.kind === "brew"
@@ -765,10 +792,10 @@ function MarkerLayer({
             key={m.id}
             title={`${kindOf(m).label} · ${m.name}${isLoc ? "" : ` · ${r.text}`}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : isLoc ? "" : " (클릭=완료)"}`}
             onPointerDown={(e) => {
-              if (!editMode) return;
+              if (!draggable) return;
               e.preventDefault();
               (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-              setDrag({ id: m.id, x: m.x!, y: m.y! });
+              setDrag({ id: m.id, x: ip.x, y: ip.y });
             }}
             onPointerMove={(e) => { if (drag?.id === m.id) setDrag({ id: m.id, ...toPct(e.clientX, e.clientY) }); }}
             onPointerUp={(e) => {
@@ -777,7 +804,7 @@ function MarkerLayer({
             }}
             onClick={() => { if (!editMode && !isLoc) onComplete(m.id); }}
             style={{ left: `${x}%`, top: `${y}%`, boxShadow: m.nav ? `0 0 0 2px ${NAV_COLOR[m.nav]}` : undefined }}
-            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : isLoc ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode ? "ring-2 ring-white/40" : ""} ${!isLoc && r.ready ? "animate-pulse" : ""} flex`}
+            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${draggable ? "cursor-grab active:cursor-grabbing" : isLoc ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode && hasMarker(m) ? "ring-2 ring-white/40" : ""} ${!isLoc && r.ready ? "animate-pulse" : ""} flex`}
           >
             {glyph}
           </button>
