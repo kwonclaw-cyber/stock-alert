@@ -135,7 +135,7 @@ export default function MinePage() {
   const mine = data.mine;
 
   // 지도 보정: '좌표 거점 2곳'(좌표+마커)으로 게임좌표→지도(%) 변환식을 도출한다.
-  const calibPts = mine.calib;
+  const calibPts = mine.calib ?? { p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } };
   const calib: ((cx: number, cz: number) => { x: number; y: number }) | null = (() => {
     const a = calibPts.p1, b = calibPts.p2;
     const ax = numOr(a.cx), az = numOr(a.cz), bx = numOr(b.cx), bz = numOr(b.cz);
@@ -260,9 +260,10 @@ export default function MinePage() {
   };
   const pickParty = (p: string) => { setParty(p); try { localStorage.setItem("mine-party", p); } catch { /* 무시 */ } };
   // 좌표 거점(보정)
-  const setCalibCoord = (which: "p1" | "p2", axis: "cx" | "cz", v: string) => update((d) => { d.mine.calib[which][axis] = v; });
-  const toggleCalibMarker = (which: "p1" | "p2") => update((d) => { const p = d.mine.calib[which]; if (p.x == null) { p.x = 50; p.y = 50; } else { p.x = null; p.y = null; } });
-  const moveCalibMarker = (which: "p1" | "p2", x: number, y: number) => update((d) => { d.mine.calib[which].x = x; d.mine.calib[which].y = y; });
+  const emptyCalib = () => ({ p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } });
+  const setCalibCoord = (which: "p1" | "p2", axis: "cx" | "cz", v: string) => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); d.mine.calib[which][axis] = v; });
+  const toggleCalibMarker = (which: "p1" | "p2") => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); const p = d.mine.calib[which]; if (p.x == null) { p.x = 50; p.y = 50; } else { p.x = null; p.y = null; } });
+  const moveCalibMarker = (which: "p1" | "p2", x: number, y: number) => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); d.mine.calib[which].x = x; d.mine.calib[which].y = y; });
   const setNav = (id: string, g: number) => saveNav({ ...navMap, [id]: (navMap[id] ?? 0) === g ? 0 : g });
   const clearNav = () => saveNav({});
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
@@ -354,7 +355,7 @@ export default function MinePage() {
       <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-sm">
         <span className="font-semibold text-amber-200">🎯 좌표 거점</span>
         {(["p1", "p2"] as const).map((w, i) => {
-          const p = mine.calib[w];
+          const p = calibPts[w];
           return (
             <span key={w} className="flex items-center gap-1 text-xs text-white/45">
               <b className="text-amber-300">거점{i + 1}</b>
@@ -530,7 +531,7 @@ export default function MinePage() {
           >
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
-            <CalibLayer calib={mine.calib} editMode={editMarkers} onMove={moveCalibMarker} />
+            <CalibLayer calib={calibPts} editMode={editMarkers} onMove={moveCalibMarker} />
           </MapPanel>
           {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
 
@@ -627,7 +628,7 @@ export default function MinePage() {
             <img src={mine.mapImage} alt="광산 지도" className="max-h-[88vh] max-w-full rounded-lg" />
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={decoratedAll} now={now} editMode={false} onMove={moveMarker} onComplete={complete} large />
-            <CalibLayer calib={mine.calib} editMode={false} onMove={moveCalibMarker} />
+            <CalibLayer calib={calibPts} editMode={false} onMove={moveCalibMarker} />
             <button onClick={() => setZoom(false)} className="absolute right-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">닫기 ✕</button>
           </div>
         </div>
