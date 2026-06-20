@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.14.0",
+    date: "2026-06-20",
+    changes: [
+      "'이미지 합치기 도우미' 탭 추가 — 여러 이미지를 가로/세로로 이어붙여 한 장으로 저장",
+      "'타길드 내실현황' 탭 삭제",
+    ],
+  },
+  {
     version: "1.13.0",
     date: "2026-06-20",
     changes: [
