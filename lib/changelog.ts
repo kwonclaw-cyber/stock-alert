@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.29.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 쿨타임(완료)만 길드 실시간 공유, 네비는 개인 브라우저에만 저장하도록 분리",
+      "→ 다른 사람이 완료를 눌러도 내 네비가 꺼지지 않음(동시 편집 충돌 해결)",
+    ],
+  },
+  {
     version: "1.28.0",
     date: "2026-06-20",
     changes: [
