@@ -29,6 +29,15 @@ const numOr = (s: string): number | null => {
 const hasCoords = (m: Mine) => numOr(m.cx) != null && numOr(m.cz) != null;
 const hasMarker = (m: Mine) => m.x != null && m.y != null;
 
+// 네비 동선 그룹(1·2·3) 색상. 3명이 나눠 쓸 때 각자 색으로 구분된다.
+const NAV_GROUPS = [1, 2, 3] as const;
+const NAV_COLOR: Record<number, string> = { 1: "#34d399", 2: "#38bdf8", 3: "#fbbf24" }; // 초록·파랑·주황
+const NAV_BADGE: Record<number, string> = {
+  1: "border-emerald-400/60 bg-emerald-400/15 text-emerald-200",
+  2: "border-sky-400/60 bg-sky-400/15 text-sky-200",
+  3: "border-amber-400/60 bg-amber-400/15 text-amber-200",
+};
+
 export default function MinePage() {
   const { data, update } = useStore();
   const [now, setNow] = useState(() => Date.now());
@@ -54,17 +63,29 @@ export default function MinePage() {
 
   // 동선: 좌표(게임 X/Z)가 2곳 이상 있으면 좌표 기준, 아니면 지도 마커 기준으로
   // 가장 임박한 곳에서 출발해 가까운 순서로 잇는 추천 순회 경로(최근접 이웃, 시간 고려).
-  // 목표가 선택돼 있으면 그 광산들만, 없으면 전체 기준.
-  const targetCount = sorted.filter((s) => s.m.target).length;
-  const usingTargets = targetCount > 0;
-  const set = usingTargets ? sorted.filter((s) => s.m.target) : sorted;
-  const coordCands = set.filter((s) => hasCoords(s.m));
-  const useCoords = coordCands.length >= 2;
-  const route = useCoords
-    ? nnRoute(coordCands, (d) => ({ x: numOr(d.m.cx)!, y: numOr(d.m.cz)! }))
-    : nnRoute(set.filter((s) => hasMarker(s.m)), (d) => ({ x: d.m.x as number, y: d.m.y as number }));
-  const imgLine = route.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }));
-  const coordRouteIds = useCoords ? route.map((s) => s.m.id) : [];
+  // 네비 그룹(1·2·3)이 등록돼 있으면 그룹별로, 없으면 전체 기준 1개.
+  function buildRoute(items: Decorated[]) {
+    const coordCands = items.filter((s) => hasCoords(s.m));
+    const useCoords = coordCands.length >= 2;
+    const r = useCoords
+      ? nnRoute(coordCands, (d) => ({ x: numOr(d.m.cx)!, y: numOr(d.m.cz)! }))
+      : nnRoute(items.filter((s) => hasMarker(s.m)), (d) => ({ x: d.m.x as number, y: d.m.y as number }));
+    return {
+      route: r,
+      imgLine: r.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number })),
+      coordIds: useCoords ? r.map((s) => s.m.id) : [],
+    };
+  }
+
+  const usedGroups = NAV_GROUPS.filter((g) => sorted.some((s) => s.m.nav === g));
+  const usingNav = usedGroups.length > 0;
+  const routeGroups = usingNav
+    ? usedGroups.map((g) => ({ nav: g as number, color: NAV_COLOR[g], assigned: sorted.filter((s) => s.m.nav === g).length, ...buildRoute(sorted.filter((s) => s.m.nav === g)) }))
+    : [{ nav: 0, color: "#34d399", assigned: sorted.length, ...buildRoute(sorted) }];
+  const totalRouteCount = routeGroups.reduce((n, g) => n + g.route.length, 0);
+  // 좌표맵/지도에 넘길 색상별 동선
+  const coordRoutes = routeGroups.map((g) => ({ color: g.color, ids: g.coordIds }));
+  const imgRoutes = routeGroups.map((g) => ({ color: g.color, line: g.imgLine }));
 
   async function setMap(files: FileList | File[]) {
     const f = Array.from(files).find((x) => x.type.startsWith("image/"));
@@ -75,13 +96,14 @@ export default function MinePage() {
   function generate() {
     update((d) => {
       d.mine.mines = Array.from({ length: Math.max(1, genCount) }, (_, i) => ({
-        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", target: false,
+        id: uid(), name: `광산${i + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0,
       }));
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
-  const toggleTarget = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.target = !m.target; });
-  const clearTargets = () => update((d) => { d.mine.mines.forEach((m) => { m.target = false; }); });
+  // 같은 번호를 다시 누르면 해제, 다른 번호면 그 그룹으로 변경
+  const setNav = (id: string, g: number) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.nav = m.nav === g ? 0 : g; });
+  const clearNav = () => update((d) => { d.mine.mines.forEach((m) => { m.nav = 0; }); });
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
   const toggleMarker = (id: string) => update((d) => {
     const m = d.mine.mines.find((x) => x.id === id);
@@ -92,7 +114,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>네비등록</b>(여러 개)을 누르면 그 광산만, 없으면 전체 기준으로 동선을 그려줘요.
+        <b>완료</b>를 누르면 쿨타임만큼 잠기고, 목록은 <b>채굴 가능 → 남은시간순</b> 정렬돼요. 각 광산에 <b>X·Y·Z 좌표</b>를 넣으면 지도 이미지가 없어도 <b>좌표 미니맵</b>에 위치·동선이 표시돼요(좌표 2곳↑이면 좌표 기준 동선). 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. 각 광산의 <b className="text-emerald-300">네비 1</b>·<b className="text-sky-300">2</b>·<b className="text-amber-300">3</b> 버튼으로 사람별 동선을 나눌 수 있어요(색깔별로 표시, 안 누르면 전체 기준).
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -107,7 +129,7 @@ export default function MinePage() {
           개 생성
         </label>
         <Btn onClick={generate}>광산 일괄 생성</Btn>
-        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", target: false }); })}>
+        <Btn variant="ghost" onClick={() => update((d) => { d.mine.mines.push({ id: uid(), name: `광산${d.mine.mines.length + 1}`, cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 광산 추가
         </Btn>
         <div className="ml-auto rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-sm">
@@ -138,13 +160,19 @@ export default function MinePage() {
                   <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
                 </div>
                 <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? "text-emerald-400" : "text-white"}`}>{r.text}</span>
-                <button
-                  onClick={() => toggleTarget(m.id)}
-                  title={m.target ? "네비 등록 해제" : "네비에 등록(동선)"}
-                  className={`rounded-md border px-2 py-1 text-xs transition ${m.target ? "border-amber-400/60 bg-amber-400/15 text-amber-200" : "border-white/15 text-white/50 hover:text-white"}`}
-                >
-                  {m.target ? "★ 네비등록" : "네비등록"}
-                </button>
+                <div className="flex items-center gap-1" title="네비 동선 그룹(1·2·3)에 등록 / 다시 누르면 해제">
+                  <span className="text-[10px] text-white/35">네비</span>
+                  {NAV_GROUPS.map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => setNav(m.id, g)}
+                      title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
+                      className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
                 <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
                 <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
                 <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
@@ -175,14 +203,14 @@ export default function MinePage() {
             onZoom={() => setZoom(true)}
             onRemove={() => update((d) => { d.mine.mapImage = null; })}
           >
-            {showRoute && <RouteLayer coords={imgLine} />}
+            {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={sorted} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
           </MapPanel>
           {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
 
           {/* 좌표 미니맵 (지도 이미지 없어도 좌표로 위치/동선 표시) */}
           <div className="mt-3">
-            <CoordMap mines={sorted} routeIds={coordRouteIds} />
+            <CoordMap mines={sorted} routes={coordRoutes} />
           </div>
 
           {/* 네비게이션 / 추천 동선 */}
@@ -190,15 +218,14 @@ export default function MinePage() {
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-white/70">
                 🧭 추천 동선{" "}
-                <span className={`text-xs font-medium ${usingTargets ? "text-amber-300" : "text-white/35"}`}>
-                  {usingTargets ? `네비 ${targetCount}곳` : `전체 ${route.length}곳`}
+                <span className={`text-xs font-medium ${usingNav ? "text-amber-300" : "text-white/35"}`}>
+                  {usingNav ? `네비 ${usedGroups.length}개 · ${totalRouteCount}곳` : `전체 ${totalRouteCount}곳`}
                 </span>
-                <span className="ml-1 text-[10px] text-white/30">· {useCoords ? "좌표 기준" : "지도 기준"}</span>
               </span>
               <div className="flex items-center gap-2 text-xs text-white/45">
-                {usingTargets && (
-                  <button onClick={clearTargets} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
-                    네비 해제
+                {usingNav && (
+                  <button onClick={clearNav} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
+                    네비 전체해제
                   </button>
                 )}
                 <button
@@ -209,26 +236,43 @@ export default function MinePage() {
                 </button>
               </div>
             </div>
-            {route.length === 0 ? (
+            {totalRouteCount === 0 ? (
               <p className="py-3 text-center text-xs text-white/30">
-                지도에 마커가 있으면 동선을 추천해요. 광산의 <b className="text-amber-300">네비등록</b>을 누르면 그 광산들만 동선에 반영돼요.
+                각 광산의 <b className="text-amber-300">네비 1·2·3</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
               </p>
             ) : (
-              <ol className="space-y-1">
-                {route.map((c, i) => (
-                  <li key={c.m.id} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-300">
-                      {i + 1}
-                    </span>
-                    <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 캤으면 클릭(완료)">
-                      {c.m.name}
-                    </button>
-                    <span className={`ml-auto shrink-0 text-xs ${c.r.ready ? "text-emerald-400" : "text-amber-300"}`}>
-                      {c.r.ready ? "채굴 가능" : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              <div className="space-y-3">
+                {routeGroups.map((g) =>
+                  g.route.length === 0 ? null : (
+                    <div key={g.nav}>
+                      {usingNav && (
+                        <div className="mb-1 flex items-center gap-1.5 text-xs font-bold" style={{ color: g.color }}>
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                          네비{g.nav} · {g.route.length}곳
+                        </div>
+                      )}
+                      <ol className="space-y-1">
+                        {g.route.map((c, i) => (
+                          <li key={c.m.id} className="flex items-center gap-2 text-sm">
+                            <span
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-black"
+                              style={{ backgroundColor: g.color }}
+                            >
+                              {i + 1}
+                            </span>
+                            <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 캤으면 클릭(완료)">
+                              {c.m.name}
+                            </button>
+                            <span className={`ml-auto shrink-0 text-xs ${c.r.ready ? "text-emerald-400" : "text-amber-300"}`}>
+                              {c.r.ready ? "채굴 가능" : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ),
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -240,7 +284,7 @@ export default function MinePage() {
           <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={mine.mapImage} alt="광산 지도" className="max-h-[88vh] max-w-full rounded-lg" />
-            {showRoute && <RouteLayer coords={imgLine} />}
+            {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={sorted} now={now} editMode={false} onMove={moveMarker} onComplete={complete} large />
             <button onClick={() => setZoom(false)} className="absolute right-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">닫기 ✕</button>
           </div>
@@ -253,7 +297,7 @@ export default function MinePage() {
 type Decorated = { m: Mine; idx: number; r: { ready: boolean; ms: number; text: string } };
 
 /** 좌표(게임 X·Z) 기반 미니맵. 지도 이미지가 없어도 좌표로 위치/동선을 표시한다. */
-function CoordMap({ mines, routeIds }: { mines: Decorated[]; routeIds: string[] }) {
+function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: string; ids: string[] }[] }) {
   const pts = mines.filter((s) => hasCoords(s.m)).map((s) => ({ s, gx: numOr(s.m.cx)!, gz: numOr(s.m.cz)! }));
   if (pts.length === 0) {
     return (
@@ -271,11 +315,14 @@ function CoordMap({ mines, routeIds }: { mines: Decorated[]; routeIds: string[] 
   const toX = (gx: number) => ((gx - minX) / (maxX - minX || 1)) * 100;
   const toY = (gz: number) => ((gz - minZ) / (maxZ - minZ || 1)) * 100;
   const lookup = new Map(pts.map((p) => [p.s.m.id, p]));
-  const lineP = routeIds
-    .map((id) => lookup.get(id))
-    .filter((p): p is NonNullable<typeof p> => Boolean(p))
-    .map((p) => `${toX(p.gx)},${toY(p.gz)}`)
-    .join(" ");
+  const lines = routes.map((rt) => ({
+    color: rt.color,
+    pts: rt.ids
+      .map((id) => lookup.get(id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .map((p) => `${toX(p.gx)},${toY(p.gz)}`)
+      .join(" "),
+  }));
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#15171c] p-2">
@@ -291,16 +338,18 @@ function CoordMap({ mines, routeIds }: { mines: Decorated[]; routeIds: string[] 
               <line x1="0" y1={g} x2="100" y2={g} />
             </g>
           ))}
-          {lineP && (
-            <polyline points={lineP} fill="none" stroke="#34d399" strokeOpacity="0.9" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeDasharray="6 4" />
+          {lines.map((ln, i) =>
+            ln.pts ? (
+              <polyline key={i} points={ln.pts} fill="none" stroke={ln.color} strokeOpacity="0.9" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeDasharray="6 4" />
+            ) : null,
           )}
         </svg>
         {pts.map(({ s, gx, gz }) => (
           <div
             key={s.m.id}
-            style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%` }}
-            title={`${s.m.name} (X ${gx} · Z ${gz}) · ${s.r.text}`}
-            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.r.ready ? "bg-emerald-500 border-emerald-200 text-black" : "bg-amber-500/90 border-amber-200 text-black"} ${s.m.target ? "ring-2 ring-amber-300" : ""} ${s.r.ready ? "animate-pulse" : ""}`}
+            style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
+            title={`${s.m.name} (X ${gx} · Z ${gz}) · ${s.r.text}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
+            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.r.ready ? "bg-emerald-500 border-emerald-200 text-black" : "bg-amber-500/90 border-amber-200 text-black"} ${s.r.ready ? "animate-pulse" : ""}`}
           >
             {label(s.m, s.idx)}
           </div>
@@ -337,7 +386,7 @@ function nnRoute(items: Decorated[], pos: (d: Decorated) => { x: number; y: numb
 }
 
 /** 추천 동선을 지도 위에 점선으로 그린다 */
-function RouteLayer({ coords }: { coords: { x: number; y: number }[] }) {
+function RouteLayer({ coords, color = "#34d399" }: { coords: { x: number; y: number }[]; color?: string }) {
   if (coords.length < 2) return null;
   const pts = coords.map((p) => `${p.x},${p.y}`).join(" ");
   return (
@@ -349,7 +398,7 @@ function RouteLayer({ coords }: { coords: { x: number; y: number }[] }) {
       <polyline
         points={pts}
         fill="none"
-        stroke="#34d399"
+        stroke={color}
         strokeOpacity="0.9"
         strokeWidth="2"
         vectorEffect="non-scaling-stroke"
@@ -393,8 +442,7 @@ function MarkerLayer({
         return (
           <button
             key={m.id}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            title={`${m.name} · ${r.text}${editMode ? " (드래그로 이동)" : " (클릭=완료)"}`}
+            title={`${m.name} · ${r.text}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : " (클릭=완료)"}`}
             onPointerDown={(e) => {
               if (!editMode) return;
               e.preventDefault();
@@ -407,7 +455,8 @@ function MarkerLayer({
               (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
             }}
             onClick={() => { if (!editMode) onComplete(m.id); }}
-            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${m.target ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-black/40" : editMode ? "ring-2 ring-white/40" : ""} ${r.ready ? "animate-pulse" : ""} flex`}
+            style={{ left: `${x}%`, top: `${y}%`, boxShadow: m.nav ? `0 0 0 2px ${NAV_COLOR[m.nav]}` : undefined }}
+            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${!m.nav && editMode ? "ring-2 ring-white/40" : ""} ${r.ready ? "animate-pulse" : ""} flex`}
           >
             {label(m, idx)}
           </button>

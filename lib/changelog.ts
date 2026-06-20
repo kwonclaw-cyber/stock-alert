@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.10.0",
+    date: "2026-06-20",
+    changes: [
+      "광산타이머 네비를 1·2·3으로 분리 (3명이 나눠 캘 때 사람별 색깔 동선)",
+      "네비 1=초록·2=파랑·3=주황으로 지도·좌표맵·동선목록에 동시 표시",
+    ],
+  },
+  {
     version: "1.9.1",
     date: "2026-06-20",
     changes: [
