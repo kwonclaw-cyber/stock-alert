@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 type Item = { id: string; name: string; url: string; img: HTMLImageElement; w: number; h: number };
 type Dir = "horizontal" | "vertical";
@@ -202,7 +203,7 @@ export default function ImageMergePage() {
                   <button onClick={(e) => { e.stopPropagation(); move(i, -1); }} className="rounded bg-black/60 px-1.5 text-xs text-white">◀</button>
                   <button onClick={(e) => { e.stopPropagation(); move(i, 1); }} className="rounded bg-black/60 px-1.5 text-xs text-white">▶</button>
                 </span>
-                <button onClick={(e) => { e.stopPropagation(); removeAt(i); }} className="rounded bg-red-600/75 px-1.5 text-xs text-white">✕</button>
+                <button onClick={(e) => { e.stopPropagation(); if (confirmDelete("이 이미지를 뺄까요?")) removeAt(i); }} className="rounded bg-red-600/75 px-1.5 text-xs text-white">✕</button>
               </div>
             </div>
           ))}
@@ -218,7 +219,7 @@ export default function ImageMergePage() {
           <button onClick={download} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-emerald-400">⬇ 다운로드</button>
         )}
         {items.length > 0 && (
-          <button onClick={clearAll} className="rounded-lg px-3 py-2 text-sm text-white/40 hover:text-white/80">전체 비우기</button>
+          <button onClick={() => { if (confirmDelete("전체 비울까요?")) clearAll(); }} className="rounded-lg px-3 py-2 text-sm text-white/40 hover:text-white/80">전체 비우기</button>
         )}
       </div>
 

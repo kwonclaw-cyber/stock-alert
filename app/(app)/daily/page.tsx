@@ -6,6 +6,7 @@ import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import GuildSelect from "../../components/GuildSelect";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { resolveMembers } from "../../components/useMembers";
 import { todayKey, uid } from "@/lib/data";
 
@@ -123,7 +124,7 @@ export default function DailyPage() {
                           placeholder="이름(수동)"
                           className="w-28 !py-1"
                         />
-                        <button onClick={() => update((d) => { d.daily.manualMembers = d.daily.manualMembers.filter((x) => `m:${x.id}` !== m.key); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                        <button onClick={() => { if (confirmDelete("이 인원을 삭제할까요?")) update((d) => { d.daily.manualMembers = d.daily.manualMembers.filter((x) => `m:${x.id}` !== m.key); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
                       </span>
                     ) : (
                       <span className="text-white/85">{m.name}</span>
