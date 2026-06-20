@@ -90,9 +90,7 @@ export default function MembersPage() {
                       name: "",
                       job: "",
                       weapon: "",
-                      attack: "",
                       internal: "",
-                      health: "",
                       evasion: "",
                       atkSpeed: "",
                       sum: "",
@@ -100,8 +98,9 @@ export default function MembersPage() {
                       armor: "",
                       belt: "",
                       shoes: "",
-                      acc1: "",
-                      acc2: "",
+                      ring: "",
+                      health: "",
+                      dopingLuck: "",
                       mount: "",
                     });
                   })

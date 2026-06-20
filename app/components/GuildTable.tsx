@@ -86,24 +86,35 @@ export default function GuildTable({ guild, large = false, editable = false, ord
               <th rowSpan={2} className="min-w-[7rem] whitespace-nowrap border-b border-r border-white/10 px-3 py-2 text-left">
                 이름
               </th>
-              {COLUMN_GROUPS.map((group, gi) => (
-                <th
-                  key={group.label}
-                  colSpan={group.cols.length}
-                  className={`border-b border-white/10 bg-white/[0.03] px-2 py-1.5 text-center ${gi > 0 ? "border-l border-white/10" : ""}`}
-                >
-                  {group.label}
-                </th>
-              ))}
+              {COLUMN_GROUPS.map((group, gi) =>
+                group.cols.length === 1 ? (
+                  // 단일 컬럼: 그룹 헤더 없이 두 줄에 걸쳐 표시
+                  <th
+                    key={group.cols[0].key}
+                    rowSpan={2}
+                    className={`border-b border-white/10 px-1.5 py-1.5 text-center align-middle ${group.cols[0].color ?? "text-white/55"} ${gi > 0 ? "border-l border-white/10" : ""} ${group.cols[0].key === "job" ? "min-w-[6.5rem]" : ""}`}
+                  >
+                    {group.cols[0].label}
+                  </th>
+                ) : (
+                  <th
+                    key={group.label}
+                    colSpan={group.cols.length}
+                    className={`border-b border-white/10 bg-white/[0.03] px-2 py-1.5 text-center ${gi > 0 ? "border-l border-white/10" : ""}`}
+                  >
+                    {group.label}
+                  </th>
+                ),
+              )}
               <th rowSpan={2} className="border-b border-l border-white/10 px-2 py-2 text-center">
                 탈것
               </th>
             </tr>
             <tr className={`${headText} font-medium`}>
-              {STAT_COLS.map((col, i) => (
+              {COLUMN_GROUPS.filter((g) => g.cols.length > 1).flatMap((g) => g.cols).map((col, i) => (
                 <th
                   key={col.key}
-                  className={`border-b border-white/10 px-1.5 py-1.5 text-center ${col.color ?? "text-white/45"} ${i > 0 ? "border-l border-white/5" : ""} ${col.key === "job" ? "min-w-[6.5rem]" : ""}`}
+                  className={`border-b border-white/10 px-1.5 py-1.5 text-center ${col.color ?? "text-white/45"} ${i > 0 ? "border-l border-white/5" : ""}`}
                 >
                   {col.label}
                 </th>
@@ -146,7 +157,7 @@ export default function GuildTable({ guild, large = false, editable = false, ord
                   key={col.key}
                   className={`px-0.5 py-1.5 text-center text-emerald-200/90 ${i > 0 ? "border-l border-white/5" : ""}`}
                 >
-                  {columnAverage(guild.members, col.key)}
+                  {col.noAvg ? "" : columnAverage(guild.members, col.key)}
                 </td>
               ))}
               <td className="border-l border-white/5 px-0.5 py-1.5 text-center text-emerald-200/90">

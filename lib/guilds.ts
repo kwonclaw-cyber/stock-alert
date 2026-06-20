@@ -10,24 +10,21 @@
 export type MemberStats = {
   name: string; // 이름 (1번은 길드장)
   job: string; // 직업
-  // 스텟
   weapon: string; // 무기
-  attack: string; // 공격력
   internal: string; // 내공
-  health: string; // 체력
-  // 잠재
+  // 잠재 (도핑X)
   evasion: string; // 회피
   atkSpeed: string; // 공속
   sum: string; // 합
-  // 방어구
+  // 재련 / 강화
   helmet: string; // 투구
   armor: string; // 갑옷
-  belt: string; // 허리
+  belt: string; // 벨트
   shoes: string; // 신발
-  // 장신구
-  acc1: string; // 택1
-  acc2: string; // 택2
-  // 탈것
+  ring: string; // 반지
+  // 기타
+  health: string; // 체력
+  dopingLuck: string; // 도핑운
   mount: string; // 탈것
 };
 
@@ -69,22 +66,16 @@ export function jobColorClass(job: string): string {
 }
 
 /** 헤더 그룹 / 하위 컬럼 정의 (스프레드시트 헤더와 동일) */
-export type ColumnDef = { key: StatKey; label: string; color?: string };
+export type ColumnDef = { key: StatKey; label: string; color?: string; noAvg?: boolean };
 export type ColumnGroup = { label: string; cols: ColumnDef[] };
 
+// 단일 컬럼(그룹 헤더 없이 rowSpan)은 label "" 으로, 묶음 컬럼은 그룹 label 지정.
 export const COLUMN_GROUPS: ColumnGroup[] = [
-  { label: "팀명", cols: [{ key: "job", label: "직업" }] },
+  { label: "", cols: [{ key: "job", label: "직업" }] },
+  { label: "", cols: [{ key: "weapon", label: "무기", color: "text-amber-400" }] },
+  { label: "", cols: [{ key: "internal", label: "내공" }] },
   {
-    label: "스텟",
-    cols: [
-      { key: "weapon", label: "무기", color: "text-amber-400" },
-      { key: "attack", label: "공격력", color: "text-amber-400" },
-      { key: "internal", label: "내공" },
-      { key: "health", label: "체력" },
-    ],
-  },
-  {
-    label: "잠재",
+    label: "잠재 (도핑X)",
     cols: [
       { key: "evasion", label: "회피" },
       { key: "atkSpeed", label: "공속", color: "text-emerald-400" },
@@ -92,21 +83,17 @@ export const COLUMN_GROUPS: ColumnGroup[] = [
     ],
   },
   {
-    label: "방어구",
+    label: "재련 / 강화",
     cols: [
       { key: "helmet", label: "투구", color: "text-sky-400" },
       { key: "armor", label: "갑옷", color: "text-sky-400" },
-      { key: "belt", label: "허리", color: "text-sky-400" },
+      { key: "belt", label: "벨트", color: "text-sky-400" },
       { key: "shoes", label: "신발", color: "text-sky-400" },
+      { key: "ring", label: "반지", color: "text-sky-400", noAvg: true },
     ],
   },
-  {
-    label: "장신구",
-    cols: [
-      { key: "acc1", label: "택1" },
-      { key: "acc2", label: "택2" },
-    ],
-  },
+  { label: "", cols: [{ key: "health", label: "체력" }] },
+  { label: "", cols: [{ key: "dopingLuck", label: "도핑운" }] },
   // 탈것(mount)은 GuildTable에서 rowSpan 헤더로 별도 렌더한다.
 ];
 
@@ -119,9 +106,7 @@ function emptyMember(name: string): MemberStats {
     name,
     job: "",
     weapon: "",
-    attack: "",
     internal: "",
-    health: "",
     evasion: "",
     atkSpeed: "",
     sum: "",
@@ -129,8 +114,9 @@ function emptyMember(name: string): MemberStats {
     armor: "",
     belt: "",
     shoes: "",
-    acc1: "",
-    acc2: "",
+    ring: "",
+    health: "",
+    dopingLuck: "",
     mount: "",
   };
 }

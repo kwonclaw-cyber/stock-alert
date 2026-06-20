@@ -8,15 +8,15 @@ import PageHelp from "../../components/PageHelp";
 import { MAIN_GUILD_ID, type StatKey } from "@/lib/guilds";
 
 const SORT_OPTS: { key: StatKey; label: string }[] = [
-  { key: "attack", label: "공격력" },
   { key: "internal", label: "내공" },
   { key: "health", label: "체력" },
+  { key: "sum", label: "합" },
   { key: "evasion", label: "회피" },
   { key: "atkSpeed", label: "공속" },
-  { key: "sum", label: "합" },
+  { key: "dopingLuck", label: "도핑운" },
   { key: "helmet", label: "투구" },
   { key: "armor", label: "갑옷" },
-  { key: "belt", label: "허리" },
+  { key: "belt", label: "벨트" },
   { key: "shoes", label: "신발" },
 ];
 
