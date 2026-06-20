@@ -62,6 +62,23 @@ export type CraftingCard = {
   memo: string;
 };
 
+/** 부적 옵션 행 (부적명 / 효과) */
+export type AmuletRow = { id: string; name: string; effect: string };
+
+/** 부적 시스템 (정보 + 계산기) */
+export type AmuletState = {
+  // 계산기 파라미터 (화면에서 수정 가능)
+  combineCount: number; // 같은 등급 N개 → 상위 등급 1개
+  pullCostNormal: number; // 일반 부적 뽑기 가격(진)
+  rerollCostTicket: number; // 리롤 비용(별풍선티켓)
+  pullCostRareTicket: number; // 희귀 부적 뽑기 가격(별풍선티켓)
+  // 옵션 효과표
+  advanced: AmuletRow[]; // 고급 부적 옵션
+  rare: AmuletRow[]; // 희귀 부적 옵션
+  // 참고 이미지 카드
+  images: CraftingCard[];
+};
+
 /** 수동 추가 문파원 (멤버현황에 없는 인원) */
 export type ManualMember = { id: string; name: string };
 
@@ -118,6 +135,7 @@ export type AppData = {
   dwellings: DwellingCard[];
   craftings: CraftingCard[]; // 제작 및 재료 정보 카드
   villageMap: string; // 마을지도 이미지(data URL)
+  amulet: AmuletState; // 부적 시스템
   discordWebhook: string; // 디스코드 웹훅 URL
 };
 
@@ -137,6 +155,38 @@ export const MAIN_GUILD = "baksajang";
 /** 빈 히든 단서 */
 export function emptyHidden(): HiddenEntry {
   return { id: uid(), title: "", content: "", status: "후보", images: [] };
+}
+
+const row = (name: string, effect: string): AmuletRow => ({ id: uid(), name, effect });
+
+/** 부적 시스템 기본값 (이미지 기준 초기값, 화면에서 수정 가능) */
+export function defaultAmulet(): AmuletState {
+  return {
+    combineCount: 10,
+    pullCostNormal: 10000,
+    rerollCostTicket: 10,
+    pullCostRareTicket: 5,
+    advanced: [
+      row("백옥·구온·청검", "체력 증가"),
+      row("묵호·비류", "치명타 확률 증가"),
+      row("흑운·금아", "치명타 데미지 증가"),
+      row("채동·룡맥", "보스 데미지 증가"),
+      row("해운·옥묘·비아", "회복력 증가"),
+      row("비전·비추", "저항 증가"),
+    ],
+    rare: [
+      row("설등", "체력 증가 (21)"),
+      row("대득학", "치명타 확률 증가 (6)"),
+      row("선무익", "보스 데미지 증가 (12)"),
+      row("칠말국", "운 증가 (6)"),
+      row("무산설", "회복력 증가 (21)"),
+      row("금성조", "저항 증가 (6)"),
+      row("신용무", "공격 속도 증가 (1)"),
+      row("대박운", "회피 증가 (6)"),
+      row("밀음수", "내공 증가 (6)"),
+    ],
+    images: [],
+  };
 }
 
 /** 최초 기본 데이터 */
@@ -170,6 +220,7 @@ export function defaultData(): AppData {
     dwellings: [],
     craftings: [],
     villageMap: "",
+    amulet: defaultAmulet(),
     discordWebhook: "",
   };
 }
@@ -270,6 +321,27 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       memo: c.memo ?? "",
     })),
     villageMap: input.villageMap ?? "",
+    amulet: ((): AmuletState => {
+      const a = input.amulet;
+      const def = defaultAmulet();
+      if (!a) return def;
+      const rows = (arr: AmuletRow[] | undefined, fb: AmuletRow[]) =>
+        arr ? arr.map((r) => ({ id: r.id || uid(), name: r.name ?? "", effect: r.effect ?? "" })) : fb;
+      return {
+        combineCount: Number(a.combineCount) || def.combineCount,
+        pullCostNormal: Number(a.pullCostNormal) || def.pullCostNormal,
+        rerollCostTicket: Number(a.rerollCostTicket) || def.rerollCostTicket,
+        pullCostRareTicket: Number(a.pullCostRareTicket) || def.pullCostRareTicket,
+        advanced: rows(a.advanced, def.advanced),
+        rare: rows(a.rare, def.rare),
+        images: (a.images ?? []).map((c) => ({
+          id: c.id || uid(),
+          title: c.title ?? "",
+          image: c.image ?? "",
+          memo: c.memo ?? "",
+        })),
+      };
+    })(),
     discordWebhook: input.discordWebhook ?? "",
   };
 }
