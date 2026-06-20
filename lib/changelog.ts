@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.30.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 네비도 파티끼리 실시간 공유 (쿨타임과 별도 저장이라 서로 안 덮어씀)",
+      "→ 한 명이 네비를 찍으면 파티원이 같이 보고, 완료를 눌러도 네비가 안 꺼짐",
+    ],
+  },
+  {
     version: "1.29.0",
     date: "2026-06-20",
     changes: [

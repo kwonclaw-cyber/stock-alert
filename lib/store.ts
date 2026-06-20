@@ -35,9 +35,11 @@ function findKvConfig(): { url?: string; token?: string } {
 const { url: KV_URL, token: KV_TOKEN } = findKvConfig();
 const KV_KEY = "naesu:appdata";
 const VER_KEY = "naesu:version";
+const NAV_KEY = "naesu:nav"; // 광산&채집 네비(쿨타임과 분리 저장 → 충돌 방지)
 
 const FILE_PATH = path.join(process.cwd(), ".data", "store.json");
 const VER_PATH = path.join(process.cwd(), ".data", "version");
+const NAV_PATH = path.join(process.cwd(), ".data", "nav.json");
 
 export const usingKv = Boolean(KV_URL && KV_TOKEN);
 
@@ -85,6 +87,41 @@ export async function writeData(data: AppData): Promise<number> {
   await fs.writeFile(FILE_PATH, JSON.stringify(data, null, 2), "utf8");
   await fs.writeFile(VER_PATH, String(version), "utf8");
   return version;
+}
+
+/** 광산&채집 네비(공유). { [spotId]: navGroup }. 쿨타임과 별도 키라 서로 안 덮어씀. */
+export async function readNav(): Promise<Record<string, number>> {
+  if (usingKv) {
+    try {
+      const res = await fetch(`${KV_URL}/get/${NAV_KEY}`, {
+        headers: { Authorization: `Bearer ${KV_TOKEN}` },
+        cache: "no-store",
+      });
+      const json = (await res.json()) as { result?: string | null };
+      if (json.result) return JSON.parse(json.result) as Record<string, number>;
+    } catch {
+      // 무시
+    }
+    return {};
+  }
+  try {
+    return JSON.parse(await fs.readFile(NAV_PATH, "utf8")) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+export async function writeNav(nav: Record<string, number>): Promise<void> {
+  if (usingKv) {
+    await fetch(`${KV_URL}/set/${NAV_KEY}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      body: JSON.stringify(nav),
+    });
+    return;
+  }
+  await fs.mkdir(path.dirname(NAV_PATH), { recursive: true });
+  await fs.writeFile(NAV_PATH, JSON.stringify(nav), "utf8");
 }
 
 /** 현재 데이터 버전(마지막 저장 시각). 변경 감지용 경량 신호. */
