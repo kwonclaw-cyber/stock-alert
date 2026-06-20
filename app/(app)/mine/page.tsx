@@ -86,6 +86,14 @@ const KIND: Record<Kind, {
 };
 const kindOf = (m: Mine): (typeof KIND)[Kind] => KIND[(m.kind ?? "mine") as Kind] ?? KIND.mine;
 
+// 네비는 길드 공유(KV)가 아니라 각자 브라우저(localStorage)에만 저장한다.
+// → 쿨타임(완료)만 실시간 공유되고, 네비는 개인별로 자유롭게 구성/유지된다.
+const NAV_KEY = "mine-nav-v1";
+function loadNav(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(NAV_KEY) || "{}"); } catch { return {}; }
+}
+
 export default function MinePage() {
   const { data, update } = useStore();
   const [now, setNow] = useState(() => Date.now());
@@ -98,16 +106,19 @@ export default function MinePage() {
   const [myZ, setMyZ] = useState("");
   const [startOutpostId, setStartOutpostId] = useState("");
   const [tripKind, setTripKind] = useState<"" | "mine" | "gather">("");
+  const [navMap, setNavMap] = useState<Record<string, number>>({}); // 개인 네비(로컬)
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => { setNavMap(loadNav()); }, []); // 마운트 후 로컬 네비 로드
 
   if (!data) return <Loading />;
   const mine = data.mine;
 
-  const decoratedAll = mine.mines.map((m, idx) => ({ m, idx, r: remain(m.lastDoneAt, m.cooldownMin, now) }));
+  // 네비(nav)는 로컬 navMap에서 덮어쓴다. (KV의 m.nav는 사용하지 않음)
+  const decoratedAll = mine.mines.map((m, idx) => ({ m: { ...m, nav: navMap[m.id] ?? 0 }, idx, r: remain(m.lastDoneAt, m.cooldownMin, now) }));
   // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장·전초는 위치 지점이라 타이머에서 제외.
   const sorted = decoratedAll.filter((s) => s.m.kind === "mine" || s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   // 목록은 광산/채집장을 각각 임박순으로 따로 정렬해 구분 표시
@@ -206,9 +217,13 @@ export default function MinePage() {
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
-  // 같은 번호를 다시 누르면 해제, 다른 번호면 그 그룹으로 변경
-  const setNav = (id: string, g: number) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.nav = m.nav === g ? 0 : g; });
-  const clearNav = () => update((d) => { d.mine.mines.forEach((m) => { m.nav = 0; }); });
+  // 네비는 로컬(localStorage)에만 저장 — 공유 데이터(KV)를 건드리지 않아 남의 완료로 안 꺼짐
+  const saveNav = (next: Record<string, number>) => {
+    setNavMap(next);
+    try { localStorage.setItem(NAV_KEY, JSON.stringify(next)); } catch { /* 무시 */ }
+  };
+  const setNav = (id: string, g: number) => saveNav({ ...navMap, [id]: (navMap[id] ?? 0) === g ? 0 : g });
+  const clearNav = () => saveNav({});
   const moveMarker = (id: string, x: number, y: number) => update((d) => { const m = d.mine.mines.find((x2) => x2.id === id); if (m) { m.x = x; m.y = y; } });
   const toggleMarker = (id: string) => update((d) => {
     const m = d.mine.mines.find((x) => x.id === id);
@@ -262,7 +277,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>네비 1~5</b>로 사람별 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나와요. <b className="text-amber-300">🍶 양조장</b>을 추가하고 위치를 지정하면, 채집장이 포함된 동선은 <b>가장 가까운 양조장</b>이 최종 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>쿨타임(완료)은 길드 전체에 실시간 공유</b>되고, <b>네비는 내 화면에만 저장</b>돼요(각자 자유롭게 구성). <b>네비 1~5</b>로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
