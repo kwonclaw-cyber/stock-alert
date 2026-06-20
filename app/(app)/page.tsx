@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "../components/StoreProvider";
-import { CellInput, Btn } from "../components/fields";
+import { CellInput, JobSelect, Btn } from "../components/fields";
 import Loading from "../components/Loading";
 import PageHelp from "../components/PageHelp";
 
@@ -51,9 +51,8 @@ export default function MembersPage() {
                       />
                     </td>
                     <td className="px-1 py-0.5">
-                      <CellInput
+                      <JobSelect
                         value={m.job}
-                        placeholder="직업"
                         className="!text-left"
                         onChange={(v) =>
                           update((d) => {

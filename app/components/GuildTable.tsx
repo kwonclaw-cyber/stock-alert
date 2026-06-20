@@ -1,7 +1,7 @@
 "use client";
 
-import { COLUMN_GROUPS, FLAT_COLUMNS, type Guild, type StatKey } from "@/lib/guilds";
-import { CellInput } from "./fields";
+import { COLUMN_GROUPS, FLAT_COLUMNS, type Guild, type StatKey, jobColorClass, isHiddenJob } from "@/lib/guilds";
+import { CellInput, JobSelect } from "./fields";
 
 type Props = {
   guild: Guild;
@@ -65,6 +65,12 @@ export default function GuildTable({ guild, large = false, editable = false, ord
 
   function renderCell(memberIdx: number, key: StatKey) {
     const value = guild.members[memberIdx][key];
+    if (key === "job") {
+      if (editable && onCell) {
+        return <JobSelect value={value} onChange={(v) => onCell(memberIdx, key, v)} />;
+      }
+      return <span className={`font-bold ${jobColorClass(value)}`}>{value && isHiddenJob(value) ? `✦ ${value}` : value}</span>;
+    }
     if (editable && onCell) {
       return <CellInput value={value} onChange={(v) => onCell(memberIdx, key, v)} />;
     }

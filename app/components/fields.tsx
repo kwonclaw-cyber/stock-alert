@@ -1,5 +1,42 @@
 "use client";
 
+import { JOBS, HIDDEN_JOBS, jobColorClass } from "@/lib/guilds";
+
+/** 직업 선택 드롭다운 (표 셀용). 직업별로 글자색이 입혀진다. */
+export function JobSelect({
+  value,
+  onChange,
+  className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const known = value === "" || (JOBS as readonly string[]).includes(value) || (HIDDEN_JOBS as readonly string[]).includes(value);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full cursor-pointer rounded bg-transparent px-1 py-1 text-center font-bold outline-none transition focus:bg-white/10 ${jobColorClass(value)} ${className}`}
+    >
+      <option value="" className="text-black">직업</option>
+      <optgroup label="일반">
+        {JOBS.map((j) => (
+          <option key={j} value={j} className="text-black">{j}</option>
+        ))}
+      </optgroup>
+      <optgroup label="히든">
+        {HIDDEN_JOBS.map((j) => (
+          <option key={j} value={j} className="text-black">✦ {j}</option>
+        ))}
+      </optgroup>
+      {!known && (
+        <option value={value} className="text-black">{value}</option>
+      )}
+    </select>
+  );
+}
+
 /** 흰 셀 안에 들어가는 테두리 없는 입력 (표 셀용) */
 export function CellInput({
   value,

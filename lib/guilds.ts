@@ -42,6 +42,32 @@ export type Guild = {
 /** 멤버 stat 키 (이름 제외) 순서 정의 */
 export type StatKey = Exclude<keyof MemberStats, "name">;
 
+/** 선택 가능한 직업 목록 */
+export const JOBS = ["검객", "자객", "창술사", "도사", "궁사"] as const;
+/** 히든 직업 목록 */
+export const HIDDEN_JOBS = ["뇌신", "빙천마제", "염라귀궁", "나타태자", "천살성"] as const;
+
+/** 직업별 글자 색 (다크·라이트 모두에서 읽히도록 400 계열 사용) */
+const JOB_COLOR: Record<string, string> = {
+  검객: "text-red-400",
+  자객: "text-violet-400",
+  창술사: "text-sky-400",
+  도사: "text-emerald-400",
+  궁사: "text-lime-400",
+  뇌신: "text-yellow-400",
+  빙천마제: "text-cyan-400",
+  염라귀궁: "text-fuchsia-400",
+  나타태자: "text-orange-400",
+  천살성: "text-rose-400",
+};
+
+export const isHiddenJob = (job: string) => (HIDDEN_JOBS as readonly string[]).includes(job);
+
+/** 직업명 → 글자색 클래스 (없으면 기본색) */
+export function jobColorClass(job: string): string {
+  return JOB_COLOR[job] ?? "text-white/85";
+}
+
 /** 헤더 그룹 / 하위 컬럼 정의 (스프레드시트 헤더와 동일) */
 export type ColumnDef = { key: StatKey; label: string; color?: string };
 export type ColumnGroup = { label: string; cols: ColumnDef[] };

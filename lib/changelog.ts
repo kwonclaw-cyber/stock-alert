@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.11.0",
+    date: "2026-06-20",
+    changes: [
+      "직업을 드롭다운으로 선택하도록 변경 (검객·자객·창술사·도사·궁사 + 히든 5종)",
+      "직업별 글자색 적용 (멤버현황·내실현황판), 히든 직업은 ✦ 표시",
+    ],
+  },
+  {
     version: "1.10.0",
     date: "2026-06-20",
     changes: [
