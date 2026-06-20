@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 const TABS = [
   { href: "/", label: "길드별 멤버현황" },
   { href: "/baksajang", label: "박사장길드 내실현황판" },
-  { href: "/others", label: "타길드 내실현황" },
   { href: "/boss", label: "보스타이머" },
   { href: "/mine", label: "광산타이머" },
   { href: "/iron", label: "철타이머" },
@@ -17,6 +16,7 @@ const TABS = [
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/villagemap", label: "마을지도" },
   { href: "/amulet", label: "부적" },
+  { href: "/imagemerge", label: "이미지 합치기 도우미" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
   { href: "/changelog", label: "패치노트" },
