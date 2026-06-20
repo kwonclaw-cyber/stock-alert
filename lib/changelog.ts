@@ -6,6 +6,15 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.23.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: '전초(출발점)' 추가 + 출발지를 '내 위치(좌표)' 또는 '전초'로 선택 가능",
+      "출발지에서 가장 가까운 곳부터 동선 시작 (광산·채집 공통)",
+      "지도 마커가 광산뿐 아니라 채집장·양조장·전초 모두 표시되도록 보완",
+    ],
+  },
+  {
     version: "1.22.0",
     date: "2026-06-20",
     changes: [

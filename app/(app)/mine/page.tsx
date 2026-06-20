@@ -38,8 +38,8 @@ const NAV_BADGE: Record<number, string> = {
   3: "border-amber-400/60 bg-amber-400/15 text-amber-200",
 };
 
-// 종류별 색 테마. 광산=초록, 채집장=분홍(rose), 양조장=금색(amber).
-type Kind = "mine" | "gather" | "brew";
+// 종류별 색 테마. 광산=초록, 채집장=분홍(rose), 양조장=금색(amber), 전초=청록(teal).
+type Kind = "mine" | "gather" | "brew" | "outpost";
 const KIND: Record<Kind, {
   label: string; icon: string;
   markerReady: string; // 지도 마커(완료 가능) 배경
@@ -72,6 +72,14 @@ const KIND: Record<Kind, {
     pill: "border-amber-400/60 bg-amber-400/15 text-amber-200",
     readyWord: "양조장",
   },
+  outpost: {
+    label: "전초", icon: "🚩",
+    markerReady: "bg-teal-400 border-teal-100",
+    rowReady: "border-teal-400/40 bg-teal-400/[0.06]",
+    text: "text-teal-300",
+    pill: "border-teal-400/60 bg-teal-400/15 text-teal-200",
+    readyWord: "전초",
+  },
 };
 const kindOf = (m: Mine): (typeof KIND)[Kind] => KIND[(m.kind ?? "mine") as Kind] ?? KIND.mine;
 
@@ -82,6 +90,11 @@ export default function MinePage() {
   const [editMarkers, setEditMarkers] = useState(false);
   const [genCount, setGenCount] = useState(40);
   const [showRoute, setShowRoute] = useState(true);
+  // 출발지: 자동(임박순) / 내 위치(X·Z) / 전초 선택
+  const [startMode, setStartMode] = useState<"auto" | "pos" | "outpost">("auto");
+  const [myX, setMyX] = useState("");
+  const [myZ, setMyZ] = useState("");
+  const [startOutpostId, setStartOutpostId] = useState("");
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -92,15 +105,29 @@ export default function MinePage() {
   const mine = data.mine;
 
   const decoratedAll = mine.mines.map((m, idx) => ({ m, idx, r: remain(m.lastDoneAt, m.cooldownMin, now) }));
-  // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장(brew)은 도착지라 타이머에서 제외.
-  const sorted = decoratedAll.filter((s) => s.m.kind !== "brew").sort((a, z) => a.r.ms - z.r.ms);
+  // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장·전초는 위치 지점이라 타이머에서 제외.
+  const sorted = decoratedAll.filter((s) => s.m.kind === "mine" || s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   const brews = decoratedAll.filter((s) => s.m.kind === "brew");
+  const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
 
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = mine.mines.filter((m) => m.x != null).length;
 
-  // 동선: 좌표(게임 X/Z)가 2곳 이상 있으면 좌표 기준, 아니면 지도 마커 기준으로
-  // 가장 임박한 곳에서 출발해 가까운 순서로 잇는 추천 순회 경로(최근접 이웃, 시간 고려).
+  // 출발지 좌표(게임 X·Z) / 지도 마커(0~100%) 계산
+  const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
+  const startGame: { x: number; y: number } | null =
+    startMode === "pos" && numOr(myX) != null && numOr(myZ) != null
+      ? { x: numOr(myX)!, y: numOr(myZ)! }
+      : startMode === "outpost" && startOutpost && hasCoords(startOutpost)
+      ? { x: numOr(startOutpost.cx)!, y: numOr(startOutpost.cz)! }
+      : null;
+  const startMarker: { x: number; y: number } | null =
+    startMode === "outpost" && startOutpost && hasMarker(startOutpost)
+      ? { x: startOutpost.x as number, y: startOutpost.y as number }
+      : null;
+
+  // 동선: 좌표(게임 X/Z)가 2곳 이상 있으면 좌표 기준, 아니면 지도 마커 기준.
+  // 출발지가 지정되면 그 지점에서 가장 가까운 곳부터, 아니면 가장 임박한 곳부터 잇는다.
   // 채집장이 포함된 동선은 마지막 지점에서 가장 가까운 '양조장'을 종착지로 추가한다.
   function buildRoute(items: Decorated[]) {
     const coordCands = items.filter((s) => hasCoords(s.m));
@@ -108,9 +135,10 @@ export default function MinePage() {
     const pos = useCoords
       ? (d: Decorated) => ({ x: numOr(d.m.cx)!, y: numOr(d.m.cz)! })
       : (d: Decorated) => ({ x: d.m.x as number, y: d.m.y as number });
+    const startPt = useCoords ? startGame : startMarker;
     let r = useCoords
-      ? nnRoute(coordCands, pos)
-      : nnRoute(items.filter((s) => hasMarker(s.m)), pos);
+      ? nnRoute(coordCands, pos, startPt)
+      : nnRoute(items.filter((s) => hasMarker(s.m)), pos, startPt);
 
     // 채집장이 하나라도 있으면 → 마지막 지점에서 가까운 양조장으로 복귀
     const hasGather = items.some((s) => s.m.kind === "gather");
@@ -126,10 +154,12 @@ export default function MinePage() {
       }
       r = [...r, best];
     }
+    const imgStart = !useCoords && startMarker ? [{ x: startMarker.x, y: startMarker.y }] : [];
     return {
       route: r,
-      imgLine: r.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number })),
+      imgLine: [...imgStart, ...r.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }))],
       coordIds: useCoords ? r.map((s) => s.m.id) : [],
+      coordStart: useCoords && startGame ? startGame : null,
     };
   }
 
@@ -140,7 +170,7 @@ export default function MinePage() {
     : [{ nav: 0, color: "#34d399", assigned: sorted.length, ...buildRoute(sorted) }];
   const totalRouteCount = routeGroups.reduce((n, g) => n + g.route.length, 0);
   // 좌표맵/지도에 넘길 색상별 동선
-  const coordRoutes = routeGroups.map((g) => ({ color: g.color, ids: g.coordIds }));
+  const coordRoutes = routeGroups.map((g) => ({ color: g.color, ids: g.coordIds, start: g.coordStart }));
   const imgRoutes = routeGroups.map((g) => ({ color: g.color, line: g.imgLine }));
 
   async function setMap(files: FileList | File[]) {
@@ -198,9 +228,46 @@ export default function MinePage() {
         <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "brew").length + 1; d.mine.mines.push({ id: uid(), name: `양조장${n}`, kind: "brew", cooldownMin: 0, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 양조장 추가
         </Btn>
+        <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "outpost").length + 1; d.mine.mines.push({ id: uid(), name: `전초${n}`, kind: "outpost", cooldownMin: 0, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
+          + 전초 추가
+        </Btn>
         <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
-          <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {mine.mines.length}
+          <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
         </div>
+      </div>
+
+      {/* 출발지 선택: 자동 / 내 위치 / 전초 */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-teal-400/25 bg-teal-400/[0.05] px-3 py-2 text-sm">
+        <span className="font-semibold text-teal-200">🧭 출발지</span>
+        {([["auto", "자동(임박순)"], ["pos", "내 위치"], ["outpost", "전초 선택"]] as const).map(([v, lbl]) => (
+          <button
+            key={v}
+            onClick={() => setStartMode(v)}
+            className={`rounded-md border px-2 py-1 text-xs transition ${startMode === v ? "border-teal-400/60 bg-teal-400/15 text-teal-200" : "border-white/15 text-white/50 hover:text-white"}`}
+          >
+            {lbl}
+          </button>
+        ))}
+        {startMode === "pos" && (
+          <span className="flex items-center gap-1 text-xs text-white/45">
+            X<TextInput value={myX} onChange={setMyX} placeholder="X" className="w-16 !px-1 !py-1" />
+            Z<TextInput value={myZ} onChange={setMyZ} placeholder="Z" className="w-16 !px-1 !py-1" />
+            <span className="text-white/30">(게임 좌표)</span>
+          </span>
+        )}
+        {startMode === "outpost" && (
+          <select
+            value={startOutpostId}
+            onChange={(e) => setStartOutpostId(e.target.value)}
+            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs text-white outline-none"
+          >
+            <option value="" className="text-black">전초 선택…</option>
+            {outposts.map((o) => (
+              <option key={o.m.id} value={o.m.id} className="text-black">{o.m.name}</option>
+            ))}
+          </select>
+        )}
+        <span className="text-[11px] text-white/35">출발지를 정하면 그 지점에서 가까운 곳부터 동선이 시작돼요. (광산·채집 공통)</span>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_400px]">
@@ -268,6 +335,34 @@ export default function MinePage() {
                     <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-28 font-semibold" />
                     <div className="flex items-center gap-1 text-xs text-white/40">
                       <span className="text-amber-300/70">좌표</span>
+                      <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
+                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
+                      <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+                    </div>
+                    <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 전초 (출발점) */}
+          {outposts.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="text-xs font-bold text-teal-300">🚩 전초 (동선 출발점)</div>
+              {outposts.map(({ m }) => {
+                const gi = mine.mines.findIndex((x) => x.id === m.id);
+                return (
+                  <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-teal-400/30 bg-teal-400/[0.05] px-3 py-2">
+                    <span className="shrink-0 rounded-md border border-teal-400/60 bg-teal-400/15 px-1.5 py-0.5 text-[11px] font-bold text-teal-200">🚩 전초</span>
+                    <button
+                      onClick={() => toggleMarker(m.id)}
+                      className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
+                      title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
+                    >📍</button>
+                    <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-28 font-semibold" />
+                    <div className="flex items-center gap-1 text-xs text-white/40">
+                      <span className="text-teal-300/70">좌표</span>
                       <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
@@ -400,17 +495,18 @@ export default function MinePage() {
 type Decorated = { m: Mine; idx: number; r: { ready: boolean; ms: number; text: string } };
 
 /** 좌표(게임 X·Z) 기반 미니맵. 지도 이미지가 없어도 좌표로 위치/동선을 표시한다. */
-function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: string; ids: string[] }[] }) {
+function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: string; ids: string[]; start: { x: number; y: number } | null }[] }) {
   const pts = mines.filter((s) => hasCoords(s.m)).map((s) => ({ s, gx: numOr(s.m.cx)!, gz: numOr(s.m.cz)! }));
+  const starts = routes.map((r) => r.start).filter((s): s is { x: number; y: number } => Boolean(s));
   if (pts.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-white/15 bg-[#15171c] p-4 text-center text-xs text-white/35">
-        광산에 <b className="text-amber-300/80">좌표(X·Z)</b>를 입력하면 지도 이미지가 없어도 여기 <b>좌표 미니맵</b>에 위치·동선이 표시돼요.
+        광산·채집장에 <b className="text-amber-300/80">좌표(X·Z)</b>를 입력하면 지도 이미지가 없어도 여기 <b>좌표 미니맵</b>에 위치·동선이 표시돼요.
       </div>
     );
   }
-  const xs = pts.map((p) => p.gx);
-  const zs = pts.map((p) => p.gz);
+  const xs = [...pts.map((p) => p.gx), ...starts.map((s) => s.x)];
+  const zs = [...pts.map((p) => p.gz), ...starts.map((s) => s.y)];
   let minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
   const padX = (maxX - minX) * 0.12 || 16;
   const padZ = (maxZ - minZ) * 0.12 || 16;
@@ -418,14 +514,14 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
   const toX = (gx: number) => ((gx - minX) / (maxX - minX || 1)) * 100;
   const toY = (gz: number) => ((gz - minZ) / (maxZ - minZ || 1)) * 100;
   const lookup = new Map(pts.map((p) => [p.s.m.id, p]));
-  const lines = routes.map((rt) => ({
-    color: rt.color,
-    pts: rt.ids
+  const lines = routes.map((rt) => {
+    const pp = rt.ids
       .map((id) => lookup.get(id))
       .filter((p): p is NonNullable<typeof p> => Boolean(p))
-      .map((p) => `${toX(p.gx)},${toY(p.gz)}`)
-      .join(" "),
-  }));
+      .map((p) => `${toX(p.gx)},${toY(p.gz)}`);
+    if (rt.start) pp.unshift(`${toX(rt.start.x)},${toY(rt.start.y)}`); // 출발지에서 선 시작
+    return { color: rt.color, pts: pp.join(" ") };
+  });
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#15171c] p-2">
@@ -447,14 +543,31 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
             ) : null,
           )}
         </svg>
-        {pts.map(({ s, gx, gz }) => (
+        {pts.map(({ s, gx, gz }) => {
+          const isLoc = s.m.kind === "brew" || s.m.kind === "outpost";
+          const fill = s.m.kind === "brew" ? "bg-amber-400 border-amber-100 text-black"
+            : s.m.kind === "outpost" ? "bg-teal-400 border-teal-100 text-black"
+            : s.r.ready ? `${kindOf(s.m).markerReady} text-black` : "bg-amber-500/90 border-amber-200 text-black";
+          const glyph = s.m.kind === "brew" ? "🍶" : s.m.kind === "outpost" ? "🚩" : label(s.m, s.idx);
+          return (
+            <div
+              key={s.m.id}
+              style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
+              title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz})${isLoc ? "" : ` · ${s.r.text}`}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
+              className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${fill} ${!isLoc && s.r.ready ? "animate-pulse" : ""}`}
+            >
+              {glyph}
+            </div>
+          );
+        })}
+        {starts.map((st, i) => (
           <div
-            key={s.m.id}
-            style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
-            title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz})${s.m.kind === "brew" ? "" : ` · ${s.r.text}`}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
-            className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${s.m.kind === "brew" ? "bg-amber-400 border-amber-100 text-black" : s.r.ready ? `${kindOf(s.m).markerReady} text-black` : "bg-amber-500/90 border-amber-200 text-black"} ${s.m.kind !== "brew" && s.r.ready ? "animate-pulse" : ""}`}
+            key={`start-${i}`}
+            style={{ left: `${toX(st.x)}%`, top: `${toY(st.y)}%` }}
+            title={`출발지 (X ${st.x} · Z ${st.y})`}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-sm"
           >
-            {s.m.kind === "brew" ? "🍶" : label(s.m, s.idx)}
+            🧍
           </div>
         ))}
         <span className="absolute bottom-1 right-1 text-[9px] text-white/30">X→ · Z↓</span>
@@ -463,13 +576,22 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
   );
 }
 
-/** 가장 임박한 광산에서 출발해 최근접 이웃으로 잇는 추천 순회 경로 (위치는 pos로 지정) */
-function nnRoute(items: Decorated[], pos: (d: Decorated) => { x: number; y: number }): Decorated[] {
+/** 추천 순회 경로(최근접 이웃). 출발지(start)가 있으면 가장 가까운 곳부터, 없으면 가장 임박한 곳부터. */
+function nnRoute(items: Decorated[], pos: (d: Decorated) => { x: number; y: number }, start?: { x: number; y: number } | null): Decorated[] {
   const remaining = items.slice();
   if (remaining.length === 0) return [];
   let startIdx = 0;
-  for (let i = 1; i < remaining.length; i++) {
-    if (remaining[i].r.ms < remaining[startIdx].r.ms) startIdx = i;
+  if (start) {
+    let bestD = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const p = pos(remaining[i]);
+      const d = (p.x - start.x) ** 2 + (p.y - start.y) ** 2;
+      if (d < bestD) { bestD = d; startIdx = i; }
+    }
+  } else {
+    for (let i = 1; i < remaining.length; i++) {
+      if (remaining[i].r.ms < remaining[startIdx].r.ms) startIdx = i;
+    }
   }
   let cur = remaining.splice(startIdx, 1)[0];
   const route: Decorated[] = [cur];
@@ -539,16 +661,19 @@ function MarkerLayer({
         const x = drag?.id === m.id ? drag.x : m.x;
         const y = drag?.id === m.id ? drag.y : m.y;
         const size = large ? "h-7 min-w-7 text-xs" : "h-5 min-w-5 text-[10px]";
-        const isBrew = m.kind === "brew";
-        const color = isBrew
+        const isLoc = m.kind === "brew" || m.kind === "outpost";
+        const color = m.kind === "brew"
           ? "bg-amber-400 border-amber-100 text-black"
+          : m.kind === "outpost"
+          ? "bg-teal-400 border-teal-100 text-black"
           : r.ready
           ? `${kindOf(m).markerReady} text-black`
           : "bg-amber-500/90 border-amber-200 text-black";
+        const glyph = m.kind === "brew" ? "🍶" : m.kind === "outpost" ? "🚩" : label(m, idx);
         return (
           <button
             key={m.id}
-            title={`${m.name} · ${r.text}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : " (클릭=완료)"}`}
+            title={`${kindOf(m).label} · ${m.name}${isLoc ? "" : ` · ${r.text}`}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : isLoc ? "" : " (클릭=완료)"}`}
             onPointerDown={(e) => {
               if (!editMode) return;
               e.preventDefault();
@@ -560,11 +685,11 @@ function MarkerLayer({
               if (drag?.id === m.id) { onMove(m.id, drag.x, drag.y); setDrag(null); }
               (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
             }}
-            onClick={() => { if (!editMode && !isBrew) onComplete(m.id); }}
+            onClick={() => { if (!editMode && !isLoc) onComplete(m.id); }}
             style={{ left: `${x}%`, top: `${y}%`, boxShadow: m.nav ? `0 0 0 2px ${NAV_COLOR[m.nav]}` : undefined }}
-            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : isBrew ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode ? "ring-2 ring-white/40" : ""} ${!isBrew && r.ready ? "animate-pulse" : ""} flex`}
+            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${editMode ? "cursor-grab active:cursor-grabbing" : isLoc ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode ? "ring-2 ring-white/40" : ""} ${!isLoc && r.ready ? "animate-pulse" : ""} flex`}
           >
-            {isBrew ? "🍶" : label(m, idx)}
+            {glyph}
           </button>
         );
       })}
