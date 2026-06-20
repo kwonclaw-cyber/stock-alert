@@ -7,6 +7,7 @@ import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { fileToDataUrl } from "../../components/imageUtil";
 import { uid, type Mine } from "@/lib/data";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 function remain(lastDoneAt: string | null, cooldownMin: number, now: number) {
   if (!lastDoneAt || cooldownMin <= 0) return { ready: true, ms: -1, text: "가능" };
@@ -244,7 +245,7 @@ export default function MinePage() {
         </div>
         <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
         <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
-        <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+        <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
       </div>
     );
   }
@@ -358,7 +359,7 @@ export default function MinePage() {
                       <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
                     </div>
-                    <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                    <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
                   </div>
                 );
               })}
@@ -386,7 +387,7 @@ export default function MinePage() {
                       <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
                     </div>
-                    <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                    <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
                   </div>
                 );
               })}
@@ -411,7 +412,7 @@ export default function MinePage() {
             image={mine.mapImage}
             onFiles={setMap}
             onZoom={() => setZoom(true)}
-            onRemove={() => update((d) => { d.mine.mapImage = null; })}
+            onRemove={() => { if (confirmDelete("지도 이미지를 삭제할까요?")) update((d) => { d.mine.mapImage = null; }); }}
           >
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
             <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />

@@ -7,6 +7,7 @@ import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { uid } from "@/lib/data";
 import { MAIN_GUILD_ID } from "@/lib/guilds";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 export default function RelayPage() {
   const { data, update } = useStore();
@@ -64,7 +65,7 @@ export default function RelayPage() {
                   placeholder="제목 (예: OO에게 전달)"
                   className="flex-1 text-base font-semibold"
                 />
-                <button onClick={() => update((s) => { s.relays.splice(pi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
+                <button onClick={() => { if (confirmDelete("이 전달 글을 삭제할까요?")) update((s) => { s.relays.splice(pi, 1); }); }} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
               </div>
 
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -114,7 +115,7 @@ export default function RelayPage() {
                     <span className="shrink-0 font-bold text-emerald-300">{c.author}</span>
                     <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-white/85">{c.text}</span>
                     <span className="shrink-0 text-[10px] text-white/30">{new Date(c.at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                    <button onClick={() => update((s) => { s.relays[pi].comments.splice(ci, 1); })} className="shrink-0 text-red-300/40 hover:text-red-300" title="댓글 삭제">×</button>
+                    <button onClick={() => { if (confirmDelete("이 댓글을 삭제할까요?")) update((s) => { s.relays[pi].comments.splice(ci, 1); }); }} className="shrink-0 text-red-300/40 hover:text-red-300" title="댓글 삭제">×</button>
                   </div>
                 ))}
                 {post.comments.length === 0 && <p className="py-1 text-center text-xs text-white/25">아직 댓글이 없어요.</p>}

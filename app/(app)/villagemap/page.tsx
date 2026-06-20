@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useStore } from "../../components/StoreProvider";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { fileToDataUrl } from "../../components/imageUtil";
 
 export default function VillageMapPage() {
@@ -44,7 +45,7 @@ export default function VillageMapPage() {
             <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
               <button onClick={() => setZoom(true)} className="rounded bg-black/60 px-2 py-1 text-xs text-white hover:bg-black/80">크게</button>
               <button onClick={() => inputRef.current?.click()} className="rounded bg-black/60 px-2 py-1 text-xs text-white hover:bg-black/80">교체</button>
-              <button onClick={() => update((d) => { d.villageMap = ""; })} className="rounded bg-red-500/80 px-2 py-1 text-xs text-white hover:bg-red-500">삭제</button>
+              <button onClick={() => { if (confirmDelete("마을지도를 삭제할까요?")) update((d) => { d.villageMap = ""; }); }} className="rounded bg-red-500/80 px-2 py-1 text-xs text-white hover:bg-red-500">삭제</button>
             </div>
           </div>
         ) : (

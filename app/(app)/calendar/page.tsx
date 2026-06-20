@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { todayKey, uid } from "@/lib/data";
 
 const COLORS: { key: string; label: string; dot: string; chip: string }[] = [
@@ -140,7 +141,7 @@ export default function CalendarPage() {
                 <span className="w-24 text-xs text-white/50">{e.date.slice(5)} {e.time}</span>
                 <TextInput value={e.title} onChange={(v) => update((d) => { d.events[ei].title = v; })} className="!text-left flex-1 font-medium" />
                 <TextInput value={e.memo} onChange={(v) => update((d) => { d.events[ei].memo = v; })} placeholder="메모" className="!text-left w-40" />
-                <button onClick={() => update((d) => { d.events.splice(ei, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                <button onClick={() => { if (confirmDelete("이 일정을 삭제할까요?")) update((d) => { d.events.splice(ei, 1); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
               </div>
             );
           })}

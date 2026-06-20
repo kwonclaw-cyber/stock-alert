@@ -7,6 +7,7 @@ import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
 import { fileToDataUrl } from "../../components/imageUtil";
 import { uid } from "@/lib/data";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 const won = (n: number) => (Number.isFinite(n) ? Math.round(n).toLocaleString() : "-");
 
@@ -105,7 +106,7 @@ export default function AmuletPage() {
           rows={a.advanced}
           onCell={(i, key, v) => update((d) => { d.amulet.advanced[i][key] = v; })}
           onAdd={() => update((d) => { d.amulet.advanced.push({ id: uid(), name: "", effect: "" }); })}
-          onRemove={(i) => update((d) => { d.amulet.advanced.splice(i, 1); })}
+          onRemove={(i) => { if (confirmDelete("이 행을 삭제할까요?")) update((d) => { d.amulet.advanced.splice(i, 1); }); }}
         />
         <OptionTable
           title="희귀 부적 옵션"
@@ -113,7 +114,7 @@ export default function AmuletPage() {
           rows={a.rare}
           onCell={(i, key, v) => update((d) => { d.amulet.rare[i][key] = v; })}
           onAdd={() => update((d) => { d.amulet.rare.push({ id: uid(), name: "", effect: "" }); })}
-          onRemove={(i) => update((d) => { d.amulet.rare.splice(i, 1); })}
+          onRemove={(i) => { if (confirmDelete("이 행을 삭제할까요?")) update((d) => { d.amulet.rare.splice(i, 1); }); }}
         />
       </div>
 
@@ -137,9 +138,9 @@ export default function AmuletPage() {
                   placeholder="제목 (예: 부적 조합/리롤 안내)"
                   className="!text-left flex-1 font-semibold"
                 />
-                <button onClick={() => update((d) => { d.amulet.images.splice(ci, 1); })} className="text-red-300/60 hover:text-red-300" title="카드 삭제">삭제</button>
+                <button onClick={() => { if (confirmDelete("이 카드를 삭제할까요?")) update((d) => { d.amulet.images.splice(ci, 1); }); }} className="text-red-300/60 hover:text-red-300" title="카드 삭제">삭제</button>
               </div>
-              <CardImage image={card.image} onFiles={(f) => setCardImage(card.id, f)} onZoom={() => card.image && setZoom(card.image)} onRemove={() => update((d) => { d.amulet.images[ci].image = ""; })} />
+              <CardImage image={card.image} onFiles={(f) => setCardImage(card.id, f)} onZoom={() => card.image && setZoom(card.image)} onRemove={() => { if (confirmDelete("이미지를 삭제할까요?")) update((d) => { d.amulet.images[ci].image = ""; }); }} />
               <div className="px-3 py-2">
                 <TextArea
                   value={card.memo}
@@ -217,7 +218,7 @@ function OptionTable({
                 <CellInput value={r.effect} className="!text-left" onChange={(v) => onCell(i, "effect", v)} />
               </td>
               <td className="text-center">
-                <button onClick={() => onRemove(i)} className="px-1 text-red-300/50 hover:text-red-300" title="삭제">×</button>
+                <button onClick={() => { if (confirmDelete("이 사진을 삭제할까요?")) onRemove(i); }} className="px-1 text-red-300/50 hover:text-red-300" title="삭제">×</button>
               </td>
             </tr>
           ))}

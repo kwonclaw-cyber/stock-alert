@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { emptyHidden } from "@/lib/data";
 import type { HiddenStatus } from "@/lib/data";
 
@@ -114,7 +115,7 @@ export default function HiddenPage() {
                 >▼</button>
               </div>
               <button
-                onClick={() => update((d) => { d.hidden.splice(ei, 1); })}
+                onClick={() => { if (confirmDelete("이 단서를 삭제할까요?")) update((d) => { d.hidden.splice(ei, 1); }); }}
                 className="px-1 text-red-300/50 hover:text-red-300"
                 title="삭제"
               >×</button>

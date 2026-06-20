@@ -6,6 +6,7 @@ import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import GuildSelect from "../../components/GuildSelect";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { resolveMembers } from "../../components/useMembers";
 import { startAlarm, primeAudio, notify, requestNotifyPermission } from "../../components/alarm";
 import AlarmSoundPicker from "../../components/AlarmSoundPicker";
@@ -223,7 +224,7 @@ function ManualName({ value, onChange, onRemove }: { value: string; onChange: (v
   return (
     <span className="flex items-center gap-1">
       <TextInput value={value} onChange={onChange} placeholder="이름(수동)" className="w-28 !py-1" />
-      <button onClick={onRemove} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+      <button onClick={() => { if (confirmDelete("이 인원을 삭제할까요?")) onRemove(); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
     </span>
   );
 }

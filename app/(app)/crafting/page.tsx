@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, TextArea, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { fileToDataUrl } from "../../components/imageUtil";
 import { uid } from "@/lib/data";
 
@@ -47,10 +48,10 @@ export default function CraftingPage() {
                   placeholder="제목 (예: 강철 제작 재료)"
                   className="!text-left flex-1 font-semibold"
                 />
-                <button onClick={() => update((d) => { d.craftings.splice(ci, 1); })} className="text-red-300/60 hover:text-red-300" title="카드 삭제">삭제</button>
+                <button onClick={() => { if (confirmDelete("이 카드를 삭제할까요?")) update((d) => { d.craftings.splice(ci, 1); }); }} className="text-red-300/60 hover:text-red-300" title="카드 삭제">삭제</button>
               </div>
 
-              <CardImage image={card.image} onFiles={(f) => setImage(card.id, f)} onZoom={() => card.image && setZoom(card.image)} onRemove={() => update((d) => { d.craftings[ci].image = ""; })} />
+              <CardImage image={card.image} onFiles={(f) => setImage(card.id, f)} onZoom={() => card.image && setZoom(card.image)} onRemove={() => { if (confirmDelete("이미지를 삭제할까요?")) update((d) => { d.craftings[ci].image = ""; }); }} />
 
               <div className="space-y-2 px-3 py-2">
                 <TextArea

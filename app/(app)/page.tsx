@@ -4,6 +4,7 @@ import { useStore } from "../components/StoreProvider";
 import { CellInput, JobSelect, Btn } from "../components/fields";
 import Loading from "../components/Loading";
 import PageHelp from "../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 export default function MembersPage() {
   const { data, update } = useStore();
@@ -64,11 +65,12 @@ export default function MembersPage() {
                     <td className="text-center">
                       {mi !== 0 && (
                         <button
-                          onClick={() =>
+                          onClick={() => {
+                            if (!confirmDelete("이 멤버를 삭제할까요?")) return;
                             update((d) => {
                               d.guilds[gi].members.splice(mi, 1);
-                            })
-                          }
+                            });
+                          }}
                           className="px-1 text-red-300/50 hover:text-red-300"
                           title="삭제"
                         >

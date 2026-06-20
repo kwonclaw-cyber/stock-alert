@@ -5,6 +5,7 @@ import { useStore } from "../../components/StoreProvider";
 import { TextInput, Btn } from "../../components/fields";
 import Loading from "../../components/Loading";
 import PageHelp from "../../components/PageHelp";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { sendDiscord } from "../../components/discord";
 import { uid } from "@/lib/data";
 
@@ -98,7 +99,7 @@ export default function BossPage() {
                       디스코드
                     </Btn>
                   )}
-                  <button onClick={() => update((d) => { d.bossTimers.splice(gi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">×</button>
+                  <button onClick={() => { if (confirmDelete("이 보스를 삭제할까요?")) update((d) => { d.bossTimers.splice(gi, 1); }); }} className="text-red-300/60 hover:text-red-300" title="삭제">×</button>
                 </div>
               </div>
               {b.lastKill && (

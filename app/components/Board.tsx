@@ -5,6 +5,7 @@ import { TextInput, Btn } from "./fields";
 import PageHelp from "./PageHelp";
 import { fileToDataUrl } from "./imageUtil";
 import { uid, type BoardPost } from "@/lib/data";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 type MediaKind = "image" | "video" | "youtube" | "soop" | "link";
 
@@ -148,7 +149,7 @@ export default function Board({
               >
                 {showEditor[post.id] ? "📖 읽기 모드" : "✏️ 편집 모드"}
               </button>
-              <button onClick={() => mutate((list) => { list.splice(pi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
+              <button onClick={() => { if (confirmDelete("이 글을 삭제할까요?")) mutate((list) => { list.splice(pi, 1); }); }} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
             </div>
 
             {showEditor[post.id] && (
