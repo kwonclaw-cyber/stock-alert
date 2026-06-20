@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.9.1",
+    date: "2026-06-20",
+    changes: [
+      "광산타이머: '목표' 버튼을 '네비등록'으로 이름 변경 (동선 등록 의미 명확화)",
+    ],
+  },
+  {
     version: "1.9.0",
     date: "2026-06-19",
     changes: [
