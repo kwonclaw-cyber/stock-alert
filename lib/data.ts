@@ -77,7 +77,7 @@ export type Mine = {
   cx: string; // 게임 좌표 X
   cy: string; // 게임 좌표 Y(높이)
   cz: string; // 게임 좌표 Z
-  target: boolean; // 동선 목표로 선택됨
+  nav: number; // 네비 동선 그룹 (0=미등록, 1·2·3)
 };
 
 /** 광산타이머 상태 */
@@ -208,7 +208,11 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       cx: m.cx ?? "",
       cy: m.cy ?? "",
       cz: m.cz ?? "",
-      target: Boolean(m.target),
+      nav: ((): number => {
+        const n = Number((m as { nav?: unknown }).nav);
+        if (n === 1 || n === 2 || n === 3) return n;
+        return (m as { target?: unknown }).target ? 1 : 0; // 구버전 target=true → 네비1
+      })(),
     })),
     defaultCooldownMin: Number(input.mine?.defaultCooldownMin) || 60,
     mapImage: input.mine?.mapImage ?? null,
