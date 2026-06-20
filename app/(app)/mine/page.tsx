@@ -93,11 +93,11 @@ export default function MinePage() {
   const [editMarkers, setEditMarkers] = useState(false);
   const [genCount, setGenCount] = useState(40);
   const [showRoute, setShowRoute] = useState(true);
-  // 출발지: 자동(임박순) / 내 위치(X·Z) / 전초 선택
-  const [startMode, setStartMode] = useState<"auto" | "pos" | "outpost">("auto");
+  // 출발: 전초(또는 내 위치)에서 광산/채집장 한 바퀴 동선 생성
   const [myX, setMyX] = useState("");
   const [myZ, setMyZ] = useState("");
   const [startOutpostId, setStartOutpostId] = useState("");
+  const [tripKind, setTripKind] = useState<"" | "mine" | "gather">("");
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -119,29 +119,30 @@ export default function MinePage() {
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = mine.mines.filter((m) => m.x != null).length;
 
-  // 출발지 좌표(게임 X·Z) / 지도 마커(0~100%) 계산
+  // 출발지(전초 우선, 없으면 내 위치) 좌표/마커 계산
   const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
   const startGame: { x: number; y: number } | null =
-    startMode === "pos" && numOr(myX) != null && numOr(myZ) != null
-      ? { x: numOr(myX)!, y: numOr(myZ)! }
-      : startMode === "outpost" && startOutpost && hasCoords(startOutpost)
+    startOutpost && hasCoords(startOutpost)
       ? { x: numOr(startOutpost.cx)!, y: numOr(startOutpost.cz)! }
+      : numOr(myX) != null && numOr(myZ) != null
+      ? { x: numOr(myX)!, y: numOr(myZ)! }
       : null;
   const startMarker: { x: number; y: number } | null =
-    startMode === "outpost" && startOutpost && hasMarker(startOutpost)
+    startOutpost && hasMarker(startOutpost)
       ? { x: startOutpost.x as number, y: startOutpost.y as number }
       : null;
+  const startName = startOutpost ? startOutpost.name : startGame ? "내 위치" : "";
 
   // 동선: 좌표(게임 X/Z)가 2곳 이상 있으면 좌표 기준, 아니면 지도 마커 기준.
   // 출발지가 지정되면 그 지점에서 가장 가까운 곳부터, 아니면 가장 임박한 곳부터 잇는다.
   // 채집장이 포함된 동선은 마지막 지점에서 가장 가까운 '양조장'을 종착지로 추가한다.
-  function buildRoute(items: Decorated[]) {
+  function buildRoute(items: Decorated[], sGame: { x: number; y: number } | null, sMarker: { x: number; y: number } | null) {
     const coordCands = items.filter((s) => hasCoords(s.m));
     const useCoords = coordCands.length >= 2;
     const pos = useCoords
       ? (d: Decorated) => ({ x: numOr(d.m.cx)!, y: numOr(d.m.cz)! })
       : (d: Decorated) => ({ x: d.m.x as number, y: d.m.y as number });
-    const startPt = useCoords ? startGame : startMarker;
+    const startPt = useCoords ? sGame : sMarker;
     let r = useCoords
       ? nnRoute(coordCands, pos, startPt)
       : nnRoute(items.filter((s) => hasMarker(s.m)), pos, startPt);
@@ -160,20 +161,28 @@ export default function MinePage() {
       }
       r = [...r, best];
     }
-    const imgStart = !useCoords && startMarker ? [{ x: startMarker.x, y: startMarker.y }] : [];
+    const imgStart = !useCoords && sMarker ? [{ x: sMarker.x, y: sMarker.y }] : [];
     return {
       route: r,
       imgLine: [...imgStart, ...r.filter((s) => hasMarker(s.m)).map((s) => ({ x: s.m.x as number, y: s.m.y as number }))],
       coordIds: useCoords ? r.map((s) => s.m.id) : [],
-      coordStart: useCoords && startGame ? startGame : null,
+      coordStart: useCoords && sGame ? sGame : null,
     };
   }
 
   const usedGroups = NAV_GROUPS.filter((g) => sorted.some((s) => s.m.nav === g));
-  const usingNav = usedGroups.length > 0;
-  const routeGroups = usingNav
-    ? usedGroups.map((g) => ({ nav: g as number, color: NAV_COLOR[g], assigned: sorted.filter((s) => s.m.nav === g).length, ...buildRoute(sorted.filter((s) => s.m.nav === g)) }))
-    : [{ nav: 0, color: "#34d399", assigned: sorted.length, ...buildRoute(sorted) }];
+  // 출발(전초→광산/채집 한바퀴) 모드면 단일 동선, 아니면 네비 그룹별 동선
+  type RouteGroup = { nav: number; color: string; startName: string } & ReturnType<typeof buildRoute>;
+  let routeGroups: RouteGroup[];
+  const usingNav = !tripKind && usedGroups.length > 0;
+  if (tripKind) {
+    const items = tripKind === "mine" ? mineList : gatherList;
+    routeGroups = [{ nav: 0, color: tripKind === "gather" ? "#fb7185" : "#34d399", startName, ...buildRoute(items, startGame, startMarker) }];
+  } else if (usedGroups.length > 0) {
+    routeGroups = usedGroups.map((g) => ({ nav: g as number, color: NAV_COLOR[g], startName: "", ...buildRoute(sorted.filter((s) => s.m.nav === g), null, null) }));
+  } else {
+    routeGroups = [{ nav: 0, color: "#34d399", startName: "", ...buildRoute(sorted, null, null) }];
+  }
   const totalRouteCount = routeGroups.reduce((n, g) => n + g.route.length, 0);
   // 좌표맵/지도에 넘길 색상별 동선
   const coordRoutes = routeGroups.map((g) => ({ color: g.color, ids: g.coordIds, start: g.coordStart }));
@@ -285,41 +294,44 @@ export default function MinePage() {
         </div>
       </div>
 
-      {/* 출발지 선택: 자동 / 내 위치 / 전초 */}
+      {/* 출발: 전초(또는 내 위치) 선택 후 광산/채집장 한바퀴 동선 생성 */}
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-teal-400/25 bg-teal-400/[0.05] px-3 py-2 text-sm">
-        <span className="font-semibold text-teal-200">🧭 출발지</span>
-        {([["auto", "자동(임박순)"], ["pos", "내 위치"], ["outpost", "전초 선택"]] as const).map(([v, lbl]) => (
-          <button
-            key={v}
-            onClick={() => setStartMode(v)}
-            className={`rounded-md border px-2 py-1 text-xs transition ${startMode === v ? "border-teal-400/60 bg-teal-400/15 text-teal-200" : "border-white/15 text-white/50 hover:text-white"}`}
-          >
-            {lbl}
-          </button>
-        ))}
-        {startMode === "pos" && (
-          <span className="flex items-center gap-1 text-xs text-white/45">
-            X<TextInput value={myX} onChange={setMyX} placeholder="X" className="w-16 !px-1 !py-1" />
-            Z<TextInput value={myZ} onChange={setMyZ} placeholder="Z" className="w-16 !px-1 !py-1" />
-            <span className="text-white/30">(게임 좌표)</span>
-          </span>
+        <span className="font-semibold text-teal-200">🚩 출발 전초</span>
+        {outposts.length === 0 ? (
+          <span className="text-xs text-white/35">‘+ 전초 추가’로 출발점을 만들어 좌표/마커를 지정하세요.</span>
+        ) : (
+          outposts.map((o) => (
+            <button
+              key={o.m.id}
+              onClick={() => setStartOutpostId((id) => (id === o.m.id ? "" : o.m.id))}
+              className={`rounded-md border px-2 py-1 text-xs transition ${startOutpostId === o.m.id ? "border-teal-400/60 bg-teal-400/15 text-teal-200" : "border-white/15 text-white/50 hover:text-white"}`}
+            >
+              {o.m.name}
+            </button>
+          ))
         )}
-        {startMode === "outpost" && (
-          <select
-            value={startOutpostId}
-            onChange={(e) => setStartOutpostId(e.target.value)}
-            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs text-white outline-none"
-          >
-            <option value="" className="text-black">전초 선택…</option>
-            {outposts.map((o) => (
-              <option key={o.m.id} value={o.m.id} className="text-black">{o.m.name}</option>
-            ))}
-          </select>
-        )}
-        <span className="text-[11px] text-white/35">출발지를 정하면 그 지점에서 가까운 곳부터 동선이 시작돼요. (광산·채집 공통)</span>
+        <span className="flex items-center gap-1 text-xs text-white/40">
+          또는 내 위치 X<TextInput value={myX} onChange={setMyX} placeholder="X" className="w-14 !px-1 !py-1" />
+          Z<TextInput value={myZ} onChange={setMyZ} placeholder="Z" className="w-14 !px-1 !py-1" />
+        </span>
+        <span className="mx-1 h-4 w-px bg-white/10" />
+        <button
+          onClick={() => setTripKind((k) => (k === "mine" ? "" : "mine"))}
+          className={`rounded-md border px-2.5 py-1 text-xs font-bold transition ${tripKind === "mine" ? "border-emerald-400/60 bg-emerald-400/15 text-emerald-200" : "border-white/15 text-white/55 hover:text-white"}`}
+        >
+          ⛏ 광산 출발
+        </button>
+        <button
+          onClick={() => setTripKind((k) => (k === "gather" ? "" : "gather"))}
+          className={`rounded-md border px-2.5 py-1 text-xs font-bold transition ${tripKind === "gather" ? "border-rose-400/60 bg-rose-400/15 text-rose-200" : "border-white/15 text-white/55 hover:text-white"}`}
+        >
+          🌿 채집장 출발
+        </button>
+        {tripKind && <button onClick={() => setTripKind("")} className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/45 hover:text-white">동선 끄기</button>}
+        {tripKind && !startName && <span className="text-[11px] text-amber-300/80">전초를 선택하거나 내 위치를 입력하면 출발지부터 동선이 그려져요.</span>}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_400px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_560px]">
         {/* 광산 리스트 */}
         <div className="space-y-2">
           {mineList.length > 0 && (
@@ -429,8 +441,10 @@ export default function MinePage() {
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-white/70">
                 🧭 추천 동선{" "}
-                <span className={`text-xs font-medium ${usingNav ? "text-amber-300" : "text-white/35"}`}>
-                  {usingNav ? `네비 ${usedGroups.length}개 · ${totalRouteCount}곳` : `전체 ${totalRouteCount}곳`}
+                <span className={`text-xs font-medium ${tripKind ? "text-teal-300" : usingNav ? "text-amber-300" : "text-white/35"}`}>
+                  {tripKind
+                    ? `${tripKind === "mine" ? "광산" : "채집장"} 출발${startName ? ` · ${startName}부터` : ""} · ${totalRouteCount}곳`
+                    : usingNav ? `네비 ${usedGroups.length}개 · ${totalRouteCount}곳` : `전체 ${totalRouteCount}곳`}
                 </span>
               </span>
               <div className="flex items-center gap-2 text-xs text-white/45">
@@ -463,6 +477,12 @@ export default function MinePage() {
                         </div>
                       )}
                       <ol className="space-y-1">
+                        {g.startName && (
+                          <li className="flex items-center gap-2 text-sm">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-400 text-[11px] font-bold text-black">🚩</span>
+                            <span className="truncate font-bold text-teal-200">{g.startName} <span className="text-teal-300/70">(출발)</span></span>
+                          </li>
+                        )}
                         {g.route.map((c, i) => {
                           const isBrew = c.m.kind === "brew";
                           return (
