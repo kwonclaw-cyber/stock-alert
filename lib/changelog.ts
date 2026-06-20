@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.24.0",
+    date: "2026-06-20",
+    changes: [
+      "정보공유/영단: 기본은 깔끔한 보기(렌더된 내용만), '✏️ 편집'을 눌러야 입력창이 열리도록 변경",
+      "각 카드에 '숨기기/펼치기' 버튼 추가(제목만 남기고 접기)",
+    ],
+  },
+  {
     version: "1.23.0",
     date: "2026-06-20",
     changes: [
