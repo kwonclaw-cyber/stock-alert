@@ -21,6 +21,7 @@ const TABS: Tab[] = [
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
   { href: "/calendar", label: "일정" },
+  { href: "/live", label: "긴급라이브정리" },
   { href: "/changelog", label: "패치노트" },
 ];
 
