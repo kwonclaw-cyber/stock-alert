@@ -134,6 +134,7 @@ export type AppData = {
   events: EventItem[];
   dwellings: DwellingCard[];
   craftings: CraftingCard[]; // 제작 및 재료 정보 카드
+  enhancements: CraftingCard[]; // 강화 정보 카드
   villageMap: string; // 마을지도 이미지(data URL)
   amulet: AmuletState; // 부적 시스템
   discordWebhook: string; // 디스코드 웹훅 URL
@@ -219,6 +220,7 @@ export function defaultData(): AppData {
     events: [],
     dwellings: [],
     craftings: [],
+    enhancements: [],
     villageMap: "",
     amulet: defaultAmulet(),
     discordWebhook: "",
@@ -336,6 +338,12 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       cz: c.cz ?? "",
     })),
     craftings: (input.craftings ?? []).map((c) => ({
+      id: c.id || uid(),
+      title: c.title ?? "",
+      image: c.image ?? "",
+      memo: c.memo ?? "",
+    })),
+    enhancements: (input.enhancements ?? []).map((c) => ({
       id: c.id || uid(),
       title: c.title ?? "",
       image: c.image ?? "",

@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.17.0",
+    date: "2026-06-20",
+    changes: [
+      "'강화정보' 탭 추가 (방어구·무기·반지 강화표, 강화석 제작 등 캡처 카드 모음)",
+    ],
+  },
+  {
     version: "1.16.0",
     date: "2026-06-20",
     changes: [
