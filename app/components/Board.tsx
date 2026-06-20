@@ -95,6 +95,10 @@ export default function Board({
   help: React.ReactNode;
 }) {
   const [zoom, setZoom] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleEdit = (id: string) => setEditing((s) => ({ ...s, [id]: !s[id] }));
+  const toggleCollapse = (id: string) => setCollapsed((s) => ({ ...s, [id]: !s[id] }));
 
   async function pasteImages(postId: string, files: File[], caret: number) {
     const added: BoardPost["images"] = [];
@@ -119,7 +123,11 @@ export default function Board({
         <p className="text-sm text-white/50">사진·영상은 <b className="text-white/70">붙여넣기(Ctrl+V)</b>하거나 링크를 적으면 본문 그 자리에 들어가요.</p>
         <Btn
           variant="primary"
-          onClick={() => mutate((list) => { list.push({ id: uid(), title: "", body: "", images: [], author: "", updatedAt: new Date().toISOString() }); })}
+          onClick={() => {
+            const id = uid();
+            mutate((list) => { list.push({ id, title: "", body: "", images: [], author: "", updatedAt: new Date().toISOString() }); });
+            setEditing((s) => ({ ...s, [id]: true }));
+          }}
         >
           + 새 글
         </Btn>
@@ -135,31 +143,55 @@ export default function Board({
                 placeholder="제목"
                 className="flex-1 text-base font-semibold"
               />
+              <button
+                onClick={() => toggleCollapse(post.id)}
+                className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/55 hover:text-white"
+                title={collapsed[post.id] ? "펼치기" : "내용 숨기기"}
+              >
+                {collapsed[post.id] ? "펼치기 ▼" : "숨기기 ▲"}
+              </button>
+              {!collapsed[post.id] && (
+                <button
+                  onClick={() => toggleEdit(post.id)}
+                  className={`rounded-md border px-2 py-1 text-xs transition ${editing[post.id] ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
+                  title="입력창 열기/닫기"
+                >
+                  {editing[post.id] ? "편집 닫기" : "✏️ 편집"}
+                </button>
+              )}
               <button onClick={() => mutate((list) => { list.splice(pi, 1); })} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
             </div>
 
-            <BodyEditor
-              value={post.body}
-              onChange={(v) => mutate((list) => { list[pi].body = v; list[pi].updatedAt = new Date().toISOString(); })}
-              onPasteImages={(files, caret) => pasteImages(post.id, files, caret)}
-              placeholder="내용을 입력하세요. 유튜브·mp4·숲VOD·사진 링크를 넣거나 사진을 Ctrl+V로 붙여넣으면 그 자리에 표시돼요."
-            />
+            {!collapsed[post.id] && (
+              <>
+                {editing[post.id] && (
+                  <BodyEditor
+                    value={post.body}
+                    onChange={(v) => mutate((list) => { list[pi].body = v; list[pi].updatedAt = new Date().toISOString(); })}
+                    onPasteImages={(files, caret) => pasteImages(post.id, files, caret)}
+                    placeholder="내용을 입력하세요. 유튜브·mp4·숲VOD·사진 링크를 넣거나 사진을 Ctrl+V로 붙여넣으면 그 자리에 표시돼요."
+                  />
+                )}
 
-            {(post.body.trim() || post.images.length > 0) && (
-              <div className="mt-2 space-y-2 text-sm text-white/85">
-                {renderContent(post.body, post.images, setZoom)}
-              </div>
+                {post.body.trim() || post.images.length > 0 ? (
+                  <div className={`space-y-2 text-sm text-white/85 ${editing[post.id] ? "mt-2" : ""}`}>
+                    {renderContent(post.body, post.images, setZoom)}
+                  </div>
+                ) : (
+                  !editing[post.id] && <p className="py-3 text-center text-xs text-white/30">내용이 없어요. ‘✏️ 편집’을 눌러 작성하세요.</p>
+                )}
+
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <TextInput
+                    value={post.author}
+                    onChange={(v) => mutate((list) => { list[pi].author = v; })}
+                    placeholder="작성자"
+                    className="w-32"
+                  />
+                  <span className="text-xs text-white/35">{post.author && `${post.author} · `}{new Date(post.updatedAt).toLocaleString("ko-KR")}</span>
+                </div>
+              </>
             )}
-
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <TextInput
-                value={post.author}
-                onChange={(v) => mutate((list) => { list[pi].author = v; })}
-                placeholder="작성자"
-                className="w-32"
-              />
-              <span className="text-xs text-white/35">{post.author && `${post.author} · `}{new Date(post.updatedAt).toLocaleString("ko-KR")}</span>
-            </div>
           </article>
         ))}
         {posts.length === 0 && (
