@@ -31,7 +31,7 @@ const hasCoords = (m: Mine) => numOr(m.cx) != null && numOr(m.cz) != null;
 const hasMarker = (m: Mine) => m.x != null && m.y != null;
 
 // 네비 동선 그룹(1·2·3) 색상. 3명이 나눠 쓸 때 각자 색으로 구분된다.
-const NAV_GROUPS = [1, 2, 3, 4, 5] as const;
+const NAV_GROUPS = [1, 2, 3] as const;
 const NAV_COLOR: Record<number, string> = { 1: "#34d399", 2: "#38bdf8", 3: "#fbbf24", 4: "#a78bfa", 5: "#fb923c" }; // 초록·파랑·주황·보라·오렌지
 const NAV_BADGE: Record<number, string> = {
   1: "border-emerald-400/60 bg-emerald-400/15 text-emerald-200",
@@ -287,7 +287,7 @@ export default function MinePage() {
           ))}
         </div>
         <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
-        <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
+        <button onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="text-sm text-white/40 hover:text-white" title="리셋(쿨타임 초기화)">↩️</button>
         <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
       </div>
     );
@@ -296,7 +296,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>쿨타임(완료)</b>도 <b>네비</b>도 길드/파티에 <b>실시간 공유</b>돼요(서로 따로 저장돼 충돌 없음). <b>네비 1~5</b>로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>쿨타임(완료)</b>도 <b>네비</b>도 길드/파티에 <b>실시간 공유</b>돼요(서로 따로 저장돼 충돌 없음). <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -512,7 +512,7 @@ export default function MinePage() {
             </div>
             {totalRouteCount === 0 ? (
               <p className="py-3 text-center text-xs text-white/30">
-                각 광산·채집장의 <b className="text-amber-300">네비 1~5</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
+                각 광산·채집장의 <b className="text-amber-300">네비 1~3</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
               </p>
             ) : (
               <div className="space-y-3">
