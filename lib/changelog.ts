@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.31.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: '내 파티(1~4)' 선택 추가 — 파티마다 네비가 따로 공유됨",
+      "같은 파티 번호를 고른 사람끼리만 네비를 공유(쿨타임은 전체 공유 유지)",
+    ],
+  },
+  {
     version: "1.30.0",
     date: "2026-06-20",
     changes: [
