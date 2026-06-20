@@ -30,12 +30,14 @@ const hasCoords = (m: Mine) => numOr(m.cx) != null && numOr(m.cz) != null;
 const hasMarker = (m: Mine) => m.x != null && m.y != null;
 
 // 네비 동선 그룹(1·2·3) 색상. 3명이 나눠 쓸 때 각자 색으로 구분된다.
-const NAV_GROUPS = [1, 2, 3] as const;
-const NAV_COLOR: Record<number, string> = { 1: "#34d399", 2: "#38bdf8", 3: "#fbbf24" }; // 초록·파랑·주황
+const NAV_GROUPS = [1, 2, 3, 4, 5] as const;
+const NAV_COLOR: Record<number, string> = { 1: "#34d399", 2: "#38bdf8", 3: "#fbbf24", 4: "#a78bfa", 5: "#fb923c" }; // 초록·파랑·주황·보라·오렌지
 const NAV_BADGE: Record<number, string> = {
   1: "border-emerald-400/60 bg-emerald-400/15 text-emerald-200",
   2: "border-sky-400/60 bg-sky-400/15 text-sky-200",
   3: "border-amber-400/60 bg-amber-400/15 text-amber-200",
+  4: "border-violet-400/60 bg-violet-400/15 text-violet-200",
+  5: "border-orange-400/60 bg-orange-400/15 text-orange-200",
 };
 
 // 종류별 색 테마. 광산=초록, 채집장=분홍(rose), 양조장=금색(amber), 전초=청록(teal).
@@ -107,6 +109,9 @@ export default function MinePage() {
   const decoratedAll = mine.mines.map((m, idx) => ({ m, idx, r: remain(m.lastDoneAt, m.cooldownMin, now) }));
   // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장·전초는 위치 지점이라 타이머에서 제외.
   const sorted = decoratedAll.filter((s) => s.m.kind === "mine" || s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
+  // 목록은 광산/채집장을 각각 임박순으로 따로 정렬해 구분 표시
+  const mineList = decoratedAll.filter((s) => s.m.kind === "mine").sort((a, z) => a.r.ms - z.r.ms);
+  const gatherList = decoratedAll.filter((s) => s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   const brews = decoratedAll.filter((s) => s.m.kind === "brew");
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
 
@@ -201,10 +206,53 @@ export default function MinePage() {
     if (m.x == null) { m.x = 50; m.y = 50; } else { m.x = null; m.y = null; }
   });
 
+  // 광산·채집장 타이머 행 (목록에서 종류별 섹션으로 재사용)
+  function timerRow({ m, idx, r }: Decorated) {
+    const gi = mine.mines.findIndex((x) => x.id === m.id);
+    const k = kindOf(m);
+    void idx;
+    return (
+      <div key={m.id} className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 ${r.ready ? k.rowReady : "border-white/10 bg-[#15171c]"}`}>
+        <button
+          onClick={() => toggleMarker(m.id)}
+          className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
+          title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
+        >📍</button>
+        <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-24 font-semibold" />
+        <label className="flex items-center gap-1 text-xs text-white/45">
+          쿨<TextInput type="number" value={m.cooldownMin} onChange={(v) => update((d) => { d.mine.mines[gi].cooldownMin = Number(v) || 0; })} className="w-14" />분
+        </label>
+        <div className="flex items-center gap-1 text-xs text-white/40">
+          <span className="text-amber-300/70">좌표</span>
+          <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
+          <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
+          <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+        </div>
+        <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
+        <div className="flex items-center gap-1" title="네비 동선 그룹(1~5)에 등록 / 다시 누르면 해제">
+          <span className="text-[10px] text-white/35">네비</span>
+          {NAV_GROUPS.map((g) => (
+            <button
+              key={g}
+              onClick={() => setNav(m.id, g)}
+              title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
+              className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+        <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
+        <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
+        <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b className="text-emerald-300">네비 1</b>·<b className="text-sky-300">2</b>·<b className="text-amber-300">3</b>으로 사람별 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나와요. <b className="text-amber-300">🍶 양조장</b>을 추가하고 위치를 지정하면, 채집장이 포함된 동선은 <b>가장 가까운 양조장</b>이 최종 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b>X·Y·Z 좌표</b>를 넣으면 <b>좌표 미니맵</b>에 위치·동선이 표시되고, 지도 이미지가 있으면 <b>📍</b>로 마커도 올릴 수 있어요. <b>네비 1~5</b>로 사람별 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나와요. <b className="text-amber-300">🍶 양조장</b>을 추가하고 위치를 지정하면, 채집장이 포함된 동선은 <b>가장 가까운 양조장</b>이 최종 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -273,48 +321,19 @@ export default function MinePage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_400px]">
         {/* 광산 리스트 */}
         <div className="space-y-2">
-          {sorted.map(({ m, idx, r }) => {
-            const gi = mine.mines.findIndex((x) => x.id === m.id);
-            const k = kindOf(m);
-            return (
-              <div key={m.id} className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 ${r.ready ? k.rowReady : "border-white/10 bg-[#15171c]"}`}>
-                <span className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-bold ${k.pill}`} title={m.kind === "gather" ? "채집장" : "광산"}>{k.icon} {k.label}</span>
-                <button
-                  onClick={() => toggleMarker(m.id)}
-                  className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
-                  title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
-                >📍</button>
-                <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-24 font-semibold" />
-                <label className="flex items-center gap-1 text-xs text-white/45">
-                  쿨<TextInput type="number" value={m.cooldownMin} onChange={(v) => update((d) => { d.mine.mines[gi].cooldownMin = Number(v) || 0; })} className="w-14" />분
-                </label>
-                <div className="flex items-center gap-1 text-xs text-white/40">
-                  <span className="text-amber-300/70">좌표</span>
-                  <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                  <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
-                  <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
-                </div>
-                <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
-                <div className="flex items-center gap-1" title="네비 동선 그룹(1·2·3)에 등록 / 다시 누르면 해제">
-                  <span className="text-[10px] text-white/35">네비</span>
-                  {NAV_GROUPS.map((g) => (
-                    <button
-                      key={g}
-                      onClick={() => setNav(m.id, g)}
-                      title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
-                      className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
-                <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
-                <Btn onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="!py-1 !text-xs">리셋</Btn>
-                <button onClick={() => update((d) => { d.mine.mines.splice(gi, 1); })} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
-              </div>
-            );
-          })}
-          {sorted.length === 0 && (
+          {mineList.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">⛏ 광산 <span className="font-normal text-white/35">임박순 · {mineList.length}곳</span></div>
+              {mineList.map(timerRow)}
+            </>
+          )}
+          {gatherList.length > 0 && (
+            <>
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-rose-300">🌿 채집장 <span className="font-normal text-white/35">임박순 · {gatherList.length}곳</span></div>
+              {gatherList.map(timerRow)}
+            </>
+          )}
+          {mineList.length === 0 && gatherList.length === 0 && (
             <p className="rounded-lg border border-dashed border-white/15 py-10 text-center text-sm text-white/30">광산·채집장이 없습니다. “광산 일괄 생성” 또는 “+ 채집장 추가”를 눌러보세요.</p>
           )}
 
@@ -429,7 +448,7 @@ export default function MinePage() {
             </div>
             {totalRouteCount === 0 ? (
               <p className="py-3 text-center text-xs text-white/30">
-                각 광산의 <b className="text-amber-300">네비 1·2·3</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
+                각 광산·채집장의 <b className="text-amber-300">네비 1~5</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
               </p>
             ) : (
               <div className="space-y-3">
