@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.34.0",
+    date: "2026-06-20",
+    changes: [
+      "광산&채집: 지도 좌표 보정 추가 — 마커+좌표를 둘 다 가진 기준점 2곳이 있으면 좌표만 입력해도 실제 지도 위 정확한 위치에 표시",
+      "안내에 '서버 입장 후 잘 아는 2곳에 마커+좌표 입력' 가이드 + 지도에 '좌표보정 ✅/필요' 표시",
+    ],
+  },
+  {
     version: "1.33.0",
     date: "2026-06-20",
     changes: [
