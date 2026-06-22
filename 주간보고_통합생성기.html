@@ -183,6 +183,24 @@ tbody tr:hover td{background:#f8fafc;}
 .ex-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#fff1f1;border:1.5px solid #fecaca;border-radius:20px;font-size:11px;font-weight:600;color:#dc2626;}
 .ex-chip button{background:none;border:none;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:0;margin-left:1px;}
 .ex-chip button:hover{color:#991b1b;}
+/* ── 레퍼런스 디자인: 대시보드 헤더 + 순위 테이블 ── */
+.dash-hdr{background:linear-gradient(135deg,#1a8c34 0%,#178030 50%,#1a8c34 100%);color:#fff;padding:16px 24px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(23,128,48,.18);gap:12px;flex-wrap:wrap;}
+.dash-hdr-l{display:flex;align-items:center;gap:14px;}
+.dash-hdr-logo{width:44px;height:44px;background:rgba(255,255,255,.16);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.dash-hdr h1{font-size:17px;font-weight:700;letter-spacing:-.3px;line-height:1.2;}
+.dash-hdr p{font-size:11px;opacity:.72;margin-top:2px;}
+.dash-hdr-date{font-size:11.5px;opacity:.85;text-align:right;line-height:1.7;}
+.dash-hdr-date b{font-weight:700;}
+#tool-bab #mainWrap .tab-bar{border-radius:0;}
+.rank-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;}
+.rank-1{background:#fef3c7;color:#d97706;}
+.rank-2{background:#f1f5f9;color:#475569;}
+.rank-3{background:#fef0e7;color:#c2410c;}
+.rank-n{background:#f1f5f9;color:#94a3b8;}
+.store-nm{font-weight:600;color:#1e293b;}
+.bar-cell{display:flex;align-items:center;gap:8px;}
+.bar-bg{flex:1;height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden;min-width:50px;}
+.bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#1a56db,#3b82f6);transition:width .4s;}
 .mg-list{position:absolute;z-index:200;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);max-height:180px;overflow-y:auto;display:none;width:100%;}
 .mg-list.show{display:block;}
 .mg-item{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;color:#1e293b;}
@@ -547,6 +565,16 @@ textarea:focus{border-color:#4B7BE8;}
     </div>
   </div>
   <div class="wrap" id="mainWrap">
+    <div class="dash-hdr">
+      <div class="dash-hdr-l">
+        <div class="dash-hdr-logo">🍚</div>
+        <div>
+          <h1 id="dashTitle">밥구정로데오 주간 매출 분석</h1>
+          <p>가맹점 매출 분석 대시보드</p>
+        </div>
+      </div>
+      <div class="dash-hdr-date" id="dashPeriod"></div>
+    </div>
     <div class="tab-bar">
       <div class="tab on" onclick="showTab(0)">📊 매출분석</div>
       <div class="tab" onclick="showTab(1)">📋 분석보고용</div>
@@ -1288,6 +1316,8 @@ function showDashboard(){
   const w2L=document.getElementById('w2Label').value||'금주';
   _dashData={r1:parsed[1],r2:parsed[2],w1L,w2L};
   saveToHistory(parsed[1],parsed[2],w1L,w2L);
+  const today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('dashPeriod').innerHTML=`<b>전주</b> ${w1L} &nbsp;→&nbsp; <b>금주</b> ${w2L}<br>생성일 ${today}`;
   renderDashboard(_dashData);
   document.getElementById('uploadScreen').style.display='none';
   document.getElementById('dashScreen').style.display='block';
@@ -1372,11 +1402,27 @@ function renderDashboard({r1,r2,w1L,w2L}){
   }
   function chgCards(list,cls){return list.map(s=>`<div class="${cls}"><div class="cn" title="${s.display}">${s.display}</div><div class="cr"><span class="cl">금주</span><span class="cv">${fm(s.w2)}</span></div><div class="cr"><span class="cl">전주</span><span class="cv">${fm(s.w1)}</span></div><div class="cr"><span class="cl">등락</span><span style="font-weight:700;color:${s.gr>=0?'#dc2626':'#2563eb'};">${s.gr>=0?'▲':'▼'}${(Math.abs(s.gr)*100).toFixed(1)}%</span></div></div>`).join('');}
   function storeTable(sortedAll){
-    let h=`<thead><tr><th>매장명</th><th>브랜드</th><th>전주</th><th>금주</th><th>증감액</th><th>전주대비</th></tr></thead><tbody>`;
-    sortedAll.forEach(s=>{const diff=s.w2-s.w1;h+=`<tr><td>${s.display}${s.isNew?'<span class="bnew" style="margin-left:4px;">신규</span>':''}</td><td style="color:#8896b0;font-size:10px;">${s.brand}</td><td>${s.w1>0?fm(s.w1):'<span class="muted">—</span>'}</td><td style="font-weight:600;">${fm(s.w2)}</td><td style="color:${diff>=0?'#dc2626':'#2563eb'};font-weight:600;">${s.w1>0?fd(diff):'—'}</td><td>${fp(s.gr)}</td></tr>`;});
-    const tw1=sortedAll.reduce((a,s)=>a+s.w1,0),tw2=sortedAll.reduce((a,s)=>a+s.w2,0);
-    const T1=sortedAll.filter(s=>s.w1>0).length,T2=sortedAll.filter(s=>s.w2>0).length;
-    h+=`<tr class="tr"><td>합계</td><td style="color:#8896b0;">${T1}→${T2}개</td><td>${fm(tw1)}</td><td>${fm(tw2)}</td><td style="font-weight:700;color:${tw2-tw1>=0?'#dc2626':'#2563eb'};">${fd(tw2-tw1)}</td><td>${fp(tw1>0?(tw2-tw1)/tw1:NaN)}</td></tr></tbody>`;
+    const bySales=[...sortedAll].sort((a,b)=>b.w2-a.w2);
+    const maxW2=Math.max(1,...bySales.map(s=>s.w2));
+    let h=`<thead><tr><th style="width:46px;text-align:center;">순위</th><th>매장명</th><th>브랜드</th><th>전주</th><th>금주</th><th>증감액</th><th>전주대비</th><th style="min-width:96px;">금주 비중</th></tr></thead><tbody>`;
+    bySales.forEach((s,i)=>{
+      const diff=s.w2-s.w1,rank=i+1;
+      const rc=rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'rank-n';
+      const pct=Math.round(s.w2/maxW2*100);
+      h+=`<tr>
+        <td style="text-align:center;"><span class="rank-num ${rc}">${rank}</span></td>
+        <td class="store-nm">${s.display}${s.isNew?'<span class="bnew" style="margin-left:4px;">신규</span>':''}</td>
+        <td style="color:#94a3b8;font-size:11px;">${s.brand}</td>
+        <td>${s.w1>0?fm(s.w1):'<span class="muted">—</span>'}</td>
+        <td style="font-weight:700;">${fm(s.w2)}</td>
+        <td style="color:${diff>=0?'#dc2626':'#2563eb'};font-weight:600;">${s.w1>0?fd(diff):'—'}</td>
+        <td style="font-weight:700;">${fp(s.gr)}</td>
+        <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;"></div></div><span style="font-size:10px;color:#94a3b8;min-width:30px;text-align:right;">${pct}%</span></div></td>
+      </tr>`;
+    });
+    const tw1=bySales.reduce((a,s)=>a+s.w1,0),tw2=bySales.reduce((a,s)=>a+s.w2,0);
+    const T1=bySales.filter(s=>s.w1>0).length,T2=bySales.filter(s=>s.w2>0).length;
+    h+=`<tr class="tr"><td></td><td>합계</td><td style="color:#8896b0;">${T1}→${T2}개</td><td>${fm(tw1)}</td><td>${fm(tw2)}</td><td style="font-weight:700;color:${tw2-tw1>=0?'#dc2626':'#2563eb'};">${fd(tw2-tw1)}</td><td>${fp(tw1>0?(tw2-tw1)/tw1:NaN)}</td><td></td></tr></tbody>`;
     return h;
   }
   function timeSec(sfx){
@@ -1502,7 +1548,7 @@ function renderDashboard({r1,r2,w1L,w2L}){
       ${st.lossIdx.length>0?`<div class="cgrid">${chgCards(st.lossIdx,'dc')}</div>`:'<div style="color:#94a3b8;font-size:12px;padding:4px 0;">해당 매장 없음</div>'}
     </div>`+
     timeSec(sfx)+channelSec(sfx)+
-    `<div class="card sec" style="margin-top:0;"><div class="sec-tit">전체 매장 주간 비교 (전주대비 높은 순)</div><div class="tbl-wrap"><div class="tbl-h"><table>${storeTable(st.sortedAll)}</table></div></div></div>`;
+    `<div class="card sec" style="margin-top:0;"><div class="sec-tit">전체 매장 매출 순위 (금주 매출 높은 순)</div><div class="tbl-wrap"><div class="tbl-h"><table class="rank-tbl">${storeTable(st.sortedAll)}</table></div></div></div>`;
   }
 
   function drawCharts(sfx,brand){
