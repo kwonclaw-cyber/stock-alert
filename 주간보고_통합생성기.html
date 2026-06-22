@@ -466,12 +466,14 @@ textarea:focus{border-color:#4B7BE8;}
 </div>
 
 <!-- 분석 히스토리 -->
-<div class="up-card" id="historyCard" style="max-width:760px;margin-top:14px;display:none;">
+<div class="up-card" id="historyCard" style="max-width:760px;margin-top:14px;">
   <div class="up-hd" style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">
     <div class="up-hd-tit" style="font-size:13px;">📂 분석 기록</div>
-    <button onclick="clearAllHistory()" style="font-size:10px;color:#94a3b8;background:none;border:none;cursor:pointer;font-family:inherit;">전체 삭제</button>
+    <button id="histClearBtn" onclick="clearAllHistory()" style="font-size:10px;color:#94a3b8;background:none;border:none;cursor:pointer;font-family:inherit;display:none;">전체 삭제</button>
   </div>
-  <div id="historyList" style="padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px;"></div>
+  <div id="historyList" style="padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px;">
+    <div id="histEmpty" style="text-align:center;padding:16px 0;color:#94a3b8;font-size:12px;">아직 분석 기록이 없습니다.<br><span style="font-size:11px;">보고서를 생성하면 자동으로 저장됩니다.</span></div>
+  </div>
 </div>
 
 </div><!-- /uploadScreen -->
@@ -1137,14 +1139,22 @@ function saveToHistory(r1,r2,w1L,w2L){
 
 function renderHistoryUI(){
   const list=loadHistory();
-  const card=document.getElementById('historyCard');
   const el=document.getElementById('historyList');
-  if(!list.length){card.style.display='none';return;}
-  card.style.display='block';
+  const emptyEl=document.getElementById('histEmpty');
+  const clearBtn=document.getElementById('histClearBtn');
+  if(!list.length){
+    if(emptyEl)emptyEl.style.display='';
+    if(clearBtn)clearBtn.style.display='none';
+    el.innerHTML='';
+    el.appendChild(emptyEl||document.createElement('div'));
+    return;
+  }
+  if(emptyEl)emptyEl.style.display='none';
+  if(clearBtn)clearBtn.style.display='';
   el.innerHTML=list.map((h,i)=>`<div class="hist-item">
     <div class="hist-info">
       <div class="hist-label">${h.label}</div>
-      <div class="hist-date">저장일: ${h.date} ${h.time||''} · 전주: ${h.w1L||'—'} / 금주: ${h.w2L||'—'}</div>
+      <div class="hist-date">저장: ${h.date} ${h.time||''} · ${h.w1L||'전주'} → ${h.w2L||'금주'}</div>
     </div>
     <button class="hist-load" onclick="loadFromHistory(${i})">불러오기</button>
     <button class="hist-del" onclick="deleteHistory(${i})" title="삭제">✕</button>
