@@ -302,7 +302,7 @@ function renderDash(){
     <div class="page-tit">${storeName} 브랜드별 매출 분석</div>
     <div class="page-sub">${w1L} vs ${w2L} · ${brands.join(' · ')}</div>
     <div class="kpis">
-      <div class="kpi card" style="border-left:3px solid #16a34a;"><div class="kl">${w2L} 합산 총매출</div><div class="kv">${fm(T2)}</div><div class="ks">${w1L} ${fm(T1)} · <span style="color:#dc2626;font-weight:700;">▲${(tgr*100).toFixed(1)}%</span></div></div>
+      <div class="kpi card" style="border-left:3px solid ${tgr>=0?'#16a34a':'#dc2626'};"><div class="kl">${w2L} 합산 총매출</div><div class="kv">${fm(T2)}</div><div class="ks">${w1L} ${fm(T1)} · ${fp(tgr)}</div></div>
       <div class="kpi card"><div class="kl">합산 배민광고비</div><div class="kv">${fm(bmAd2)}</div><div class="ks">${w1L} ${fm(bmAd1)} · <span style="${bmAd2<bmAd1?'color:#16a34a':'color:#dc2626'};font-weight:700;">${bmAd2<bmAd1?'▼':'▲'}${(Math.abs((bmAd2-bmAd1)/(bmAd1||1))*100).toFixed(1)}%${bmAd2<bmAd1?' 절감':''}</span></div></div>
       <div class="kpi card"><div class="kl">합산 배민광고율</div><div class="kv" style="font-size:14px;">${bmAdRate1.toFixed(1)}% → <span style="color:${bmAdRateDiff<=0?'#16a34a':'#dc2626'};">${bmAdRate2.toFixed(1)}%</span></div><div class="ks">${bmAdRateDiff<=0?'▼'+Math.abs(bmAdRateDiff).toFixed(1)+'%p 개선':'▲'+bmAdRateDiff.toFixed(1)+'%p 상승'}</div></div>
       <div class="kpi card"><div class="kl">쿠팡 매출 성장</div><div class="kv">${fm(cp2)}</div><div class="ks">${w1L} ${fm(cp1)} · <span style="color:#dc2626;font-weight:700;">${fp((cp2-cp1)/(cp1||1))}</span></div></div>
@@ -338,7 +338,7 @@ function renderDash(){
             <div class="m"><div class="ml">${w1L} 합산</div><div class="mv">${fm(T1)}</div></div>
             <div class="m"><div class="ml">${w2L} 합산</div><div class="mv" style="color:#dc2626;">${fm(T2)}</div></div>
             <div class="m"><div class="ml">배민광고율</div><div class="mv" style="color:${bmAdRateDiff<=0?'#16a34a':'#dc2626'};">${bmAdRate1.toFixed(1)}→${bmAdRate2.toFixed(1)}%</div><div class="ms">${bmAdRateDiff<=0?'▼'+Math.abs(bmAdRateDiff).toFixed(1)+'%p 개선':'▲'+bmAdRateDiff.toFixed(1)+'%p 상승'}</div></div>
-            <div class="m"><div class="ml">쿠팡성장</div><div class="mv" style="color:#dc2626;">▲${((cp2-cp1)/(cp1||1)*100).toFixed(1)}%</div><div class="ms">${fma(cp1)}→${fma(cp2)}</div></div>
+            <div class="m"><div class="ml">쿠팡성장</div><div class="mv" style="color:${cp2>=cp1?'#dc2626':'#2563eb'};">${cp2>=cp1?'▲':'▼'}${(Math.abs((cp2-cp1)/(cp1||1))*100).toFixed(1)}%</div><div class="ms">${fma(cp1)}→${fma(cp2)}</div></div>
           </div>
           <div class="sb-txt"><strong>${upCount}개 브랜드 성장</strong>하며 합산 ${(Math.abs(tgr)*100).toFixed(1)}% ${tgr>=0?'증가':'감소'}했습니다. 배민 광고비를 ${bmAd2<bmAd1?`${(Math.abs((bmAd2-bmAd1)/(bmAd1||1))*100).toFixed(1)}% 절감(${fma(bmAd1)}→${fma(bmAd2)})하면서도 매출을 늘리는 이상적인 패턴`:`${(Math.abs((bmAd2-bmAd1)/(bmAd1||1))*100).toFixed(1)}% 증가(${fma(bmAd1)}→${fma(bmAd2)})하며 매출 성장`}이 나타났습니다. 쿠팡 매출도 ${fma(cp1)}→${fma(cp2)}으로 ${((cp2-cp1)/(cp1||1)*100).toFixed(1)}% 증가했습니다.</div>
         </div>
