@@ -178,6 +178,11 @@ tbody tr:hover td{background:#f8fafc;}
 .act{display:inline-block;font-size:10px;padding:3px 10px;border-radius:4px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:6px;}
 .merge-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:600;color:#7c3aed;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:7px;cursor:pointer;font-family:inherit;}
 .merge-btn:hover{background:#ede9fe;}
+.exclude-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:600;color:#dc2626;background:#fff1f1;border:1.5px solid #fecaca;border-radius:7px;cursor:pointer;font-family:inherit;}
+.exclude-btn:hover{background:#fee2e2;}
+.ex-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#fff1f1;border:1.5px solid #fecaca;border-radius:20px;font-size:11px;font-weight:600;color:#dc2626;}
+.ex-chip button{background:none;border:none;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:0;margin-left:1px;}
+.ex-chip button:hover{color:#991b1b;}
 .mg-list{position:absolute;z-index:200;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);max-height:180px;overflow-y:auto;display:none;width:100%;}
 .mg-list.show{display:block;}
 .mg-item{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;color:#1e293b;}
@@ -478,6 +483,27 @@ textarea:focus{border-color:#4B7BE8;}
 
 </div><!-- /uploadScreen -->
 
+<!-- 매장 제거 모달 -->
+<div class="ov" id="excludeOv">
+  <div class="ov-box" style="max-width:500px;width:94vw;">
+    <div class="ov-hd">
+      <div><div class="ov-title">✕ 매장 제거</div><div class="ov-hint">선택한 매장을 모든 집계에서 제외합니다</div></div>
+      <button class="ov-close" onclick="closeExcludeModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div style="position:relative;margin-bottom:14px;">
+        <input id="ex_input" type="text" placeholder="제거할 매장명 검색…" oninput="filterExList()" autocomplete="off"
+          style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:12px;color:#1e293b;outline:none;font-family:inherit;">
+        <div id="ex_list" class="mg-list" style="position:absolute;top:100%;left:0;right:0;margin-top:2px;"></div>
+      </div>
+      <div id="ex_chips_wrap" style="display:flex;flex-wrap:wrap;gap:7px;min-height:36px;padding:10px 12px;background:#f8fafc;border-radius:9px;border:1px solid #f1f5f9;margin-bottom:4px;">
+        <span id="ex_empty_hint" style="font-size:11px;color:#94a3b8;align-self:center;">제거할 매장을 검색해서 추가하세요</span>
+      </div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:6px;">추가된 매장은 KPI·TOP10·테이블 등 모든 집계에서 즉시 제외됩니다</div>
+    </div>
+  </div>
+</div>
+
 <!-- 매장 통합 모달 -->
 <div class="ov" id="mergeOv">
   <div class="ov-box" style="max-width:560px;width:94vw;">
@@ -527,6 +553,7 @@ textarea:focus{border-color:#4B7BE8;}
       <div class="tab-btns">
         <button class="reset-btn" onclick="resetToUpload()">↩ 데이터 변경</button>
         <button class="merge-btn" onclick="openMergeModal()">⊕ 매장 통합</button>
+        <button class="exclude-btn" onclick="openExcludeModal()">✕ 매장 제거</button>
         <button class="save-btn" onclick="saveImg()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           이미지 저장
@@ -1053,6 +1080,61 @@ function setAbRow(n,val,detail,label){
   el.innerHTML=`<span class="ab-ico">${val.startsWith('✅')?'✅':val.startsWith('⏳')?'⏳':val.startsWith('❌')?'❌':'⚠'}</span><span class="ab-label">${label}</span><span class="ab-val"><b>${val.replace(/^[✅⏳❌⚠]\s*/,'')}</b>${detail?'<br><span style="font-size:10px;color:#8896b0;">'+detail+'</span>':''}</span>`;
 }
 
+// ─── 매장 제거 ───
+let excludedCodes=new Set(); // 제거된 매장 코드
+
+function openExcludeModal(){
+  document.getElementById('ex_input').value='';
+  document.getElementById('ex_list').className='mg-list';
+  renderExChips();
+  document.getElementById('excludeOv').classList.add('on');
+}
+function closeExcludeModal(){document.getElementById('excludeOv').classList.remove('on');}
+
+function filterExList(){
+  const q=document.getElementById('ex_input').value.trim().toLowerCase();
+  const list=document.getElementById('ex_list');
+  if(!q){list.className='mg-list';return;}
+  const matches=_allStoresForMerge.filter(s=>!excludedCodes.has(s.code)&&(s.display.toLowerCase().includes(q)||s.code.includes(q))).slice(0,15);
+  if(!matches.length){list.className='mg-list';return;}
+  list.innerHTML=matches.map(s=>`<div class="mg-item" onclick="addExclude('${s.code}','${s.display.replace(/'/g,"\\'")}')">
+    ${s.display} <span style="color:#94a3b8;font-size:10px;">${s.brand}</span>
+  </div>`).join('');
+  list.className='mg-list show';
+}
+
+function addExclude(code,name){
+  excludedCodes.add(code);
+  document.getElementById('ex_input').value='';
+  document.getElementById('ex_list').className='mg-list';
+  renderExChips();
+  if(_dashData)renderDashboard(_dashData);
+}
+
+function removeExclude(code){
+  excludedCodes.delete(code);
+  renderExChips();
+  if(_dashData)renderDashboard(_dashData);
+}
+
+function renderExChips(){
+  const wrap=document.getElementById('ex_chips_wrap');
+  const hint=document.getElementById('ex_empty_hint');
+  if(!excludedCodes.size){
+    wrap.innerHTML='';
+    wrap.appendChild(hint);
+    hint.style.display='';
+    return;
+  }
+  hint.style.display='none';
+  const chips=[...excludedCodes].map(code=>{
+    const store=_allStoresForMerge.find(s=>s.code===code);
+    const name=store?store.display:code;
+    return`<div class="ex-chip">${name}<button onclick="removeExclude('${code}')" title="복원">✕</button></div>`;
+  }).join('');
+  wrap.innerHTML=chips;
+}
+
 // ─── 매장 통합 ───
 let mergeRules=[];      // [{keepCode,keepName,removeCode,removeName}]
 let _allStoresForMerge=[];  // 현재 대시보드의 stores 스냅샷
@@ -1250,7 +1332,10 @@ function renderDashboard({r1,r2,w1L,w2L}){
   const CH_COL={'배달의민족':'#3FCF8E','쿠팡이츠':'#D92B3A','요기요':'#FA5E5E','먹깨비':'#FF8800','땡겨요':'#6366F1','포스':'#64748b','전화주문':'#94a3b8'};
   const allChs=CH_ORDER.filter(c=>c1[c]||c2[c]);
 
-  function filteredStores(b){return b==='전체'?stores:stores.filter(s=>s.brand===b);}
+  function filteredStores(b){
+    const base=stores.filter(s=>!excludedCodes.has(s.code));
+    return b==='전체'?base:base.filter(s=>s.brand===b);
+  }
   function calcSt(list){
     const act=list.filter(s=>s.w1>0||s.w2>0);
     const TW1=act.reduce((a,s)=>a+s.w1,0),TW2=act.reduce((a,s)=>a+s.w2,0);
