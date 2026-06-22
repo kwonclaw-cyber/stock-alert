@@ -176,6 +176,27 @@ tbody tr:hover td{background:#f8fafc;}
 .sb-txt{font-size:12px;color:#374151;line-height:1.9;border-left:3px solid #e2e8f0;padding-left:14px;}
 .sb-txt strong{color:#1e293b;font-weight:700;}
 .act{display:inline-block;font-size:10px;padding:3px 10px;border-radius:4px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:6px;}
+.merge-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:600;color:#7c3aed;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:7px;cursor:pointer;font-family:inherit;}
+.merge-btn:hover{background:#ede9fe;}
+.mg-list{position:absolute;z-index:200;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);max-height:180px;overflow-y:auto;display:none;width:100%;}
+.mg-list.show{display:block;}
+.mg-item{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;color:#1e293b;}
+.mg-item:hover{background:#eff6ff;}
+.mg-item:last-child{border-bottom:none;}
+.mg-sel{margin-top:6px;font-size:11px;font-weight:600;color:#7c3aed;background:#f5f3ff;border-radius:6px;padding:5px 9px;display:none;}
+.mg-sel.show{display:block;}
+.mg-rule{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:11px;}
+.mg-rule-txt{color:#374151;}
+.mg-rule-del{font-size:16px;color:#94a3b8;cursor:pointer;background:none;border:none;padding:0 2px;line-height:1;}
+.mg-rule-del:hover{color:#dc2626;}
+.hist-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border-radius:9px;border:1px solid #f1f5f9;}
+.hist-info{flex:1;}
+.hist-label{font-size:12px;font-weight:700;color:#1e293b;}
+.hist-date{font-size:10px;color:#94a3b8;margin-top:1px;}
+.hist-load{font-size:11px;font-weight:600;color:#1a56db;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:6px;padding:5px 11px;cursor:pointer;font-family:inherit;}
+.hist-load:hover{background:#dbeafe;}
+.hist-del{font-size:14px;color:#94a3b8;background:none;border:none;cursor:pointer;margin-left:8px;}
+.hist-del:hover{color:#dc2626;}
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;flex-direction:column;align-items:center;justify-content:center;}
 .ov.on{display:flex;}
 .ov-box{background:#fff;border-radius:14px;overflow:hidden;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);}
@@ -443,6 +464,44 @@ textarea:focus{border-color:#4B7BE8;}
 
   </div>
 </div>
+
+<!-- 분석 히스토리 -->
+<div class="up-card" id="historyCard" style="max-width:760px;margin-top:14px;display:none;">
+  <div class="up-hd" style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">
+    <div class="up-hd-tit" style="font-size:13px;">📂 분석 기록</div>
+    <button onclick="clearAllHistory()" style="font-size:10px;color:#94a3b8;background:none;border:none;cursor:pointer;font-family:inherit;">전체 삭제</button>
+  </div>
+  <div id="historyList" style="padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
+</div><!-- /uploadScreen -->
+
+<!-- 매장 통합 모달 -->
+<div class="ov" id="mergeOv">
+  <div class="ov-box" style="max-width:560px;width:94vw;">
+    <div class="ov-hd">
+      <div><div class="ov-title">⊕ 매장 통합</div><div class="ov-hint">두 코드로 분리된 매장을 하나로 합산합니다</div></div>
+      <button class="ov-close" onclick="closeMergeModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div style="position:relative;">
+          <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">유지할 매장 (기준)</label>
+          <input id="mg_keep" type="text" placeholder="매장명 검색…" oninput="filterMgList('mg_keep','mg_keep_list')" autocomplete="off" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:12px;color:#1e293b;outline:none;font-family:inherit;">
+          <div id="mg_keep_list" class="mg-list" style="position:absolute;top:100%;left:0;right:0;"></div>
+          <div id="mg_keep_sel" class="mg-sel"></div>
+        </div>
+        <div style="position:relative;">
+          <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">제거할 매장 (합산 후 삭제)</label>
+          <input id="mg_remove" type="text" placeholder="매장명 검색…" oninput="filterMgList('mg_remove','mg_remove_list')" autocomplete="off" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:12px;color:#1e293b;outline:none;font-family:inherit;">
+          <div id="mg_remove_list" class="mg-list" style="position:absolute;top:100%;left:0;right:0;"></div>
+          <div id="mg_remove_sel" class="mg-sel"></div>
+        </div>
+      </div>
+      <button onclick="applyMerge()" style="width:100%;padding:11px;background:#1a56db;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">통합 적용</button>
+      <div id="mg_rules_wrap" style="margin-top:16px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- 대시보드 -->
@@ -465,6 +524,7 @@ textarea:focus{border-color:#4B7BE8;}
       <div class="tab" onclick="showTab(1)">📋 분석보고용</div>
       <div class="tab-btns">
         <button class="reset-btn" onclick="resetToUpload()">↩ 데이터 변경</button>
+        <button class="merge-btn" onclick="openMergeModal()">⊕ 매장 통합</button>
         <button class="save-btn" onclick="saveImg()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           이미지 저장
@@ -736,7 +796,7 @@ function renderFL(n){
 }
 
 // 페이지 로드 시 전주 데이터 복원
-window.addEventListener('DOMContentLoaded',()=>{ refreshPrevZone(); updateViewBtn(); });
+window.addEventListener('DOMContentLoaded',()=>{ refreshPrevZone(); updateViewBtn(); renderHistoryUI(); });
 
 // ─── 파싱 유틸 ───
 function toNum(v){if(v===''||v==null)return 0;const n=parseFloat(String(v).replace(/[,\s]/g,''));return(isNaN(n)||n<0)?0:n;}
@@ -991,6 +1051,130 @@ function setAbRow(n,val,detail,label){
   el.innerHTML=`<span class="ab-ico">${val.startsWith('✅')?'✅':val.startsWith('⏳')?'⏳':val.startsWith('❌')?'❌':'⚠'}</span><span class="ab-label">${label}</span><span class="ab-val"><b>${val.replace(/^[✅⏳❌⚠]\s*/,'')}</b>${detail?'<br><span style="font-size:10px;color:#8896b0;">'+detail+'</span>':''}</span>`;
 }
 
+// ─── 매장 통합 ───
+let mergeRules=[];      // [{keepCode,keepName,removeCode,removeName}]
+let _allStoresForMerge=[];  // 현재 대시보드의 stores 스냅샷
+
+function openMergeModal(){
+  mgSelected={keep:null,remove:null};
+  document.getElementById('mg_keep').value='';
+  document.getElementById('mg_remove').value='';
+  document.getElementById('mg_keep_sel').className='mg-sel';
+  document.getElementById('mg_remove_sel').className='mg-sel';
+  document.getElementById('mg_keep_list').className='mg-list';
+  document.getElementById('mg_remove_list').className='mg-list';
+  renderMgRules();
+  document.getElementById('mergeOv').classList.add('on');
+}
+function closeMergeModal(){document.getElementById('mergeOv').classList.remove('on');}
+
+let mgSelected={keep:null,remove:null};
+
+function filterMgList(inputId,listId){
+  const q=document.getElementById(inputId).value.trim().toLowerCase();
+  const list=document.getElementById(listId);
+  if(!q){list.className='mg-list';return;}
+  const matches=_allStoresForMerge.filter(s=>s.display.toLowerCase().includes(q)||s.code.includes(q)).slice(0,15);
+  if(!matches.length){list.className='mg-list';return;}
+  list.innerHTML=matches.map(s=>`<div class="mg-item" onclick="selectMgStore('${inputId}','${listId}','${s.code}','${s.display.replace(/'/g,"\\'")}','${s.brand}')">${s.display} <span style="color:#94a3b8;font-size:10px;">${s.brand}</span></div>`).join('');
+  list.className='mg-list show';
+}
+
+function selectMgStore(inputId,listId,code,name,brand){
+  const side=inputId==='mg_keep'?'keep':'remove';
+  mgSelected[side]={code,name,brand};
+  document.getElementById(inputId).value=name;
+  document.getElementById(listId).className='mg-list';
+  const sel=document.getElementById(inputId==='mg_keep'?'mg_keep_sel':'mg_remove_sel');
+  sel.textContent=`✔ ${name} (${code})`;
+  sel.className='mg-sel show';
+}
+
+function applyMerge(){
+  const {keep,remove}=mgSelected;
+  if(!keep||!remove){alert('두 매장을 모두 선택해주세요.');return;}
+  if(keep.code===remove.code){alert('같은 매장입니다.');return;}
+  if(mergeRules.some(r=>r.keepCode===keep.code&&r.removeCode===remove.code)){alert('이미 등록된 통합 규칙입니다.');return;}
+  mergeRules.push({keepCode:keep.code,keepName:keep.name,removeCode:remove.code,removeName:remove.name});
+  mgSelected={keep:null,remove:null};
+  document.getElementById('mg_keep').value='';
+  document.getElementById('mg_remove').value='';
+  document.getElementById('mg_keep_sel').className='mg-sel';
+  document.getElementById('mg_remove_sel').className='mg-sel';
+  renderMgRules();
+  if(_dashData)renderDashboard(_dashData);
+}
+
+function removeMergeRule(idx){
+  mergeRules.splice(idx,1);
+  renderMgRules();
+  if(_dashData)renderDashboard(_dashData);
+}
+
+function renderMgRules(){
+  const wrap=document.getElementById('mg_rules_wrap');
+  if(!mergeRules.length){wrap.innerHTML='';return;}
+  wrap.innerHTML=`<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase;">현재 통합 규칙 (${mergeRules.length}개)</div>`+
+    mergeRules.map((r,i)=>`<div class="mg-rule" style="margin-bottom:6px;"><div class="mg-rule-txt"><b>${r.keepName}</b> <span style="color:#94a3b8;">+</span> <b>${r.removeName}</b> → 하나로 합산</div><button class="mg-rule-del" onclick="removeMergeRule(${i})">✕</button></div>`).join('');
+}
+
+// ─── 분석 히스토리 ───
+const HIST_KEY='babgujung_analysis_history';
+function loadHistory(){return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}
+function saveHistory(list){localStorage.setItem(HIST_KEY,JSON.stringify(list));}
+
+function saveToHistory(r1,r2,w1L,w2L){
+  const list=loadHistory();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit'});
+  const timeStr=now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  const label=`${w2L||'금주'} 분석`;
+  list.unshift({id:now.getTime(),label,date:dateStr,time:timeStr,w1L,w2L,r1,r2});
+  if(list.length>8)list.splice(8);
+  saveHistory(list);
+  renderHistoryUI();
+}
+
+function renderHistoryUI(){
+  const list=loadHistory();
+  const card=document.getElementById('historyCard');
+  const el=document.getElementById('historyList');
+  if(!list.length){card.style.display='none';return;}
+  card.style.display='block';
+  el.innerHTML=list.map((h,i)=>`<div class="hist-item">
+    <div class="hist-info">
+      <div class="hist-label">${h.label}</div>
+      <div class="hist-date">저장일: ${h.date} ${h.time||''} · 전주: ${h.w1L||'—'} / 금주: ${h.w2L||'—'}</div>
+    </div>
+    <button class="hist-load" onclick="loadFromHistory(${i})">불러오기</button>
+    <button class="hist-del" onclick="deleteHistory(${i})" title="삭제">✕</button>
+  </div>`).join('');
+}
+
+function loadFromHistory(i){
+  const list=loadHistory();
+  const h=list[i];
+  if(!h)return;
+  parsed[1]=h.r1;parsed[2]=h.r2;
+  document.getElementById('w1Label').value=h.w1L||'';
+  document.getElementById('w2Label').value=h.w2L||'';
+  mergeRules=[];
+  showDashboard();
+}
+
+function deleteHistory(i){
+  const list=loadHistory();
+  list.splice(i,1);
+  saveHistory(list);
+  renderHistoryUI();
+}
+
+function clearAllHistory(){
+  if(!confirm('모든 분석 기록을 삭제할까요?'))return;
+  localStorage.removeItem(HIST_KEY);
+  renderHistoryUI();
+}
+
 // ─── 대시보드 ───
 function resolveStore(code,rawName){
   const info=STORE_MATCH[code];
@@ -1011,6 +1195,7 @@ function showDashboard(){
   const w1L=document.getElementById('w1Label').value||(parsed[1].savedLabel||'전주');
   const w2L=document.getElementById('w2Label').value||'금주';
   _dashData={r1:parsed[1],r2:parsed[2],w1L,w2L};
+  saveToHistory(parsed[1],parsed[2],w1L,w2L);
   renderDashboard(_dashData);
   document.getElementById('uploadScreen').style.display='none';
   document.getElementById('dashScreen').style.display='block';
@@ -1023,7 +1208,7 @@ function renderDashboard({r1,r2,w1L,w2L}){
   const hasTime=Object.keys(t1).length>0||Object.keys(t2).length>0;
   const hasChannel=Object.keys(c1).length>0||Object.keys(c2).length>0;
 
-  // 매장 병합
+  // 매장 생성
   const stores=[];
   const allCodes=new Set([...Object.keys(r1.store||{}),...Object.keys(r2.store||{})]);
   for(const code of allCodes){
@@ -1033,6 +1218,20 @@ function renderDashboard({r1,r2,w1L,w2L}){
     const gr=w1>0?(w2-w1)/w1:(w2>0?Infinity:NaN);
     stores.push({code,display:info.display,brand:info.brand,w1,w2,gr,isNew:gr===Infinity});
   }
+  // 매장 통합 규칙 적용
+  for(const rule of mergeRules){
+    const keepIdx=stores.findIndex(s=>s.code===rule.keepCode);
+    const removeIdx=stores.findIndex(s=>s.code===rule.removeCode);
+    if(keepIdx>=0&&removeIdx>=0){
+      stores[keepIdx].w1+=stores[removeIdx].w1;
+      stores[keepIdx].w2+=stores[removeIdx].w2;
+      const kw1=stores[keepIdx].w1,kw2=stores[keepIdx].w2;
+      stores[keepIdx].gr=kw1>0?(kw2-kw1)/kw1:(kw2>0?Infinity:NaN);
+      stores[keepIdx].isNew=stores[keepIdx].gr===Infinity;
+      stores.splice(removeIdx,1);
+    }
+  }
+  _allStoresForMerge=[...stores]; // 모달 검색용 스냅샷
   const brands=[...new Set(stores.map(s=>s.brand))].sort();
   const allBrands=brands.length>1?['전체',...brands]:brands;
 
@@ -1237,6 +1436,7 @@ function showTab(n){curTab=n;document.querySelectorAll('.tab').forEach((t,i)=>t.
 function resetToUpload(){
   document.getElementById('dashScreen').style.display='none';
   document.getElementById('uploadScreen').style.display='flex';
+  renderHistoryUI();
   fileStore[1]=[];fileStore[2]=[];parsed[2]=null;
   document.getElementById('fl2').innerHTML='';
   ['fi1','fi2'].forEach(id=>document.getElementById(id).value='');
