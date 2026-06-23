@@ -24,6 +24,7 @@ const TABS: Tab[] = [
   { href: "/calendar", label: "일정" },
   { href: "/live", label: "긴급라이브정리" },
   { href: "/changelog", label: "패치노트" },
+  { href: "/owner", label: "사장님 정보" },
 ];
 
 /** 저장된 순서(href 배열)로 탭 정렬. 빠진/추가된 탭은 보정. */
