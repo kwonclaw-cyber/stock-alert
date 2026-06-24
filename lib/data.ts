@@ -141,6 +141,20 @@ export type DailyState = {
   checks: Record<string, boolean>;
 };
 
+/** 사장님(매장 대표자) 정보 */
+export type OwnerInfo = {
+  ownerName: string;       // 대표자 성함
+  ownerPhone: string;      // 대표자 연락처
+  email: string;           // 이메일 주소
+  storePhone: string;      // 매장 전화번호
+  storeAddress: string;    // 매장 주소
+  naverId: string;         // 네이버 ID
+  naverPw: string;         // 네이버 PW
+  storeKey: string;        // 매장 키 정보
+  baeminCode: string;      // 배민 가게복사코드
+  baeminOneCode: string;   // 배민원 가게복사코드
+};
+
 /** 전체 앱 데이터 (서버에 통째로 저장) */
 export type AppData = {
   guilds: Guild[];
@@ -159,6 +173,7 @@ export type AppData = {
   villageMap: string; // 마을지도 이미지(data URL)
   amulet: AmuletState; // 부적 시스템
   discordWebhook: string; // 디스코드 웹훅 URL
+  ownerInfo: OwnerInfo; // 사장님 정보
 };
 
 /** 고유 id 생성 */
@@ -211,6 +226,21 @@ export function defaultAmulet(): AmuletState {
   };
 }
 
+export function defaultOwnerInfo(): OwnerInfo {
+  return {
+    ownerName: "",
+    ownerPhone: "",
+    email: "",
+    storePhone: "",
+    storeAddress: "",
+    naverId: "",
+    naverPw: "",
+    storeKey: "",
+    baeminCode: "",
+    baeminOneCode: "",
+  };
+}
+
 /** 최초 기본 데이터 */
 export function defaultData(): AppData {
   return {
@@ -246,6 +276,7 @@ export function defaultData(): AppData {
     villageMap: "",
     amulet: defaultAmulet(),
     discordWebhook: "",
+    ownerInfo: defaultOwnerInfo(),
   };
 }
 
@@ -429,5 +460,17 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       };
     })(),
     discordWebhook: input.discordWebhook ?? "",
+    ownerInfo: {
+      ownerName: input.ownerInfo?.ownerName ?? "",
+      ownerPhone: input.ownerInfo?.ownerPhone ?? "",
+      email: input.ownerInfo?.email ?? "",
+      storePhone: input.ownerInfo?.storePhone ?? "",
+      storeAddress: input.ownerInfo?.storeAddress ?? "",
+      naverId: input.ownerInfo?.naverId ?? "",
+      naverPw: input.ownerInfo?.naverPw ?? "",
+      storeKey: input.ownerInfo?.storeKey ?? "",
+      baeminCode: input.ownerInfo?.baeminCode ?? "",
+      baeminOneCode: input.ownerInfo?.baeminOneCode ?? "",
+    },
   };
 }
