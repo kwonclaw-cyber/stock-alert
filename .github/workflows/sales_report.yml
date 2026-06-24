@@ -1,11 +1,13 @@
-name: 매출 리포트 메일 발송
+name: 매출 리포트 메일 발송 (일시 정지)
 
+# 자동 cron 실행은 일시 중단됨 (matetech API 전환 작업 진행 중).
+# 다시 켜려면 아래 schedule 블록의 주석을 해제하세요.
 on:
-  schedule:
-    # 일간 리포트: 매일 KST 08:30 (UTC 23:30 전날) — 30분 버퍼
-    - cron: "30 23 * * *"
-    # 주간 리포트: 매주 월요일 KST 08:30 (UTC 23:30 일요일)
-    - cron: "30 23 * * 0"
+  # schedule:
+  #   # 일간 리포트: 매일 KST 08:30 (UTC 23:30 전날) — 30분 버퍼
+  #   - cron: "30 23 * * *"
+  #   # 주간 리포트: 매주 월요일 KST 08:30 (UTC 23:30 일요일)
+  #   - cron: "30 23 * * 0"
   workflow_dispatch:
     inputs:
       report_type:
