@@ -22,7 +22,9 @@ const FIELDS: Field[] = [
   { key: "storeAddress", label: "매장 주소",     placeholder: "서울시 ...", multiline: true },
   { key: "naverId",      label: "네이버 ID",     placeholder: "naver_id" },
   { key: "naverPw",      label: "네이버 PW",     placeholder: "••••••••", type: "password" },
-  { key: "storeKey",     label: "매장 키 정보",  placeholder: "키 정보 입력", multiline: true },
+  { key: "storeKey",      label: "매장 키 정보",       placeholder: "키 정보 입력", multiline: true },
+  { key: "baeminCode",    label: "배민 가게복사코드",   placeholder: "배민 코드 입력" },
+  { key: "baeminOneCode", label: "배민원 가게복사코드", placeholder: "배민원 코드 입력" },
 ];
 
 export default function OwnerPage() {

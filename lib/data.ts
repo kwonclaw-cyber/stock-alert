@@ -151,6 +151,8 @@ export type OwnerInfo = {
   naverId: string;         // 네이버 ID
   naverPw: string;         // 네이버 PW
   storeKey: string;        // 매장 키 정보
+  baeminCode: string;      // 배민 가게복사코드
+  baeminOneCode: string;   // 배민원 가게복사코드
 };
 
 /** 전체 앱 데이터 (서버에 통째로 저장) */
@@ -234,6 +236,8 @@ export function defaultOwnerInfo(): OwnerInfo {
     naverId: "",
     naverPw: "",
     storeKey: "",
+    baeminCode: "",
+    baeminOneCode: "",
   };
 }
 
@@ -465,6 +469,8 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       naverId: input.ownerInfo?.naverId ?? "",
       naverPw: input.ownerInfo?.naverPw ?? "",
       storeKey: input.ownerInfo?.storeKey ?? "",
+      baeminCode: input.ownerInfo?.baeminCode ?? "",
+      baeminOneCode: input.ownerInfo?.baeminOneCode ?? "",
     },
   };
 }
