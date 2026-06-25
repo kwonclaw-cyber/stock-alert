@@ -877,72 +877,93 @@ def prescribe_data(D, EFF, TM, feats):
             "n": len(arr),
         }
 
-    out = []
+    eff = {"hour": round(hour_med, 4), "ad": round(ad_opt, 4), "disc": round(disc_med, 4)}
+    benchJS = {tk: {"close": (min(b["close_p75"], 1440) if b["close_p75"] else None),
+                    "budget": round(b["budget_med"] or 0)} for tk, b in bench.items()}
+
+    stores, default_total = [], 0.0
     for i, s in enumerate(order):
         tk = tier_of(i)
-        b = bench[tk]
+        b = benchJS[tk]
         months = sum(1 for x in s["m"] if x > 0) or 1
         monthly = s["amt"] / months
-        recs, total = [], 0.0
-        # 영업시간 연장 (권장 마감은 자정 24시를 넘지 않게 제한)
-        tgt_close = min(b["close_p75"], 1440) if b["close_p75"] else None
-        if s["close"] is not None and tgt_close and 18 * 60 <= s["close"] < tgt_close - 15:
-            up = monthly * hour_med
-            total += up
-            recs.append({"lever": "🕒 영업시간 늘리기", "cur": _ftime(s["close"]), "tgt": _ftime(tgt_close),
-                         "won": round(up),
-                         "why": f"비슷한 규모 매장들은 보통 {_ftime(tgt_close)}까지 영업해요. "
-                                f"마감을 늘린 매장들은 배달매출이 평균 +{hour_med*100:.1f}% 올랐습니다. "
-                                f"다만 야간 인건비가 늘 수 있어요."})
-        # 우가클 광고 예산
-        if b["budget_med"] and (s["budget"] or 0) < b["budget_med"] * 0.8:
-            up = monthly * ad_opt
-            total += up
-            cur = f"월 {int(s['budget']/10000):,}만원" if s["budget"] else "거의 안 함"
-            recs.append({"lever": "📣 가게 광고(우리가게클릭) 늘리기", "cur": cur,
-                         "tgt": f"월 {int(b['budget_med']/10000):,}만원", "won": round(up),
-                         "why": f"비슷한 매장들은 광고비로 월 {int(b['budget_med']/10000):,}만원쯤 써요. "
-                                f"광고를 늘린 매장은 매출이 평균 +{ad_opt*100:.1f}% 올랐습니다. "
-                                f"광고비가 추가로 들어가는 점은 함께 봐주세요."})
-        # 할인 재설계
         good = (s["dmix"].get("tip", 0) + s["dmix"].get("big", 0))
         small = s["dmix"].get("small", 0)
-        if good == 0 and disc_med > 0:
-            up = monthly * disc_med
-            total += up
-            recs.append({"lever": "🏷️ 할인 바꾸기", "cur": ("소액 할인 위주" if small else "할인 안 함"),
-                         "tgt": "배달팁 할인 / 큰 금액 할인", "won": round(up),
-                         "why": f"적은 금액(1~3천원) 할인은 효과가 거의 없었어요. "
-                                f"배달팁 할인이나 큰 금액 할인으로 바꾼 매장은 매출이 평균 +{disc_med*100:.1f}% 올랐습니다. "
-                                f"할인은 마진이 줄어드는 점은 함께 봐주세요."})
-        out.append({"shop": s["shop"], "name": s["name"], "tier": tk,
-                    "monthly": round(monthly), "total": round(total), "recs": recs})
-    brand_total = sum(o["total"] for o in out)
-    return out, brand_total
+        disc = "good" if good > 0 else ("small" if small > 0 else "none")
+        stores.append({"name": s["name"], "tier": tk, "monthly": round(monthly),
+                       "close": s["close"], "budget": round(s["budget"] or 0), "disc": disc})
+        # 프리필 기준 기본 기대치(헤드라인용)
+        t = 0.0
+        if s["close"] is not None and b["close"] and 18 * 60 <= s["close"] < b["close"] - 15:
+            t += monthly * hour_med
+        if b["budget"] and (s["budget"] or 0) < b["budget"] * 0.8:
+            t += monthly * ad_opt
+        if disc != "good" and disc_med > 0:
+            t += monthly * disc_med
+        default_total += t
+    return {"eff": eff, "bench": benchJS, "stores": stores}, default_total
 
 
 PRESCRIBE_JS = r"""
 let _prMap={}, _prDone=false;
 const man=v=>{v=Math.round(v||0); if(Math.abs(v)>=1e8)return (v/1e8).toFixed(1)+'억원'; return Math.round(v/1e4).toLocaleString()+'만원';};
+function prFtime(m){ if(m==null)return'-'; if(m===1440)return'자정(24시)';
+  if(m>1440){const x=m-1440;return '새벽 '+Math.floor(x/60)+'시'+(x%60?' '+x%60+'분':'');}
+  const h=Math.floor(m/60),mm=m%60; return h+'시'+(mm?' '+mm+'분':''); }
 function initPrescribe(){
   if(_prDone)return; _prDone=true;
-  PR.forEach((s,i)=>{_prMap[s.name]=i;});
+  // 마감시각 옵션(18:00~새벽2시)
+  const cs=document.getElementById('prClose');
+  for(let m=18*60;m<=1560;m+=30){const o=document.createElement('option');o.value=m;o.textContent=prFtime(m);cs.appendChild(o);}
+  PRB.stores.forEach((s,i)=>{_prMap[s.name]=i;});
   const sel=document.getElementById('prSel');
-  PR.slice().sort((a,b)=>b.total-a.total).forEach(s=>{const o=document.createElement('option');
-    o.value=s.name;o.textContent=s.name+'  (예상 +'+man(s.total)+'/월)';sel.appendChild(o);});
-  sel.addEventListener('input',renderPr); sel.addEventListener('change',renderPr);
+  PRB.stores.slice().sort((a,b)=>b.monthly-a.monthly).forEach(s=>{const o=document.createElement('option');
+    o.value=s.name;o.textContent=s.name;sel.appendChild(o);});
+  sel.addEventListener('input',prefill); sel.addEventListener('change',prefill);
+  ['prClose','prBudget','prDisc','prMonthly'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',renderPr);
+    document.getElementById(id).addEventListener('change',renderPr);});
   sel.value=sel.options[0]? sel.options[0].value : '';
+  prefill();
+}
+function prefill(){
+  const i=_prMap[document.getElementById('prSel').value]; if(i==null)return;
+  const s=PRB.stores[i];
+  // 가장 가까운 마감 옵션
+  const cs=document.getElementById('prClose');
+  if(s.close!=null){let best=cs.options[0].value,bd=1e9;
+    for(const o of cs.options){const d=Math.abs(o.value-s.close); if(d<bd){bd=d;best=o.value;}} cs.value=best;}
+  else cs.value=1320;
+  document.getElementById('prBudget').value = s.budget? Math.round(s.budget/1e4):'';
+  document.getElementById('prDisc').value = s.disc;
+  document.getElementById('prMonthly').value = Math.round(s.monthly/1e4);
   renderPr();
 }
 function renderPr(){
   const i=_prMap[document.getElementById('prSel').value]; if(i==null)return;
-  const s=PR[i];
-  let h='<div class="kpi"><div><b>'+man(s.monthly)+'</b><span>지금 한 달 배달매출</span></div>'+
-    '<div><b class="ok">+'+man(s.total)+'</b><span>바꾸면 늘어날 매출(월, 예상)</span></div>'+
-    '<div><b class="ok">+'+(s.monthly?Math.round(s.total/s.monthly*100):0)+'%</b><span>예상 상승률</span></div>'+
+  const s=PRB.stores[i], b=PRB.bench[s.tier], e=PRB.eff;
+  const closeMin=+document.getElementById('prClose').value;
+  const budget=(+document.getElementById('prBudget').value||0)*1e4;
+  const disc=document.getElementById('prDisc').value;
+  const monthly=(+document.getElementById('prMonthly').value||0)*1e4;
+  const recs=[];
+  const tgt=b.close?Math.min(b.close,1440):null;
+  if(tgt && closeMin>=18*60 && closeMin<tgt-15)
+    recs.push({lever:'🕒 영업시간 늘리기',cur:prFtime(closeMin),tgt:prFtime(tgt),won:monthly*e.hour,
+      why:'비슷한 규모 매장들은 보통 '+prFtime(tgt)+'까지 영업해요. 마감을 늘린 매장들은 배달매출이 평균 +'+(e.hour*100).toFixed(1)+'% 올랐습니다. 다만 야간 인건비가 늘 수 있어요.'});
+  if(b.budget && budget<b.budget*0.8)
+    recs.push({lever:'📣 가게 광고(우리가게클릭) 늘리기',cur:budget?('월 '+Math.round(budget/1e4)+'만원'):'거의 안 함',tgt:'월 '+Math.round(b.budget/1e4)+'만원',won:monthly*e.ad,
+      why:'비슷한 매장들은 광고비로 월 '+Math.round(b.budget/1e4)+'만원쯤 써요. 광고를 늘린 매장은 매출이 평균 +'+(e.ad*100).toFixed(1)+'% 올랐습니다. 광고비가 추가로 들어가는 점은 함께 봐주세요.'});
+  if(disc!=='good')
+    recs.push({lever:'🏷️ 할인 바꾸기',cur:(disc==='small'?'소액 할인 위주':'할인 안 함'),tgt:'배달팁 할인 / 큰 금액 할인',won:monthly*e.disc,
+      why:'적은 금액(1~3천원) 할인은 효과가 거의 없었어요. 배달팁 할인이나 큰 금액 할인으로 바꾼 매장은 매출이 평균 +'+(e.disc*100).toFixed(1)+'% 올랐습니다. 할인은 마진이 줄어드는 점은 함께 봐주세요.'});
+  const total=recs.reduce((a,r)=>a+r.won,0);
+  let h='<div class="kpi"><div><b>'+man(monthly)+'</b><span>입력한 한 달 배달매출</span></div>'+
+    '<div><b class="ok">+'+man(total)+'</b><span>바꾸면 늘어날 매출(월, 예상)</span></div>'+
+    '<div><b class="ok">+'+(monthly?Math.round(total/monthly*100):0)+'%</b><span>예상 상승률</span></div>'+
     '<div><b>'+s.tier+'</b><span>우리 매장 규모</span></div></div>';
-  if(!s.recs.length){ h+='<div class="bcard flat"><h3>지금도 잘 하고 있어요 👍</h3><p style="margin:0;font-size:14px;">비슷한 매장들과 비교해 크게 바꿀 부분이 없습니다. 지금처럼 유지하세요.</p></div>'; }
-  s.recs.forEach(r=>{
+  if(!recs.length) h+='<div class="bcard flat"><h3>지금도 잘 하고 있어요 👍</h3><p style="margin:0;font-size:14px;">입력한 설정이 비슷한 매장들과 비교해 양호합니다. 지금처럼 유지하세요.</p></div>';
+  recs.forEach(r=>{
     h+='<div class="bcard pos"><h3>'+r.lever+'  <span style="font-size:13px;color:#2f9e44;font-weight:700;">월 매출 +'+man(r.won)+' 예상</span></h3>'+
       '<div style="font-size:15px;margin:8px 0;">지금 <b>'+r.cur+'</b> &nbsp;→&nbsp; 이렇게 <b class="ok">'+r.tgt+'</b></div>'+
       '<p style="margin:4px 0 0;font-size:14px;color:#495057;line-height:1.6;">'+r.why+'</p></div>';
@@ -954,25 +975,32 @@ function renderPr(){
 
 
 def prescribe_parts(D, EFF, TM, feats):
-    data, brand_total = prescribe_data(D, EFF, TM, feats)
-    yr = brand_total * 12
+    data, default_total = prescribe_data(D, EFF, TM, feats)
+    inp = "padding:8px 11px;font-size:15px;border:1px solid var(--line);border-radius:8px;"
     body = f"""
-  <div class="win"><b>💊 우리 매장 매출 올리는 법</b> — 매장을 고르면, <b>지금 설정</b>을 <b>이렇게 바꾸면 매출이 얼마나 오를지</b> 알려드려요.
-  실제로 그렇게 바꾼 비슷한 매장들의 6개월 데이터를 근거로 합니다.</div>
-  <div class="kpi">
-    <div><b class="ok">+{_wman(brand_total)}</b><span>전 매장이 바꾸면 늘 매출(월, 예상)</span></div>
-    <div><b class="ok">+{_wman(yr)}</b><span>1년이면(예상)</span></div>
-    <div><b>{len(data)}</b><span>대상 매장</span></div>
+  <div class="win"><b>💊 우리 매장 매출 올리는 법</b> — 매장을 고른 뒤 <b>지금 실제 설정값을 입력</b>하면,
+  <b>무엇을 바꾸면 매출이 얼마나 오를지</b> 바로 알려드려요. 비슷한 매장들의 6개월 실제 데이터가 근거입니다.</div>
+  <div class="card">
+    <div style="margin-bottom:10px;"><b>1) 매장 선택</b> &nbsp;
+      <input id="prSel" list="prDL" autocomplete="off" placeholder="매장명 입력…" style="{inp}border:2px solid #1a8c34;min-width:260px;">
+      <datalist id="prDL">{''.join(f'<option value="{s["name"]}"></option>' for s in data["stores"])}</datalist>
+    </div>
+    <div style="margin:6px 0 4px;"><b>2) 지금 우리 매장 실제 설정 입력</b> <span style="color:var(--mut);font-size:12px;">(과거값이 자동으로 채워지니, 현재와 다르면 고쳐주세요)</span></div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;">
+      <label>영업 마감시각<br><select id="prClose" style="{inp}"></select></label>
+      <label>우가클 월 광고예산<br><input id="prBudget" type="number" min="0" step="1" style="{inp}width:120px;"> 만원</label>
+      <label>지금 하는 할인<br><select id="prDisc" style="{inp}">
+        <option value="none">할인 안 함</option>
+        <option value="small">소액 할인(1~3천원)</option>
+        <option value="good">배달팁/큰 금액 할인</option></select></label>
+      <label>한 달 배달매출<br><input id="prMonthly" type="number" min="0" step="1" style="{inp}width:120px;"> 만원</label>
+    </div>
   </div>
-  <p class="sub" style="margin-top:14px;">매장 검색·선택:</p>
-  <input id="prSel" list="prDL" autocomplete="off" placeholder="매장명 입력…"
-    style="font-size:15px;padding:8px 12px;border:2px solid #1a8c34;border-radius:8px;min-width:300px;">
-  <datalist id="prDL">{''.join(f'<option value="{s["name"]}"></option>' for s in data)}</datalist>
-  <div id="prCards" style="margin-top:14px;"></div>
-  <div class="warn" style="margin-top:16px;font-size:13px;">※ 위 금액은 <b>비슷한 매장들이 실제로 바꿨을 때의 변화</b>를 바탕으로 한 <b>예상치</b>예요.
-  광고는 광고비가, 할인은 마진(남는 이익)이 함께 들어가니 <b>참고용</b>으로 봐주세요.</div>
+  <div id="prCards" style="margin-top:6px;"></div>
+  <div class="warn" style="margin-top:16px;font-size:13px;">※ 금액은 <b>비슷한 매장들이 실제로 바꿨을 때의 변화</b> 기반 <b>예상치</b>예요.
+  광고는 광고비가, 할인은 마진이 함께 들어가니 <b>참고용</b>으로 봐주세요. (전 매장 합산 기준 월 약 +{_wman(default_total)} 기회)</div>
 """
-    script = "const PR=" + json.dumps(data, ensure_ascii=False) + ";\n" + PRESCRIBE_JS
+    script = "const PRB=" + json.dumps(data, ensure_ascii=False) + ";\n" + PRESCRIBE_JS
     return body, script
 
 
