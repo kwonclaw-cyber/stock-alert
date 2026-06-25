@@ -667,16 +667,19 @@ def store_features(D):
         d = json.load(open(f, encoding="utf-8"))
         shop = str(d.get("shopNumber", ""))
         budget, bts = None, ""
+        bid, bidts = None, ""
         for ev in d.get("ad", []) or []:
             if ev.get("historyType") != "CPC_BUDGET":
                 continue
             try:
-                b = json.loads(ev.get("afterValue") or "").get("cpc", {}).get("monthlyBudget")
+                cpc = json.loads(ev.get("afterValue") or "").get("cpc", {})
             except Exception:
-                b = None
+                cpc = {}
             ts = ev.get("createdAt") or ""
-            if b is not None and ts >= bts:
-                budget, bts = b, ts
+            if cpc.get("monthlyBudget") is not None and ts >= bts:
+                budget, bts = cpc["monthlyBudget"], ts
+            if cpc.get("bid") is not None and ts >= bidts:
+                bid, bidts = cpc["bid"], ts
         close, cts = None, ""
         dmix = {"small": 0, "big": 0, "tip": 0, "pct": 0, "other": 0}
         for ev in d.get("shop", []) or []:
@@ -692,7 +695,7 @@ def store_features(D):
             key = ({"1000원": "small", "2000원": "small", "3000원": "small", "4000원+": "big",
                     "배달팁": "tip", "%할인": "pct"}).get(b, "other")
             dmix[key] += 1
-        feat[shop] = {"budget": budget, "close": close, "dmix": dmix}
+        feat[shop] = {"budget": budget, "bid": bid, "close": close, "dmix": dmix}
 
     out = []
     for s in D["stores"]:
@@ -700,16 +703,41 @@ def store_features(D):
         if not sh:
             continue
         days = int(s["days"]) or 1
-        fe = feat.get(sh, {"budget": None, "close": None, "dmix": {}})
+        fe = feat.get(sh, {"budget": None, "bid": None, "close": None, "dmix": {}})
         out.append({"shop": sh, "name": s["store"],
                     "amt": int(s["amt"]), "daily": round(int(s["amt"]) / days),
                     "share": round(float(s["baemin_share"]), 3),
                     "m": [int(s[f"m_{m}"]) for m in MONTHS],
                     "nad": int(s["n_ad"]), "ndisc": int(s["n_disc"]), "nhour": int(s["n_hour"]),
-                    "budget": fe["budget"], "close": fe["close"],
+                    "budget": fe["budget"], "bid": fe["bid"], "close": fe["close"],
                     "night": round(night_share.get(shop2mate.get(sh), 0), 3),
                     "dmix": fe["dmix"]})
     return out
+
+
+def _bid_increase_effect():
+    """입찰가(클릭비) 증액 → 매출 변화 중앙값."""
+    sales, first = A.load_sales()
+    inc = set()
+    for f in glob.glob(os.path.join(DS, "stores", "*.json")):
+        d = json.load(open(f, encoding="utf-8"))
+        shop = str(d.get("shopNumber", ""))
+        for ev in d.get("ad", []) or []:
+            if ev.get("historyType") != "CPC_BUDGET":
+                continue
+            def g(v):
+                try:
+                    return json.loads(v or "").get("cpc", {}).get("bid")
+                except Exception:
+                    return None
+            bb, ab = g(ev.get("beforeValue")), g(ev.get("afterValue"))
+            ts = ev.get("createdAt") or ""
+            if bb is not None and ab is not None and ab > bb and ts:
+                from datetime import date as _d
+                inc.add((shop, _d(int(ts[:4]), int(ts[5:7]), int(ts[8:10]))))
+    res = A.study(sales, first, sorted(inc), ramp=A.RAMP)
+    v = [r["amt_pct"] for r in res]
+    return (median(v) if v else 0.0)
 
 
 def _perstore_uplift(sales, first, days):
@@ -859,6 +887,7 @@ def prescribe_data(D, EFF, TM, feats):
             if r["bucket"] == "4000원+":
                 big = float(r["amt_med"])
     disc_med = max(tip, 0.0)  # 보수적으로 배달팁 기준
+    bid_eff = _bid_increase_effect()  # 입찰가(클릭비) 증액 효과
 
     # 피어 그룹: 배민매출 규모 3분위(대/중/소)
     order = sorted(feats, key=lambda s: -s["amt"])
@@ -872,14 +901,14 @@ def prescribe_data(D, EFF, TM, feats):
     for tk, arr in groups.items():
         bench[tk] = {
             "close_p75": _pctile([s["close"] for s in arr], 0.75),
-            "budget_med": (median([s["budget"] for s in arr if s["budget"]])
-                           if any(s["budget"] for s in arr) else None),
+            "bid_med": (median([s["bid"] for s in arr if s["bid"]])
+                        if any(s["bid"] for s in arr) else None),
             "n": len(arr),
         }
 
-    eff = {"hour": round(hour_med, 4), "ad": round(ad_opt, 4), "disc": round(disc_med, 4)}
+    eff = {"hour": round(hour_med, 4), "bid": round(bid_eff, 4), "disc": round(disc_med, 4)}
     benchJS = {tk: {"close": (min(b["close_p75"], 1440) if b["close_p75"] else None),
-                    "budget": round(b["budget_med"] or 0)} for tk, b in bench.items()}
+                    "bid": round(b["bid_med"] or 0)} for tk, b in bench.items()}
 
     stores, default_total = [], 0.0
     for i, s in enumerate(order):
@@ -891,13 +920,13 @@ def prescribe_data(D, EFF, TM, feats):
         small = s["dmix"].get("small", 0)
         disc = "good" if good > 0 else ("small" if small > 0 else "none")
         stores.append({"name": s["name"], "tier": tk, "monthly": round(monthly),
-                       "close": s["close"], "budget": round(s["budget"] or 0), "disc": disc})
+                       "close": s["close"], "bid": round(s["bid"] or 0), "disc": disc})
         # 프리필 기준 기본 기대치(헤드라인용)
         t = 0.0
         if s["close"] is not None and b["close"] and 18 * 60 <= s["close"] < b["close"] - 15:
             t += monthly * hour_med
-        if b["budget"] and (s["budget"] or 0) < b["budget"] * 0.8:
-            t += monthly * ad_opt
+        if b["bid"] and (s["bid"] or 0) < b["bid"] * 0.85:
+            t += monthly * bid_eff
         if disc != "good" and disc_med > 0:
             t += monthly * disc_med
         default_total += t
@@ -920,7 +949,7 @@ function initPrescribe(){
   PRB.stores.slice().sort((a,b)=>b.monthly-a.monthly).forEach(s=>{const o=document.createElement('option');
     o.value=s.name;o.textContent=s.name;sel.appendChild(o);});
   sel.addEventListener('input',prefill); sel.addEventListener('change',prefill);
-  ['prClose','prBudget','prDisc','prMonthly'].forEach(id=>{
+  ['prClose','prBid','prDisc','prMonthly'].forEach(id=>{
     document.getElementById(id).addEventListener('input',renderPr);
     document.getElementById(id).addEventListener('change',renderPr);});
   sel.value=sel.options[0]? sel.options[0].value : '';
@@ -934,7 +963,7 @@ function prefill(){
   if(s.close!=null){let best=cs.options[0].value,bd=1e9;
     for(const o of cs.options){const d=Math.abs(o.value-s.close); if(d<bd){bd=d;best=o.value;}} cs.value=best;}
   else cs.value=1320;
-  document.getElementById('prBudget').value = s.budget? Math.round(s.budget/1e4):'';
+  document.getElementById('prBid').value = s.bid? s.bid:'';
   document.getElementById('prDisc').value = s.disc;
   document.getElementById('prMonthly').value = Math.round(s.monthly/1e4);
   renderPr();
@@ -943,7 +972,7 @@ function renderPr(){
   const i=_prMap[document.getElementById('prSel').value]; if(i==null)return;
   const s=PRB.stores[i], b=PRB.bench[s.tier], e=PRB.eff;
   const closeMin=+document.getElementById('prClose').value;
-  const budget=(+document.getElementById('prBudget').value||0)*1e4;
+  const bid=(+document.getElementById('prBid').value||0);
   const disc=document.getElementById('prDisc').value;
   const monthly=(+document.getElementById('prMonthly').value||0)*1e4;
   const recs=[];
@@ -951,9 +980,9 @@ function renderPr(){
   if(tgt && closeMin>=18*60 && closeMin<tgt-15)
     recs.push({lever:'🕒 영업시간 늘리기',cur:prFtime(closeMin),tgt:prFtime(tgt),won:monthly*e.hour,
       why:'비슷한 규모 매장들은 보통 '+prFtime(tgt)+'까지 영업해요. 마감을 늘린 매장들은 배달매출이 평균 +'+(e.hour*100).toFixed(1)+'% 올랐습니다. 다만 야간 인건비가 늘 수 있어요.'});
-  if(b.budget && budget<b.budget*0.8)
-    recs.push({lever:'📣 가게 광고(우리가게클릭) 늘리기',cur:budget?('월 '+Math.round(budget/1e4)+'만원'):'거의 안 함',tgt:'월 '+Math.round(b.budget/1e4)+'만원',won:monthly*e.ad,
-      why:'비슷한 매장들은 광고비로 월 '+Math.round(b.budget/1e4)+'만원쯤 써요. 광고를 늘린 매장은 매출이 평균 +'+(e.ad*100).toFixed(1)+'% 올랐습니다. 광고비가 추가로 들어가는 점은 함께 봐주세요.'});
+  if(b.bid && bid<b.bid*0.85)
+    recs.push({lever:'📣 우가클 클릭단가(입찰가) 올리기',cur:bid?(bid.toLocaleString()+'원/클릭'):'거의 안 함',tgt:b.bid.toLocaleString()+'원/클릭',won:monthly*e.bid,
+      why:'비슷한 매장들은 클릭당 '+b.bid.toLocaleString()+'원쯤 입찰해요. 입찰가를 올리면 노출 순위가 올라가 더 많이 노출됩니다. 입찰가를 올린 매장은 매출이 평균 +'+(e.bid*100).toFixed(1)+'% 올랐습니다. 클릭이 늘면 광고비도 함께 늘어요.'});
   if(disc!=='good')
     recs.push({lever:'🏷️ 할인 바꾸기',cur:(disc==='small'?'소액 할인 위주':'할인 안 함'),tgt:'배달팁 할인 / 큰 금액 할인',won:monthly*e.disc,
       why:'적은 금액(1~3천원) 할인은 효과가 거의 없었어요. 배달팁 할인이나 큰 금액 할인으로 바꾼 매장은 매출이 평균 +'+(e.disc*100).toFixed(1)+'% 올랐습니다. 할인은 마진이 줄어드는 점은 함께 봐주세요.'});
@@ -988,7 +1017,7 @@ def prescribe_parts(D, EFF, TM, feats):
     <div style="margin:6px 0 4px;"><b>2) 지금 우리 매장 실제 설정 입력</b> <span style="color:var(--mut);font-size:12px;">(과거값이 자동으로 채워지니, 현재와 다르면 고쳐주세요)</span></div>
     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;">
       <label>영업 마감시각<br><select id="prClose" style="{inp}"></select></label>
-      <label>우가클 월 광고예산<br><input id="prBudget" type="number" min="0" step="1" style="{inp}width:120px;"> 만원</label>
+      <label>우가클 클릭단가(입찰가)<br><input id="prBid" type="number" min="0" step="10" style="{inp}width:120px;"> 원/클릭</label>
       <label>지금 하는 할인<br><select id="prDisc" style="{inp}">
         <option value="none">할인 안 함</option>
         <option value="small">소액 할인(1~3천원)</option>
