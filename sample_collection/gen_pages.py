@@ -836,6 +836,7 @@ def gen_combined(D, EFF):
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>육식사관학교 빅데이터 통합관리</title>
+<meta name="robots" content="noindex,nofollow">
 <style>{CSS}{tabcss}</style>{CHARTJS}</head><body>
 <div class="topbar"><div><b>🗂️ 육식사관학교 빅데이터 통합관리</b><span>배민 6개월 · {D['n_stores']}매장 · {won(D['baemin_total'])}원</span></div>
 <button class="showall" onclick="showAllCards()">🔄 숨긴 카드 모두 보이기</button></div>
