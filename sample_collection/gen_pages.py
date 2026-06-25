@@ -778,8 +778,7 @@ def recommend_samples(D, topn=10):
     return cand[:topn]
 
 
-def compare_parts(D):
-    feats = store_features(D)
+def compare_parts(D, feats):
     cf = json.dumps(feats, ensure_ascii=False)
     recos = recommend_samples(D)
     reco_rows = "".join(
@@ -811,6 +810,153 @@ def compare_parts(D):
     return body, script
 
 
+def _hhmm(m):
+    if m is None:
+        return "-"
+    return f"{m//60:02d}:{m%60:02d}"
+
+
+def _pctile(vals, p):
+    v = sorted(x for x in vals if x is not None)
+    if not v:
+        return None
+    return v[min(len(v) - 1, int(p * len(v)))]
+
+
+def prescribe_data(D, EFF, TM, feats):
+    """매장별 처방: 현재→권장 설정 + 기대 매출증가액(원/월). 매출 기준(마진 별도)."""
+    dmap = {n: e for n, e in EFF}
+    ad_opt = dmap.get("광고 예산 증액", {}).get("amt", 0.0)   # 낙관(전후)
+    ad_did = dmap.get("광고 예산 증액", {}).get("did", 0.0)   # 보수(추세보정)
+    hour_med = TM.get("ext_all", {}).get("med", 0.0)          # 영업시간 연장(배달 전체)
+    tip = big = 0.0
+    dp = os.path.join(DS, "discount_depth.csv")
+    if os.path.exists(dp):
+        for r in csv.DictReader(open(dp, encoding="utf-8-sig")):
+            if r["bucket"] == "배달팁":
+                tip = float(r["amt_med"])
+            if r["bucket"] == "4000원+":
+                big = float(r["amt_med"])
+    disc_med = max(tip, 0.0)  # 보수적으로 배달팁 기준
+
+    # 피어 그룹: 배민매출 규모 3분위(대/중/소)
+    order = sorted(feats, key=lambda s: -s["amt"])
+    n = len(order) or 1
+    def tier_of(i):
+        return "대형" if i < n / 3 else ("중형" if i < 2 * n / 3 else "소형")
+    groups = {"대형": [], "중형": [], "소형": []}
+    for i, s in enumerate(order):
+        groups[tier_of(i)].append(s)
+    bench = {}
+    for tk, arr in groups.items():
+        bench[tk] = {
+            "close_p75": _pctile([s["close"] for s in arr], 0.75),
+            "budget_med": (median([s["budget"] for s in arr if s["budget"]])
+                           if any(s["budget"] for s in arr) else None),
+            "n": len(arr),
+        }
+
+    out = []
+    for i, s in enumerate(order):
+        tk = tier_of(i)
+        b = bench[tk]
+        months = sum(1 for x in s["m"] if x > 0) or 1
+        monthly = s["amt"] / months
+        recs, total = [], 0.0
+        # 영업시간 연장
+        if s["close"] is not None and b["close_p75"] and s["close"] < b["close_p75"] - 15:
+            up = monthly * hour_med
+            total += up
+            recs.append({"lever": "🕒 영업시간", "cur": _hhmm(s["close"]), "tgt": _hhmm(b["close_p75"]),
+                         "won": round(up), "pct": round(hour_med * 100, 1),
+                         "why": f"동급({tk}) 상위25% 마감은 {_hhmm(b['close_p75'])}. 영업시간 연장 매장은 배달매출 중앙 +{hour_med*100:.1f}%. 주의: 야간 인건비·운영부담.",
+                         "conf": b["n"]})
+        # 우가클 광고 예산
+        if b["budget_med"] and (s["budget"] or 0) < b["budget_med"] * 0.8:
+            up = monthly * ad_did
+            total += up
+            recs.append({"lever": "📣 우가클 광고", "cur": (f"{int(s['budget']):,}원" if s["budget"] else "미설정/소액"),
+                         "tgt": f"{int(b['budget_med']):,}원", "won": round(up), "pct": round(ad_did * 100, 1),
+                         "won_opt": round(monthly * ad_opt),
+                         "why": f"동급 중위 월예산 {int(b['budget_med']):,}원. 예산 증액 매장 매출 +{ad_opt*100:.1f}%(추세보정 +{ad_did*100:.1f}%). 주의: 광고비 추가(CPC 과금).",
+                         "conf": b["n"]})
+        # 할인 재설계
+        good = (s["dmix"].get("tip", 0) + s["dmix"].get("big", 0))
+        small = s["dmix"].get("small", 0)
+        if good == 0 and disc_med > 0:
+            up = monthly * disc_med
+            total += up
+            recs.append({"lever": "🏷️ 할인 재설계", "cur": (f"소액 {small}건" if small else "할인 없음"),
+                         "tgt": "배달팁 / 4천원+", "won": round(up), "pct": round(disc_med * 100, 1),
+                         "why": f"배달팁·큰할인은 매출 +{disc_med*100:.1f}%(소액 고정할인은 효과 없음). 주의: 마진 영향(원가자료 연동 시 정밀화).",
+                         "conf": None})
+        out.append({"shop": s["shop"], "name": s["name"], "tier": tk,
+                    "monthly": round(monthly), "total": round(total), "recs": recs})
+    brand_total = sum(o["total"] for o in out)
+    return out, brand_total
+
+
+PRESCRIBE_JS = r"""
+let _prMap={}, _prDone=false;
+const wmoney=v=>(v==null?'-':Math.round(v).toLocaleString()+'원');
+function initPrescribe(){
+  if(_prDone)return; _prDone=true;
+  PR.forEach((s,i)=>{_prMap[s.name]=i;});
+  const sel=document.getElementById('prSel');
+  PR.slice().sort((a,b)=>b.total-a.total).forEach(s=>{const o=document.createElement('option');
+    o.value=s.name;o.textContent=s.name+'  (기회 +'+Math.round(s.total/10000)+'만/월)';sel.appendChild(o);});
+  sel.addEventListener('input',renderPr); sel.addEventListener('change',renderPr);
+  sel.value=sel.options[0]? sel.options[0].value : '';
+  renderPr();
+}
+function renderPr(){
+  const i=_prMap[document.getElementById('prSel').value]; if(i==null)return;
+  const s=PR[i];
+  let h='<div class="kpi"><div><b>'+wmoney(s.monthly)+'</b><span>현재 월 배민매출</span></div>'+
+    '<div><b class="ok">+'+wmoney(s.total)+'</b><span>처방 시 기대 증가/월(추정)</span></div>'+
+    '<div><b>'+(s.monthly?Math.round(s.total/s.monthly*100):0)+'%</b><span>기대 상승률</span></div>'+
+    '<div><b>'+s.tier+'</b><span>피어 그룹</span></div></div>';
+  if(!s.recs.length){ h+='<div class="bcard flat"><h3>현재 설정이 동급 대비 양호</h3><p style="margin:0;font-size:14px;">뚜렷한 개선 레버가 없습니다. 유지 권장.</p></div>'; }
+  s.recs.forEach(r=>{
+    h+='<div class="bcard pos"><h3>'+r.lever+'  <span style="font-size:12px;color:var(--mut);font-weight:400;">기대 +'+wmoney(r.won)+'/월 (추정)</span></h3>'+
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;">'+
+      '<span class="metric">현재<b>'+r.cur+'</b></span>'+
+      '<span class="metric">권장<b class="ok">'+r.tgt+'</b></span>'+
+      '<span class="metric">근거 효과<b>+'+r.pct+'%</b></span>'+
+      (r.won_opt?'<span class="metric">낙관 기대<b>+'+wmoney(r.won_opt)+'</b></span>':'')+
+      (r.conf?'<span class="metric">피어 n<b>'+r.conf+'</b></span>':'')+'</div>'+
+      '<p style="margin:4px 0 0;font-size:13.5px;color:#495057;">'+r.why+'</p></div>';
+  });
+  document.getElementById('prCards').innerHTML=h;
+  if(window.addHideButtons)addHideButtons();
+}
+"""
+
+
+def prescribe_parts(D, EFF, TM, feats):
+    data, brand_total = prescribe_data(D, EFF, TM, feats)
+    yr = brand_total * 12
+    body = f"""
+  <div class="win"><b>💊 처방 엔진</b> — 매장별로 <b>현재 설정 → 권장 설정</b>과 <b>기대 매출증가액(추정)</b>을 제시합니다.
+  근거는 우리 6개월 데이터의 측정 효과(우가클 증액·영업시간 연장·배달팁/큰할인) + 동급 피어 벤치마크입니다.
+  <b>매출 기준</b>이며 마진·광고비는 별도 고려가 필요합니다(주의 표기).</div>
+  <div class="kpi">
+    <div><b class="ok">+{won(brand_total)}</b><span>전 매장 처방 시 월 기대증가(추정)</span></div>
+    <div><b class="ok">+{won(yr)}</b><span>연 환산(추정)</span></div>
+    <div><b>{len(data)}</b><span>분석 매장</span></div>
+  </div>
+  <p class="sub" style="margin-top:14px;">매장 선택(검색 가능):</p>
+  <input id="prSel" list="prDL" autocomplete="off" placeholder="매장명 검색…"
+    style="font-size:15px;padding:8px 12px;border:2px solid #1a8c34;border-radius:8px;min-width:300px;">
+  <datalist id="prDL">{''.join(f'<option value="{s["name"]}"></option>' for s in data)}</datalist>
+  <div id="prCards" style="margin-top:14px;"></div>
+  <div class="warn" style="margin-top:16px;"><b>해석 주의:</b> 기대증가액은 <b>브랜드 평균 효과 × 해당 매장 매출</b>로 산출한 <b>추정치</b>입니다(인과 보장 아님).
+  광고는 <b>추가 광고비(CPC)</b>, 할인은 <b>마진 감소</b>가 동반되므로 실제 순이익 효과는 원가·광고비 데이터로 정밀화해야 합니다.</div>
+"""
+    script = "const PR=" + json.dumps(data, ensure_ascii=False) + ";\n" + PRESCRIBE_JS
+    return body, script
+
+
 def gen_combined(D, EFF):
     """패널들을 탭으로 묶은 단일 통합관리 파일."""
     prog = gen_progress(D)
@@ -819,7 +965,9 @@ def gen_combined(D, EFF):
     TM = time_data()
     time_body, time_script = time_parts(TM)
     drill_body, drill_script = drilldown_parts(D)
-    cmp_body, cmp_script = compare_parts(D)
+    feats = store_features(D)
+    cmp_body, cmp_script = compare_parts(D, feats)
+    presc_body, presc_script = prescribe_parts(D, EFF, TM, feats)
     match_widget, match_script = gen_match_widget()
     tabcss = """
 .topbar{background:linear-gradient(135deg,#1a8c34,#178030);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;}
@@ -846,6 +994,7 @@ def gen_combined(D, EFF):
   <div class="tab" data-t="time">⏰ 시간대</div>
   <div class="tab" data-t="drill">🏪 매장별</div>
   <div class="tab" data-t="cmp">⚖️ 표본vs대상</div>
+  <div class="tab" data-t="presc">💊 처방</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
@@ -854,9 +1003,10 @@ def gen_combined(D, EFF):
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
   <div class="panel" id="cmp" style="display:none"><h1 class="panel-title">⚖️ 표본매장 vs 대상매장</h1>{cmp_body}</div>
+  <div class="panel" id="presc" style="display:none"><h1 class="panel-title">💊 매장별 최적 처방</h1><p class="panel-sub">현재 → 권장 설정 + 기대 매출증가액(추정)</p>{presc_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
-<script>{dash_script}{time_script}{drill_script}{cmp_script}{match_script}{HIDE_JS}
+<script>{dash_script}{time_script}{drill_script}{cmp_script}{presc_script}{match_script}{HIDE_JS}
 function show(t){{
   document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
@@ -866,6 +1016,7 @@ function show(t){{
   if(t==='time')initTime();
   if(t==='drill')initDrill();
   if(t==='cmp')initCompare();
+  if(t==='presc')initPrescribe();
   addHideButtons();
 }}
 document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>show(x.dataset.t)));
