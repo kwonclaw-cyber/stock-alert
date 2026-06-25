@@ -484,6 +484,9 @@ def dashboard_parts(D, EFF):
   <h2>채널 매출 비중</h2><div class="card"><canvas id="c2" height="110"></canvas></div>
   <h2>매출 상위 10개 매장</h2><div class="card"><canvas id="c3" height="140"></canvas></div>
   <h2>변경 효과 (매출 중앙값 vs 추세보정)</h2><div class="card"><canvas id="c4" height="120"></canvas></div>
+  <div class="tip"><b>추세보정(DiD)이란?</b> 연한 막대(매출효과)는 변경 <b>전후 ±14일</b> 단순 비교라 계절·브랜드 전체 흐름이 섞여 있습니다.
+  진한 막대(추세보정)는 <b>같은 기간 브랜드 전체 매출 변화를 빼서</b>(이중차분, Difference-in-Differences) “그 변경 <b>자체의 순수 효과</b>”만 남긴 값입니다.
+  → 두 막대가 <b>비슷하면</b> 효과가 견고하고(예: 광고 증액), 추세보정만 <b>크게 작아지면</b> 변화의 상당 부분이 그 변경이 아니라 <b>전체 흐름</b> 때문이라는 뜻입니다(예: 즉시할인).</div>
 """
     script = "const DASH=" + data + ";\n" + DASH_JS
     return body, script
