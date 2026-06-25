@@ -816,6 +816,27 @@ def _hhmm(m):
     return f"{m//60:02d}:{m%60:02d}"
 
 
+def _ftime(m):
+    """사장님 친화 시각 표기. 1440=자정, 그 이후는 '새벽 X시'."""
+    if m is None:
+        return "-"
+    if m == 1440:
+        return "자정(24시)"
+    if m > 1440:
+        x = m - 1440
+        return f"새벽 {x//60}시" + (f" {x%60}분" if x % 60 else "")
+    h, mm = m // 60, m % 60
+    return f"{h}시" + (f" {mm}분" if mm else "")
+
+
+def _wman(v):
+    """금액을 만원/억원으로."""
+    v = round(v)
+    if abs(v) >= 1e8:
+        return f"{v/1e8:.1f}억원"
+    return f"{round(v/1e4):,}만원"
+
+
 def _pctile(vals, p):
     v = sorted(x for x in vals if x is not None)
     if not v:
@@ -863,33 +884,37 @@ def prescribe_data(D, EFF, TM, feats):
         months = sum(1 for x in s["m"] if x > 0) or 1
         monthly = s["amt"] / months
         recs, total = [], 0.0
-        # 영업시간 연장
-        if s["close"] is not None and b["close_p75"] and s["close"] < b["close_p75"] - 15:
+        # 영업시간 연장 (권장 마감은 자정 24시를 넘지 않게 제한)
+        tgt_close = min(b["close_p75"], 1440) if b["close_p75"] else None
+        if s["close"] is not None and tgt_close and 18 * 60 <= s["close"] < tgt_close - 15:
             up = monthly * hour_med
             total += up
-            recs.append({"lever": "🕒 영업시간", "cur": _hhmm(s["close"]), "tgt": _hhmm(b["close_p75"]),
-                         "won": round(up), "pct": round(hour_med * 100, 1),
-                         "why": f"동급({tk}) 상위25% 마감은 {_hhmm(b['close_p75'])}. 영업시간 연장 매장은 배달매출 중앙 +{hour_med*100:.1f}%. 주의: 야간 인건비·운영부담.",
-                         "conf": b["n"]})
+            recs.append({"lever": "🕒 영업시간 늘리기", "cur": _ftime(s["close"]), "tgt": _ftime(tgt_close),
+                         "won": round(up),
+                         "why": f"비슷한 규모 매장들은 보통 {_ftime(tgt_close)}까지 영업해요. "
+                                f"마감을 늘린 매장들은 배달매출이 평균 +{hour_med*100:.1f}% 올랐습니다. "
+                                f"다만 야간 인건비가 늘 수 있어요."})
         # 우가클 광고 예산
         if b["budget_med"] and (s["budget"] or 0) < b["budget_med"] * 0.8:
-            up = monthly * ad_did
+            up = monthly * ad_opt
             total += up
-            recs.append({"lever": "📣 우가클 광고", "cur": (f"{int(s['budget']):,}원" if s["budget"] else "미설정/소액"),
-                         "tgt": f"{int(b['budget_med']):,}원", "won": round(up), "pct": round(ad_did * 100, 1),
-                         "won_opt": round(monthly * ad_opt),
-                         "why": f"동급 중위 월예산 {int(b['budget_med']):,}원. 예산 증액 매장 매출 +{ad_opt*100:.1f}%(추세보정 +{ad_did*100:.1f}%). 주의: 광고비 추가(CPC 과금).",
-                         "conf": b["n"]})
+            cur = f"월 {int(s['budget']/10000):,}만원" if s["budget"] else "거의 안 함"
+            recs.append({"lever": "📣 가게 광고(우리가게클릭) 늘리기", "cur": cur,
+                         "tgt": f"월 {int(b['budget_med']/10000):,}만원", "won": round(up),
+                         "why": f"비슷한 매장들은 광고비로 월 {int(b['budget_med']/10000):,}만원쯤 써요. "
+                                f"광고를 늘린 매장은 매출이 평균 +{ad_opt*100:.1f}% 올랐습니다. "
+                                f"광고비가 추가로 들어가는 점은 함께 봐주세요."})
         # 할인 재설계
         good = (s["dmix"].get("tip", 0) + s["dmix"].get("big", 0))
         small = s["dmix"].get("small", 0)
         if good == 0 and disc_med > 0:
             up = monthly * disc_med
             total += up
-            recs.append({"lever": "🏷️ 할인 재설계", "cur": (f"소액 {small}건" if small else "할인 없음"),
-                         "tgt": "배달팁 / 4천원+", "won": round(up), "pct": round(disc_med * 100, 1),
-                         "why": f"배달팁·큰할인은 매출 +{disc_med*100:.1f}%(소액 고정할인은 효과 없음). 주의: 마진 영향(원가자료 연동 시 정밀화).",
-                         "conf": None})
+            recs.append({"lever": "🏷️ 할인 바꾸기", "cur": ("소액 할인 위주" if small else "할인 안 함"),
+                         "tgt": "배달팁 할인 / 큰 금액 할인", "won": round(up),
+                         "why": f"적은 금액(1~3천원) 할인은 효과가 거의 없었어요. "
+                                f"배달팁 할인이나 큰 금액 할인으로 바꾼 매장은 매출이 평균 +{disc_med*100:.1f}% 올랐습니다. "
+                                f"할인은 마진이 줄어드는 점은 함께 봐주세요."})
         out.append({"shop": s["shop"], "name": s["name"], "tier": tk,
                     "monthly": round(monthly), "total": round(total), "recs": recs})
     brand_total = sum(o["total"] for o in out)
@@ -898,13 +923,13 @@ def prescribe_data(D, EFF, TM, feats):
 
 PRESCRIBE_JS = r"""
 let _prMap={}, _prDone=false;
-const wmoney=v=>(v==null?'-':Math.round(v).toLocaleString()+'원');
+const man=v=>{v=Math.round(v||0); if(Math.abs(v)>=1e8)return (v/1e8).toFixed(1)+'억원'; return Math.round(v/1e4).toLocaleString()+'만원';};
 function initPrescribe(){
   if(_prDone)return; _prDone=true;
   PR.forEach((s,i)=>{_prMap[s.name]=i;});
   const sel=document.getElementById('prSel');
   PR.slice().sort((a,b)=>b.total-a.total).forEach(s=>{const o=document.createElement('option');
-    o.value=s.name;o.textContent=s.name+'  (기회 +'+Math.round(s.total/10000)+'만/월)';sel.appendChild(o);});
+    o.value=s.name;o.textContent=s.name+'  (예상 +'+man(s.total)+'/월)';sel.appendChild(o);});
   sel.addEventListener('input',renderPr); sel.addEventListener('change',renderPr);
   sel.value=sel.options[0]? sel.options[0].value : '';
   renderPr();
@@ -912,20 +937,15 @@ function initPrescribe(){
 function renderPr(){
   const i=_prMap[document.getElementById('prSel').value]; if(i==null)return;
   const s=PR[i];
-  let h='<div class="kpi"><div><b>'+wmoney(s.monthly)+'</b><span>현재 월 배민매출</span></div>'+
-    '<div><b class="ok">+'+wmoney(s.total)+'</b><span>처방 시 기대 증가/월(추정)</span></div>'+
-    '<div><b>'+(s.monthly?Math.round(s.total/s.monthly*100):0)+'%</b><span>기대 상승률</span></div>'+
-    '<div><b>'+s.tier+'</b><span>피어 그룹</span></div></div>';
-  if(!s.recs.length){ h+='<div class="bcard flat"><h3>현재 설정이 동급 대비 양호</h3><p style="margin:0;font-size:14px;">뚜렷한 개선 레버가 없습니다. 유지 권장.</p></div>'; }
+  let h='<div class="kpi"><div><b>'+man(s.monthly)+'</b><span>지금 한 달 배달매출</span></div>'+
+    '<div><b class="ok">+'+man(s.total)+'</b><span>바꾸면 늘어날 매출(월, 예상)</span></div>'+
+    '<div><b class="ok">+'+(s.monthly?Math.round(s.total/s.monthly*100):0)+'%</b><span>예상 상승률</span></div>'+
+    '<div><b>'+s.tier+'</b><span>우리 매장 규모</span></div></div>';
+  if(!s.recs.length){ h+='<div class="bcard flat"><h3>지금도 잘 하고 있어요 👍</h3><p style="margin:0;font-size:14px;">비슷한 매장들과 비교해 크게 바꿀 부분이 없습니다. 지금처럼 유지하세요.</p></div>'; }
   s.recs.forEach(r=>{
-    h+='<div class="bcard pos"><h3>'+r.lever+'  <span style="font-size:12px;color:var(--mut);font-weight:400;">기대 +'+wmoney(r.won)+'/월 (추정)</span></h3>'+
-      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;">'+
-      '<span class="metric">현재<b>'+r.cur+'</b></span>'+
-      '<span class="metric">권장<b class="ok">'+r.tgt+'</b></span>'+
-      '<span class="metric">근거 효과<b>+'+r.pct+'%</b></span>'+
-      (r.won_opt?'<span class="metric">낙관 기대<b>+'+wmoney(r.won_opt)+'</b></span>':'')+
-      (r.conf?'<span class="metric">피어 n<b>'+r.conf+'</b></span>':'')+'</div>'+
-      '<p style="margin:4px 0 0;font-size:13.5px;color:#495057;">'+r.why+'</p></div>';
+    h+='<div class="bcard pos"><h3>'+r.lever+'  <span style="font-size:13px;color:#2f9e44;font-weight:700;">월 매출 +'+man(r.won)+' 예상</span></h3>'+
+      '<div style="font-size:15px;margin:8px 0;">지금 <b>'+r.cur+'</b> &nbsp;→&nbsp; 이렇게 <b class="ok">'+r.tgt+'</b></div>'+
+      '<p style="margin:4px 0 0;font-size:14px;color:#495057;line-height:1.6;">'+r.why+'</p></div>';
   });
   document.getElementById('prCards').innerHTML=h;
   if(window.addHideButtons)addHideButtons();
@@ -937,21 +957,20 @@ def prescribe_parts(D, EFF, TM, feats):
     data, brand_total = prescribe_data(D, EFF, TM, feats)
     yr = brand_total * 12
     body = f"""
-  <div class="win"><b>💊 처방 엔진</b> — 매장별로 <b>현재 설정 → 권장 설정</b>과 <b>기대 매출증가액(추정)</b>을 제시합니다.
-  근거는 우리 6개월 데이터의 측정 효과(우가클 증액·영업시간 연장·배달팁/큰할인) + 동급 피어 벤치마크입니다.
-  <b>매출 기준</b>이며 마진·광고비는 별도 고려가 필요합니다(주의 표기).</div>
+  <div class="win"><b>💊 우리 매장 매출 올리는 법</b> — 매장을 고르면, <b>지금 설정</b>을 <b>이렇게 바꾸면 매출이 얼마나 오를지</b> 알려드려요.
+  실제로 그렇게 바꾼 비슷한 매장들의 6개월 데이터를 근거로 합니다.</div>
   <div class="kpi">
-    <div><b class="ok">+{won(brand_total)}</b><span>전 매장 처방 시 월 기대증가(추정)</span></div>
-    <div><b class="ok">+{won(yr)}</b><span>연 환산(추정)</span></div>
-    <div><b>{len(data)}</b><span>분석 매장</span></div>
+    <div><b class="ok">+{_wman(brand_total)}</b><span>전 매장이 바꾸면 늘 매출(월, 예상)</span></div>
+    <div><b class="ok">+{_wman(yr)}</b><span>1년이면(예상)</span></div>
+    <div><b>{len(data)}</b><span>대상 매장</span></div>
   </div>
-  <p class="sub" style="margin-top:14px;">매장 선택(검색 가능):</p>
-  <input id="prSel" list="prDL" autocomplete="off" placeholder="매장명 검색…"
+  <p class="sub" style="margin-top:14px;">매장 검색·선택:</p>
+  <input id="prSel" list="prDL" autocomplete="off" placeholder="매장명 입력…"
     style="font-size:15px;padding:8px 12px;border:2px solid #1a8c34;border-radius:8px;min-width:300px;">
   <datalist id="prDL">{''.join(f'<option value="{s["name"]}"></option>' for s in data)}</datalist>
   <div id="prCards" style="margin-top:14px;"></div>
-  <div class="warn" style="margin-top:16px;"><b>해석 주의:</b> 기대증가액은 <b>브랜드 평균 효과 × 해당 매장 매출</b>로 산출한 <b>추정치</b>입니다(인과 보장 아님).
-  광고는 <b>추가 광고비(CPC)</b>, 할인은 <b>마진 감소</b>가 동반되므로 실제 순이익 효과는 원가·광고비 데이터로 정밀화해야 합니다.</div>
+  <div class="warn" style="margin-top:16px;font-size:13px;">※ 위 금액은 <b>비슷한 매장들이 실제로 바꿨을 때의 변화</b>를 바탕으로 한 <b>예상치</b>예요.
+  광고는 광고비가, 할인은 마진(남는 이익)이 함께 들어가니 <b>참고용</b>으로 봐주세요.</div>
 """
     script = "const PR=" + json.dumps(data, ensure_ascii=False) + ";\n" + PRESCRIBE_JS
     return body, script
