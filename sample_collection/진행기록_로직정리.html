@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표본매장 프로젝트 진행 기록 · 로직 정리</title>
+<style>
+  :root{ --b:#1971c2; --b2:#e7f5ff; --g:#2f9e44; --r:#e03131; --o:#e8590c; --y:#fff3bf; --line:#dee2e6; --ink:#212529; --mut:#868e96;}
+  *{box-sizing:border-box;}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:var(--ink); line-height:1.65; margin:0; background:#f8f9fa;}
+  .wrap{max-width:900px; margin:0 auto; padding:32px 20px 80px;}
+  h1{font-size:28px; margin:0 0 4px;}
+  .sub{color:var(--mut); margin:0 0 28px;}
+  h2{font-size:20px; margin:38px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--ink);}
+  h3{font-size:16px; margin:18px 0 8px; color:var(--b);}
+  .card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin:14px 0; box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  code{background:#f1f3f5; padding:2px 7px; border-radius:5px; font-family:'D2Coding',Consolas,monospace; font-size:13px; color:#c92a2a;}
+  table{border-collapse:collapse; width:100%; margin:10px 0; font-size:13.5px;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:#f1f3f5;}
+  .ok{color:var(--g); font-weight:700;}
+  .no{color:var(--r); font-weight:700;}
+  .tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; margin-right:6px;}
+  .t-q{background:#e7f5ff; color:#1971c2;}
+  .t-try{background:#fff3bf; color:#e8590c;}
+  .t-win{background:#ebfbee; color:#2f9e44;}
+  .tip{background:var(--b2); border-left:4px solid var(--b); padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:14px;}
+  .warn{background:#fff9db; border-left:4px solid var(--o); padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:14px;}
+  .win{background:#ebfbee; border-left:4px solid var(--g); padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:14px;}
+  ol,ul{margin:8px 0; padding-left:22px;} li{margin:4px 0; font-size:14.3px;}
+  .timeline{position:relative; margin:14px 0 14px 8px; padding-left:26px; border-left:3px solid var(--line);}
+  .ev{position:relative; margin:0 0 18px;}
+  .ev::before{content:''; position:absolute; left:-34px; top:3px; width:14px; height:14px; border-radius:50%; background:#fff; border:3px solid var(--b);}
+  .ev.fail::before{border-color:var(--r);} .ev.good::before{border-color:var(--g);}
+  .ev h4{margin:0 0 4px; font-size:15px;}
+  .ev p{margin:3px 0; font-size:14px;}
+  .flow{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0; font-size:13.5px;}
+  .pill{background:#fff; border:1px solid var(--b); color:var(--b); border-radius:20px; padding:5px 12px; font-weight:600;}
+  .arrow{color:var(--mut); font-weight:700;}
+  .foot{margin-top:40px; color:var(--mut); font-size:13px; text-align:center;}
+  .kpi{display:flex; gap:12px; flex-wrap:wrap; margin:10px 0;}
+  .kpi div{flex:1; min-width:130px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; text-align:center;}
+  .kpi b{display:block; font-size:22px; color:var(--b);}
+  .kpi span{font-size:12px; color:var(--mut);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🧭 표본매장 프로젝트 — 진행 기록 & 로직 정리</h1>
+  <p class="sub">처음 접근부터 시행착오·각 단계 결과·최종 결론까지 한 페이지로</p>
+
+  <!-- 0. 목표 -->
+  <h2>0 · 목표</h2>
+  <div class="card">
+    <p style="margin:0;">브랜드별 <b>표본매장</b>을 정하고, 그 매장의 <b>배민/쿠팡 운영 변경</b>(광고율·즉시할인·쿠폰·운영시간 등)이
+    <b>매출 변동</b>과 어떤 관계인지 분석할 수 있는 <b>표본 데이터</b>를 만든다.</p>
+  </div>
+
+  <!-- 1. 요구사항 확정 -->
+  <h2>1 · 요구사항 확정 <span style="font-size:13px; color:var(--mut);">(질문으로 좁힘)</span></h2>
+  <table>
+    <tr><th>질문</th><th>결정</th></tr>
+    <tr><td>운영변경 데이터 소스</td><td>배민/쿠팡 사장님 사이트에서 수집</td></tr>
+    <tr><td>표본매장 선정</td><td>브랜드별 수기 지정</td></tr>
+    <tr><td>계정 구조</td><td>매장별 개별계정</td></tr>
+    <tr><td>작업 성격</td><td><b>일회성</b>, 로그인은 사용자가 직접</td></tr>
+    <tr><td>핵심 데이터</td><td>현재값이 아니라 <b>“변경 이력”(시간축)</b></td></tr>
+    <tr><td>결과물</td><td>매출과 결합한 표(엑셀/시트)</td></tr>
+  </table>
+  <div class="tip"><b>방향 전환 포인트:</b> 처음엔 “현재 설정값”을 받으려 했지만, 실제로 필요한 건 <b>“언제 무엇을 어떻게 바꿨나”</b>였다. 그리고 배민에 정확히 그걸 주는 <code>변경이력</code> 화면이 있었다.</div>
+
+  <!-- 2. 시행착오 타임라인 -->
+  <h2>2 · 시도와 결과 <span style="font-size:13px; color:var(--mut);">(로직이 진화한 과정)</span></h2>
+  <div class="timeline">
+
+    <div class="ev good">
+      <h4><span class="tag t-try">시도 1</span> 화면 저장 방식 <code>capture.py</code></h4>
+      <p>로그인 후 변경이력 페이지의 HTML·스크린샷·<b>네트워크 JSON</b>을 통째로 저장.</p>
+      <p class="ok">결과: 성공. 96개 응답 캡처 → 99건 파싱.</p>
+      <p><b>핵심 발견:</b> 배민 변경이력은 깔끔한 JSON API(<code>modify-history/shop · instant-discount · ad-campaign</code>)이고,
+      <b>변경 전→후 값이 그대로 들어있다.</b></p>
+      <p class="no">한계: 수동 클릭 의존, 페이지네이션이 중간에 잘려 6개월 완전판이 안 됨.</p>
+    </div>
+
+    <div class="ev fail">
+      <h4><span class="tag t-try">시도 2</span> 자동수집기 <code>baemin_history.py</code> (여러 버전)</h4>
+      <p>“로그인만 하면 6개월치를 자동으로” 목표로 Playwright 자동화 반복 시도.</p>
+      <table style="margin-top:6px;">
+        <tr><th>방식</th><th>결과</th></tr>
+        <tr><td>외부에서 API 호출(ctx.request)</td><td class="no">403 (인증 토큰 없음)</td></tr>
+        <tr><td>페이지 안 fetch(page.evaluate)</td><td class="no">CORS / 실행컨텍스트 파괴(-1)</td></tr>
+        <tr><td>루트 시작 + 로그인 가드</td><td class="no">로그인 창이 추적 밖으로 이탈</td></tr>
+        <tr><td>실제 Chrome(persistent)</td><td class="no">로그인된 창을 Playwright가 못 잡음</td></tr>
+      </table>
+      <p class="no">결론: <b>Playwright로는 막힘.</b> 배민 SSO 로그인이 자동화가 제어 못 하는 별도 창으로 빠진다.</p>
+      <p class="tip" style="margin:8px 0 0;"><b>이때 배운 진짜 로직:</b> 자동화의 벽은 <b>데이터</b>가 아니라
+      <b>“인증된 세션을 바깥에서 건드릴 수 없다”</b>(SSO·2FA·봇차단)는 점이었다.</p>
+    </div>
+
+    <div class="ev good">
+      <h4><span class="tag t-win">전환 · 정답</span> 개발자도구 콘솔 스니펫 <code>baemin_console.js</code></h4>
+      <p>발상 전환: <b>우리가 요청을 만들지 말고, 로그인된 페이지가 스스로 부르는 응답을 가로채자.</b></p>
+      <ul>
+        <li>토큰 실어 replay → <span class="no">여전히 토큰 못잡음·403·CORS</span></li>
+        <li>최종 <b>“응답 가로채기”</b> → <span class="ok">토큰·CORS·403 문제가 원천적으로 사라짐</span></li>
+      </ul>
+      <p class="win" style="margin:8px 0 0;"><b>성공!</b> 밥구정로데오(14323681) <b>6개월 변경이력 190건</b> 수집
+      (가게 80 · 광고 84 · 즉시할인 26).</p>
+    </div>
+
+    <div class="ev good">
+      <h4><span class="tag t-win">결합</span> 매출 합치기 <code>merge_sales.py</code></h4>
+      <p>matetech 월별 엑셀(주문경로별=배민 일별매출, 시간대별)을 6개월 합본하고,
+      변경이력과 <b>날짜로 조인</b>.</p>
+      <p class="ok">결과: 일자별 타임라인 169일 + 시간대별 2,033행 + 변경이력 190건 통합 워크북.</p>
+    </div>
+
+  </div>
+
+  <!-- 3. 핵심 로직 -->
+  <h2>3 · 최종 핵심 로직</h2>
+  <div class="card">
+    <ol>
+      <li><b>운영변경은 배민, 매출은 matetech</b> — 두 출처를 <b>날짜</b>로 잇는다.</li>
+      <li>배민 변경이력은 <b>JSON API</b>로 깔끔하게 있다(변경 전→후 포함).</li>
+      <li>자동화의 벽은 인증. 해법은 <b>“로그인된 페이지 안에서, 앱이 만든 응답을 가로채기”</b> — 토큰·CORS·차단을 모두 우회.</li>
+      <li>사람은 <b>로그인 + 탭 조회</b>만, 나머지(누적·정렬·표 변환)는 코드가.</li>
+    </ol>
+  </div>
+
+  <!-- 4. 확립된 프로세스 -->
+  <h2>4 · 확립된 프로세스</h2>
+  <div class="flow">
+    <span class="pill">콘솔 코드 붙여넣기</span><span class="arrow">→</span>
+    <span class="pill">탭별 조회 + __scrollAll()</span><span class="arrow">→</span>
+    <span class="pill">__save() → JSON</span><span class="arrow">→</span>
+    <span class="pill">matetech 월별 엑셀</span><span class="arrow">→</span>
+    <span class="pill">합치기 → 통합 워크북</span>
+  </div>
+  <p style="font-size:14px;">매장 한 곳당 위를 반복 → 매장별 표본 데이터 완성.</p>
+
+  <!-- 5. 산출물 -->
+  <h2>5 · 산출물 <span style="font-size:13px; color:var(--mut);">(저장소 sample_collection/)</span></h2>
+  <table>
+    <tr><th>파일</th><th>역할</th></tr>
+    <tr><td><code>baemin_console.js</code></td><td>★ 배민 변경이력 콘솔 수집기(응답 가로채기)</td></tr>
+    <tr><td><code>parse_baemin.py</code></td><td>수집 JSON → 변경이력 표(CSV/XLSX)</td></tr>
+    <tr><td><code>merge_sales.py</code></td><td>매출(주문경로별·시간대별) + 변경이력 → 통합 워크북</td></tr>
+    <tr><td><code>capture.py</code> / <code>baemin_history.py</code></td><td>초기 시도(화면저장 / 자동수집) — 기록용</td></tr>
+    <tr><td><code>표본매장_수집가이드.html</code></td><td>실사용 단계별 가이드(이 페이지의 짝)</td></tr>
+  </table>
+
+  <!-- 6. 결과 수치 -->
+  <h2>6 · 검증된 첫 표본 (밥구정로데오 광주서구점)</h2>
+  <div class="kpi">
+    <div><b>190</b><span>변경이력(6개월)</span></div>
+    <div><b>169</b><span>매출 일수</span></div>
+    <div><b>67</b><span>변경 있던 날</span></div>
+    <div><b>2,033</b><span>시간대별 행</span></div>
+  </div>
+
+  <!-- 7. 한계/다음 -->
+  <h2>7 · 한계 & 다음 단계</h2>
+  <div class="warn">
+    <b>한계</b>
+    <ul style="margin:6px 0 0;">
+      <li>시간대별 매출은 “배달” 합산(배민+쿠팡)이라 <b>배민만 시간대별</b>은 matetech에서 안 나옴.</li>
+      <li>종료된 광고 캠페인 이력은 배민 API가 일부 제한.</li>
+      <li><b>쿠팡이츠</b>는 아직 미진행(변경이력 화면 확인 필요).</li>
+    </ul>
+  </div>
+  <div class="tip">
+    <b>다음</b>
+    <ul style="margin:6px 0 0;">
+      <li>다른 표본매장으로 같은 프로세스 확대 → 여러 매장 합본.</li>
+      <li>쿠팡이츠도 동일한 콘솔 방식 적용 검토.</li>
+      <li>“변경 전후 N일 매출 비교” 자동 요약 시트 추가 가능.</li>
+    </ul>
+  </div>
+
+  <p class="foot">진행 기록 & 로직 정리 · 이 문서는 sample_collection/ 에 함께 보관</p>
+</div>
+</body>
+</html>

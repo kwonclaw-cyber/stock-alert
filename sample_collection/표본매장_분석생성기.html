@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표본매장 도구 — 분석 생성기 & 로직 정리</title>
+<style>
+  :root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--y:#fff3bf;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
+  *{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.6;margin:0;background:#f8f9fa;}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 70px;}
+  h1{font-size:26px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 22px;}
+  h2{font-size:18px;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  #drop{border:2.5px dashed var(--b);border-radius:14px;padding:34px 20px;text-align:center;background:var(--b2);cursor:pointer;transition:.15s;}
+  #drop.over{border-color:var(--g);background:#d3f9d8;}
+  #drop b{font-size:17px;color:var(--b);} #drop p{margin:6px 0 0;color:var(--mut);font-size:13px;}
+  .files{list-style:none;padding:0;margin:12px 0 0;} .files li{font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line);}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;margin-right:6px;}
+  .t-j{background:#fff3bf;color:#e8590c;} .t-s{background:#e7f5ff;color:#1971c2;} .t-x{background:#ffe3e3;color:#e03131;}
+  input[type=text]{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;width:240px;}
+  button.go{background:var(--g);color:#fff;border:none;padding:12px 26px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
+  button.go:disabled{background:#adb5bd;cursor:default;}
+  button.dl{background:var(--b);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin:6px 8px 0 0;}
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;} th{background:#f1f3f5;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;} .up{color:var(--r);font-weight:700;} .dn{color:var(--b);font-weight:700;}
+  .warn{background:#fff9db;border-left:4px solid var(--o);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}
+  .tip{background:var(--b2);border-left:4px solid var(--b);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}
+  .err{color:var(--r);font-weight:700;} .hide{display:none;}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;} .kpi div{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;} .kpi b{display:block;font-size:20px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
+  .foot{margin-top:34px;color:var(--mut);font-size:12px;text-align:center;}
+  .guide h3{font-size:15px;margin:16px 0 6px;color:var(--b);}
+  .gstep{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px;}
+  .gstep:last-child{border-bottom:none;}
+  .gnum{flex:0 0 26px;height:26px;border-radius:50%;background:var(--b);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .codebox{position:relative;margin:10px 0;}
+  .codebox pre{background:#1e2128;color:#e6e6e6;padding:16px;border-radius:10px;overflow:auto;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-height:240px;margin:0;white-space:pre-wrap;word-break:break-all;}
+  .copybtn{position:absolute;top:8px;right:8px;background:var(--g);color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+  .copybtn.done{background:var(--b);}
+  kbd{background:#fff;border:1px solid #adb5bd;border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:11px;}
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13px;}
+  .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;}
+  .arrow{color:var(--mut);font-weight:700;}
+  .legend{font-size:13px;color:var(--mut);margin:4px 0 12px;}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0;}
+  @media(max-width:640px){.board{grid-template-columns:1fr 1fr;}}
+  .bcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff;}
+  .bcard .blabel{font-size:13px;font-weight:700;}
+  .bcard .bnet{font-size:27px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px;}
+  .bcard .bsub{font-size:11.5px;color:var(--mut);}
+  .bcard .bverdict{font-size:12.5px;font-weight:700;margin-top:6px;}
+  .bcard .bnote{font-size:11px;color:var(--o);margin-top:4px;}
+  .bcard.base{background:#f1f3f5;} .bcard.base .bnet{color:var(--ink);font-size:23px;}
+  .bcard.pos{border-color:#b2f2bb;background:#ebfbee;} .bcard.pos .bnet,.bcard.pos .bverdict{color:var(--g);}
+  .bcard.neg{border-color:#ffc9c9;background:#fff5f5;} .bcard.neg .bnet,.bcard.neg .bverdict{color:var(--r);}
+  .bcard.neu .bnet,.bcard.neu .bverdict{color:var(--mut);}
+  /* 탭 */
+  .tabs{display:flex;gap:4px;margin:16px 0 10px;border-bottom:2px solid var(--line);flex-wrap:wrap;}
+  .tab{background:none;border:none;padding:10px 18px;font-size:15px;font-weight:700;color:var(--mut);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--b);border-bottom-color:var(--b);}
+  .tab-panel{display:none;} .tab-panel.active{display:block;}
+  /* 매장 비교 */
+  .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0;}
+  @media(max-width:560px){.cmp-grid{grid-template-columns:1fr;}}
+  .dz{border:2.5px dashed var(--b);border-radius:14px;padding:22px 14px;text-align:center;background:var(--b2);cursor:pointer;transition:.15s;}
+  .dz.over{border-color:var(--g);background:#d3f9d8;} .dz b{font-size:15px;} .dz p{margin:5px 0 0;color:var(--mut);font-size:12px;}
+  .dz.ref{border-color:#1971c2;background:#e7f5ff;} .dz.ref b{color:#1971c2;}
+  .dz.tgt{border-color:#e8590c;background:#fff4e6;} .dz.tgt b{color:#e8590c;}
+  .sol-card{border:1px solid var(--line);border-left:4px solid var(--g);border-radius:0 10px 10px 0;padding:11px 14px;margin:8px 0;background:#fff;}
+  .sol-card .pri{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--r);border-radius:20px;padding:1px 8px;margin-left:6px;}
+  .sol-card .basis{font-size:12px;color:var(--mut);margin-top:4px;}
+  /* 변경→효과 도식 */
+  .fxcat{font-weight:800;font-size:13px;margin:14px 0 2px;}
+  .fx{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:4px 0 10px;background:#fff;}
+  .fxhead{font-size:13.5px;margin-bottom:9px;}
+  .fxrow{display:flex;align-items:center;gap:8px;margin:4px 0;}
+  .fxlabel{width:96px;flex:none;font-size:12px;color:var(--mut);text-align:right;}
+  .fxtrack{flex:1;background:#f1f3f5;border-radius:5px;height:22px;overflow:hidden;}
+  .fxbar{display:block;height:22px;border-radius:5px;transition:width .3s;}
+  .fxval{width:96px;flex:none;font-size:12.5px;font-weight:700;text-align:right;}
+  .fxbadge{display:inline-block;margin-top:9px;padding:3px 13px;border-radius:20px;color:#fff;font-weight:700;font-size:13px;}
+  .fxnote{font-size:11px;color:var(--mut);margin-left:8px;}
+  /* 복합 변경 케이스 */
+  .combo{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:8px 0;background:#fff;}
+  .combohead{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .combopct{margin-left:auto;font-size:15px;}
+  .combochips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;}
+  .cchip{border:1.5px solid;border-radius:20px;padding:2px 11px;font-size:12.5px;font-weight:700;background:#fff;}
+  .combonote{font-size:12px;color:var(--mut);margin-top:3px;}
+  /* 매출 그래프 점·툴팁 */
+  .mk{cursor:pointer;transition:r .12s;}
+  .mk:hover{r:8.5;}
+  .charttip{display:none;position:absolute;transform:translate(-50%,-100%);background:rgba(33,37,41,.96);color:#fff;font-size:12px;line-height:1.5;padding:8px 11px;border-radius:8px;white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:20;}
+  /* 표본 저장/불러오기 */
+  .savebar{border:1px solid var(--line);border-left:4px solid var(--b);background:var(--b2);border-radius:0 10px 10px 0;padding:11px 14px;margin:10px 0;}
+  .loadsel{width:100%;margin-top:6px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;}
+  .savedlist{border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:#fff;}
+  .savedlist .row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f3f5;font-size:13px;}
+  .savedlist .row:last-child{border-bottom:none;}
+  .savedlist .bchip{font-size:11px;font-weight:700;color:#fff;background:var(--b);border-radius:20px;padding:1px 9px;}
+  .savedlist .del{margin-left:auto;color:var(--r);cursor:pointer;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:#fff;}
+  /* 로직 정리 탭 */
+  #tab-doc h2{font-size:20px;margin:34px 0 12px;} #tab-doc h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
+  .ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;}
+  .t-q{background:#e7f5ff;color:#1971c2;} .t-try{background:#fff3bf;color:#e8590c;} .t-win{background:#ebfbee;color:#2f9e44;}
+  .win{background:#ebfbee;border-left:4px solid var(--g);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
+  #tab-doc .timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:3px solid var(--line);}
+  #tab-doc .ev{position:relative;margin:0 0 18px;}
+  #tab-doc .ev::before{content:'';position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--b);}
+  #tab-doc .ev.fail::before{border-color:var(--r);} #tab-doc .ev.good::before{border-color:var(--g);}
+  #tab-doc .ev h4{margin:0 0 4px;font-size:15px;} #tab-doc .ev p{margin:3px 0;font-size:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 표본매장 도구</h1>
+  <p class="sub">분석 생성기 + 프로젝트 진행 기록·로직 정리 — 한 파일</p>
+  <div class="tabs">
+    <button class="tab active" data-tab="gen">📊 분석 생성기</button>
+    <button class="tab" data-tab="compare">🆚 매장 비교</button>
+    <button class="tab" data-tab="guide">📌 프로세스 가이드</button>
+    <button class="tab" data-tab="doc">🧭 프로젝트 기록 &amp; 로직</button>
+  </div>
+
+  <div id="tab-gen" class="tab-panel active">
+  <p class="sub">배민 변경이력 JSON + matetech 매출 엑셀을 끌어다 놓으면 → 분석 엑셀이 만들어집니다. (설치·업로드 불필요, 전부 이 브라우저 안에서 처리)</p>
+
+  <div class="card">
+    <div id="drop">
+      <b>📁 여기로 파일을 끌어다 놓으세요</b>
+      <p>또는 클릭해서 선택 · <code>baemin_변경이력_*.json</code> 1개 + matetech <code>주문경로별/시간대별 .xlsx</code> 여러 개</p>
+      <input type="file" id="picker" multiple accept=".json,.xlsx" class="hide">
+    </div>
+    <ul class="files" id="filelist"></ul>
+    <div style="margin-top:12px">
+      <select id="loadGen" class="loadsel" style="max-width:420px"><option value="">📂 저장된 표본 불러와서 분석 보기…</option></select>
+    </div>
+    <div style="margin-top:14px;">
+      매장 이름(선택): <input type="text" id="storename" placeholder="예: 밥구정로데오">
+      <br><button class="go" id="run" disabled>분석 만들기 ▶</button>
+      <span id="status" style="margin-left:10px;font-size:13px;color:var(--mut);"></span>
+    </div>
+  </div>
+
+  <div id="result" class="hide">
+    <h2>결과</h2>
+    <div class="kpi" id="kpi"></div>
+    <div style="margin:10px 0;">
+      <button class="dl" id="dlAnalysis">⬇ 분석.xlsx</button>
+      <button class="dl" id="dlMerged">⬇ 통합본.xlsx</button>
+    </div>
+    <div class="savebar">
+      <b>💾 이 매장을 표본으로 저장</b>
+      <span style="color:var(--mut);font-size:12px">브랜드별로 여러 개 저장 후, 매장 비교 탭에서 불러올 수 있어요.</span>
+      <div style="margin-top:7px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="saveBrand" placeholder="브랜드명 (예: 밥구정)" style="width:180px">
+        <input type="text" id="saveName" placeholder="표본매장 이름" style="width:180px">
+        <button class="go" id="saveSample" style="padding:8px 16px">표본 저장 ▶</button>
+        <span id="saveStatus" style="font-size:13px;color:var(--mut)"></span>
+      </div>
+    </div>
+    <h2>📊 분석 보드 — 변경이 매출에 준 직접 영향</h2>
+    <p class="legend">각 카드의 큰 숫자 = 그 변경 <b>전/후 같은 기간·같은 요일구성(최대 14일)</b>으로 비교한 <b>매출 변화의 평균</b>입니다(아래 그래프·도식과 같은 방식, 도식은 그 중 "가장 큰 1건"). <b style="color:var(--g)">＋면 매출 상승</b>, <b style="color:var(--r)">－면 하락.</b></p>
+    <div class="board" id="board"></div>
+    <div class="warn"><b>해석 주의:</b> 변경이 잦은 구간은 비교 창(전·후 14일)에 다른 변경이 섞여 단독 효과가 아닐 수 있습니다. <b>아래 추이 그래프·핵심 도식</b>과 함께 보세요.</div>
+    <h2>📈 매출 추이 &amp; 변경 시점</h2>
+    <p class="legend"><b>일매출선</b> 위에 <b>매출을 크게 움직인 주요 변경시점</b>만 점으로 표시합니다(모든 변경이 아님). <b>점에 커서를 올리면</b> 날짜·변경 내용·매출 변화가 상세히 보입니다.</p>
+    <div id="chart"></div>
+    <h2>월별 비교</h2>
+    <table id="montable"></table>
+    <h2>🔎 변경 → 매출효과 도출</h2>
+    <p class="legend">각 변경 직전/직후를 <b>동일 길이·동일 요일구성(주 단위, 최대 2주)</b> 창으로 비교해 그 변경이 매출에 준 효과를 도출합니다. 변경은 <b>카테고리별 하루 1건(그날 순변화)</b>으로 합쳐, 운영시간은 <b>그날 실제 운영시간</b>·클릭비는 <b>그날 순클릭비변동</b>·할인은 <b>그날 순시작/종료</b>만 셉니다. 변화 없음·측정 불가(전·후 1주 미확보)는 제외합니다. <span style="color:var(--mut)">※ 변경이 잦은 구간은 창 안에 다른 변경이 섞일 수 있어, 단독 인과가 아닌 참고치입니다.</span></p>
+    <div id="details"></div>
+  </div>
+
+  <div class="warn" id="neednet">⚠️ 이 페이지는 엑셀 처리를 위해 인터넷에서 라이브러리(SheetJS)를 한 번 불러옵니다. 인터넷이 연결돼 있어야 합니다.</div>
+  <p class="foot">표본매장 분석 생성기 · 모든 처리는 브라우저 내에서 수행되어 데이터가 외부로 전송되지 않습니다.</p>
+  </div><!-- /tab-gen -->
+
+  <div id="tab-compare" class="tab-panel">
+    <h2>🆚 기준매장 vs 선택매장 1:1 비교</h2>
+    <p class="sub" style="margin-bottom:10px">잘 되는 <b>기준매장</b>과 개선 대상 <b>선택매장</b>의 파일(JSON+엑셀)을 각각 올리면, 전략·매출을 비교하고 선택매장 솔루션을 제안합니다.</p>
+    <div class="cmp-grid">
+      <div>
+        <div class="dz ref" id="dzRef"><b>🔵 기준매장 (잘 되는 곳)</b><p>파일 끌어다 놓기 / 클릭</p>
+          <input type="file" id="pickRef" multiple accept=".json,.xlsx" class="hide"></div>
+        <select id="loadRef" class="loadsel"><option value="">📂 저장된 표본 불러오기…</option></select>
+        <input type="text" id="nameRef" placeholder="기준매장 이름" style="width:100%;margin-top:6px">
+        <ul class="files" id="listRef"></ul>
+      </div>
+      <div>
+        <div class="dz tgt" id="dzTgt"><b>🟠 선택매장 (개선 대상)</b><p>파일 끌어다 놓기 / 클릭</p>
+          <input type="file" id="pickTgt" multiple accept=".json,.xlsx" class="hide"></div>
+        <select id="loadTgt" class="loadsel"><option value="">📂 저장된 표본 불러오기…</option></select>
+        <input type="text" id="nameTgt" placeholder="선택매장 이름" style="width:100%;margin-top:6px">
+        <ul class="files" id="listTgt"></ul>
+      </div>
+    </div>
+    <button class="go" id="cmpRun" disabled>비교 분석 ▶</button>
+    <span id="cmpStatus" style="margin-left:10px;font-size:13px;color:var(--mut)"></span>
+    <div id="savedBox" style="margin-top:16px"></div>
+    <div id="cmpResult" class="hide"></div>
+  </div><!-- /tab-compare -->
+
+  <div id="tab-guide" class="tab-panel">
+  <div class="guide">
+  <h2>📌 프로세스 가이드</h2>
+  <div class="card">
+    <div class="flow">
+      <span class="pill">① 배민 변경이력(콘솔)</span><span class="arrow">→</span>
+      <span class="pill">② matetech 매출 엑셀</span><span class="arrow">→</span>
+      <span class="pill">③ 위 박스에 끌어다 놓기</span><span class="arrow">→</span>
+      <span class="pill">④ 분석 다운로드</span>
+    </div>
+
+    <h3>STEP 1 · 배민 변경이력 받기 (콘솔)</h3>
+    <div class="gstep"><div class="gnum">1</div><div>크롬에서 <b>self.baemin.com</b> 로그인 → 왼쪽 <b>변경이력</b> 화면</div></div>
+    <div class="gstep"><div class="gnum">2</div><div><kbd>F12</kbd> → <b>Console</b> 탭. 아래 코드를 <b>먼저</b> 붙여넣고 <kbd>Enter</kbd> (막히면 <code>allow pasting</code> 입력)</div></div>
+    <div class="gstep"><div class="gnum">3</div><div><b>가게</b> 탭 → <b>조회</b> → <code>__scrollAll()</code> &nbsp;/&nbsp; <b>즉시할인</b> → 조회 → <code>__scrollAll()</code> &nbsp;/&nbsp; <b>광고·서비스</b> → (캠페인 선택) 조회 → <code>__scrollAll()</code></div></div>
+    <div class="gstep"><div class="gnum">4</div><div>콘솔에 <code>__save()</code> → <b>baemin_변경이력_매장번호.json</b> 다운로드</div></div>
+    <div class="codebox"><button class="copybtn" onclick="copySnippet(this)">📋 복사</button><pre id="snipview"></pre></div>
+
+    <h3>STEP 2 · matetech 매출 받기 (월별)</h3>
+    <div class="gstep"><div class="gnum">1</div><div><b>매출분석 → 주문경로별</b>(배민/쿠팡 분리)·<b>시간대별</b>을 <b>월 단위</b>로 조회 → 엑셀 다운로드 (6개월이면 각 6개)</div></div>
+    <div class="gstep"><div class="gnum">2</div><div>주문경로별이 없으면 시간대별만 있어도 됩니다(매출은 '배달' 합산으로 표시).</div></div>
+
+    <h3>STEP 3 · 이 페이지에 올리기</h3>
+    <div class="gstep"><div class="gnum">1</div><div>받은 <b>JSON + 매출 엑셀</b>을 맨 위 박스에 끌어다 놓고 <b>분석 만들기 ▶</b> → <b>분석.xlsx / 통합본.xlsx</b> 다운로드</div></div>
+  </div>
+  </div>
+  </div><!-- /tab-guide -->
+
+  <div id="tab-doc" class="tab-panel">
+<h1>🧭 표본매장 프로젝트 — 진행 기록 & 로직 정리</h1>
+  <p class="sub">처음 접근부터 시행착오·각 단계 결과·최종 결론까지 한 페이지로</p>
+
+  <!-- 0. 목표 -->
+  <h2>0 · 목표</h2>
+  <div class="card">
+    <p style="margin:0;">브랜드별 <b>표본매장</b>을 정하고, 그 매장의 <b>배민/쿠팡 운영 변경</b>(광고율·즉시할인·쿠폰·운영시간 등)이
+    <b>매출 변동</b>과 어떤 관계인지 분석할 수 있는 <b>표본 데이터</b>를 만든다.</p>
+  </div>
+
+  <!-- 1. 요구사항 확정 -->
+  <h2>1 · 요구사항 확정 <span style="font-size:13px; color:var(--mut);">(질문으로 좁힘)</span></h2>
+  <table>
+    <tr><th>질문</th><th>결정</th></tr>
+    <tr><td>운영변경 데이터 소스</td><td>배민/쿠팡 사장님 사이트에서 수집</td></tr>
+    <tr><td>표본매장 선정</td><td>브랜드별 수기 지정</td></tr>
+    <tr><td>계정 구조</td><td>매장별 개별계정</td></tr>
+    <tr><td>작업 성격</td><td><b>일회성</b>, 로그인은 사용자가 직접</td></tr>
+    <tr><td>핵심 데이터</td><td>현재값이 아니라 <b>“변경 이력”(시간축)</b></td></tr>
+    <tr><td>결과물</td><td>매출과 결합한 표(엑셀/시트)</td></tr>
+  </table>
+  <div class="tip"><b>방향 전환 포인트:</b> 처음엔 “현재 설정값”을 받으려 했지만, 실제로 필요한 건 <b>“언제 무엇을 어떻게 바꿨나”</b>였다. 그리고 배민에 정확히 그걸 주는 <code>변경이력</code> 화면이 있었다.</div>
+
+  <!-- 2. 시행착오 타임라인 -->
+  <h2>2 · 시도와 결과 <span style="font-size:13px; color:var(--mut);">(로직이 진화한 과정)</span></h2>
+  <div class="timeline">
+
+    <div class="ev good">
+      <h4><span class="tag t-try">시도 1</span> 화면 저장 방식 <code>capture.py</code></h4>
+      <p>로그인 후 변경이력 페이지의 HTML·스크린샷·<b>네트워크 JSON</b>을 통째로 저장.</p>
+      <p class="ok">결과: 성공. 96개 응답 캡처 → 99건 파싱.</p>
+      <p><b>핵심 발견:</b> 배민 변경이력은 깔끔한 JSON API(<code>modify-history/shop · instant-discount · ad-campaign</code>)이고,
+      <b>변경 전→후 값이 그대로 들어있다.</b></p>
+      <p class="no">한계: 수동 클릭 의존, 페이지네이션이 중간에 잘려 6개월 완전판이 안 됨.</p>
+    </div>
+
+    <div class="ev fail">
+      <h4><span class="tag t-try">시도 2</span> 자동수집기 <code>baemin_history.py</code> (여러 버전)</h4>
+      <p>“로그인만 하면 6개월치를 자동으로” 목표로 Playwright 자동화 반복 시도.</p>
+      <table style="margin-top:6px;">
+        <tr><th>방식</th><th>결과</th></tr>
+        <tr><td>외부에서 API 호출(ctx.request)</td><td class="no">403 (인증 토큰 없음)</td></tr>
+        <tr><td>페이지 안 fetch(page.evaluate)</td><td class="no">CORS / 실행컨텍스트 파괴(-1)</td></tr>
+        <tr><td>루트 시작 + 로그인 가드</td><td class="no">로그인 창이 추적 밖으로 이탈</td></tr>
+        <tr><td>실제 Chrome(persistent)</td><td class="no">로그인된 창을 Playwright가 못 잡음</td></tr>
+      </table>
+      <p class="no">결론: <b>Playwright로는 막힘.</b> 배민 SSO 로그인이 자동화가 제어 못 하는 별도 창으로 빠진다.</p>
+      <p class="tip" style="margin:8px 0 0;"><b>이때 배운 진짜 로직:</b> 자동화의 벽은 <b>데이터</b>가 아니라
+      <b>“인증된 세션을 바깥에서 건드릴 수 없다”</b>(SSO·2FA·봇차단)는 점이었다.</p>
+    </div>
+
+    <div class="ev good">
+      <h4><span class="tag t-win">전환 · 정답</span> 개발자도구 콘솔 스니펫 <code>baemin_console.js</code></h4>
+      <p>발상 전환: <b>우리가 요청을 만들지 말고, 로그인된 페이지가 스스로 부르는 응답을 가로채자.</b></p>
+      <ul>
+        <li>토큰 실어 replay → <span class="no">여전히 토큰 못잡음·403·CORS</span></li>
+        <li>최종 <b>“응답 가로채기”</b> → <span class="ok">토큰·CORS·403 문제가 원천적으로 사라짐</span></li>
+      </ul>
+      <p class="win" style="margin:8px 0 0;"><b>성공!</b> 밥구정로데오(14323681) <b>6개월 변경이력 190건</b> 수집
+      (가게 80 · 광고 84 · 즉시할인 26).</p>
+    </div>
+
+    <div class="ev good">
+      <h4><span class="tag t-win">결합</span> 매출 합치기 <code>merge_sales.py</code></h4>
+      <p>matetech 월별 엑셀(주문경로별=배민 일별매출, 시간대별)을 6개월 합본하고,
+      변경이력과 <b>날짜로 조인</b>.</p>
+      <p class="ok">결과: 일자별 타임라인 169일 + 시간대별 2,033행 + 변경이력 190건 통합 워크북.</p>
+    </div>
+
+  </div>
+
+  <!-- 3. 핵심 로직 -->
+  <h2>3 · 최종 핵심 로직</h2>
+  <div class="card">
+    <ol>
+      <li><b>운영변경은 배민, 매출은 matetech</b> — 두 출처를 <b>날짜</b>로 잇는다.</li>
+      <li>배민 변경이력은 <b>JSON API</b>로 깔끔하게 있다(변경 전→후 포함).</li>
+      <li>자동화의 벽은 인증. 해법은 <b>“로그인된 페이지 안에서, 앱이 만든 응답을 가로채기”</b> — 토큰·CORS·차단을 모두 우회.</li>
+      <li>사람은 <b>로그인 + 탭 조회</b>만, 나머지(누적·정렬·표 변환)는 코드가.</li>
+    </ol>
+  </div>
+
+  <!-- 4. 확립된 프로세스 -->
+  <h2>4 · 확립된 프로세스</h2>
+  <div class="flow">
+    <span class="pill">콘솔 코드 붙여넣기</span><span class="arrow">→</span>
+    <span class="pill">탭별 조회 + __scrollAll()</span><span class="arrow">→</span>
+    <span class="pill">__save() → JSON</span><span class="arrow">→</span>
+    <span class="pill">matetech 월별 엑셀</span><span class="arrow">→</span>
+    <span class="pill">합치기 → 통합 워크북</span>
+  </div>
+  <p style="font-size:14px;">매장 한 곳당 위를 반복 → 매장별 표본 데이터 완성.</p>
+
+  <!-- 5. 산출물 -->
+  <h2>5 · 산출물 <span style="font-size:13px; color:var(--mut);">(저장소 sample_collection/)</span></h2>
+  <table>
+    <tr><th>파일</th><th>역할</th></tr>
+    <tr><td><code>baemin_console.js</code></td><td>★ 배민 변경이력 콘솔 수집기(응답 가로채기)</td></tr>
+    <tr><td><code>parse_baemin.py</code></td><td>수집 JSON → 변경이력 표(CSV/XLSX)</td></tr>
+    <tr><td><code>merge_sales.py</code></td><td>매출(주문경로별·시간대별) + 변경이력 → 통합 워크북</td></tr>
+    <tr><td><code>capture.py</code> / <code>baemin_history.py</code></td><td>초기 시도(화면저장 / 자동수집) — 기록용</td></tr>
+    <tr><td><code>표본매장_수집가이드.html</code></td><td>실사용 단계별 가이드(이 페이지의 짝)</td></tr>
+  </table>
+
+  <!-- 6. 결과 수치 -->
+  <h2>6 · 검증된 첫 표본 (밥구정로데오 광주서구점)</h2>
+  <div class="kpi">
+    <div><b>190</b><span>변경이력(6개월)</span></div>
+    <div><b>169</b><span>매출 일수</span></div>
+    <div><b>67</b><span>변경 있던 날</span></div>
+    <div><b>2,033</b><span>시간대별 행</span></div>
+  </div>
+
+  <!-- 7. 한계/다음 -->
+  <h2>7 · 한계 & 다음 단계</h2>
+  <div class="warn">
+    <b>한계</b>
+    <ul style="margin:6px 0 0;">
+      <li>시간대별 매출은 “배달” 합산(배민+쿠팡)이라 <b>배민만 시간대별</b>은 matetech에서 안 나옴.</li>
+      <li>종료된 광고 캠페인 이력은 배민 API가 일부 제한.</li>
+      <li><b>쿠팡이츠</b>는 아직 미진행(변경이력 화면 확인 필요).</li>
+    </ul>
+  </div>
+  <div class="tip">
+    <b>다음</b>
+    <ul style="margin:6px 0 0;">
+      <li><s>“변경 전후 N일 매출 비교” 자동 요약</s> → <b>완료</b>(아래 8단계: 보드·도식·복합분석).</li>
+      <li><s>여러 매장 비교</s> → <b>완료</b>(매장 비교 1:1 + 브랜드별 표본 저장).</li>
+      <li>쿠팡이츠도 동일한 콘솔 방식 적용 검토(아직 미진행).</li>
+      <li>매장 비교 탭의 솔루션도 보드와 같은 ‘전·후 비교’ 측정으로 통일 검토.</li>
+    </ul>
+  </div>
+
+  <!-- 8. 분석 도구로 확장 -->
+  <h2>8 · 분석·비교·솔루션 도구로 확장 <span style="font-size:13px;color:var(--mut);">(이 생성기 자체)</span></h2>
+  <p style="font-size:14px;margin:0 0 8px;">수집·결합을 넘어, 브라우저 한 파일에서 <b>분석 → 매장 비교 → 솔루션 → 가맹점 리포트</b>까지 끝내도록 확장했다. 모든 처리는 브라우저 안에서만 일어난다.</p>
+
+  <h3 style="margin:14px 0 6px;">측정 방법론(핵심)</h3>
+  <div class="card">
+    <ul style="margin:0;">
+      <li><b>변경 전/후 비교</b> = 같은 길이·<b>같은 요일구성</b>(주 단위, 최대 2주) 창의 일평균 매출 변화율. → 요일효과 보정.</li>
+      <li><b>운영시간</b>은 하루에 여러 번 바뀌어도 <b>그날 실제 운영시간</b>으로 통합. <b>클릭비·할인</b>도 <b>하루 1건(그날 순변화)</b>으로 통합 → 토글 노이즈 제거.</li>
+      <li><b>변화 없음(±2% 미만)·측정 불가(전·후 1주 미확보)</b>는 제외.</li>
+    </ul>
+  </div>
+
+  <h3 style="margin:14px 0 6px;">제공 기능</h3>
+  <table>
+    <tr><th>기능</th><th>내용</th></tr>
+    <tr><td><b>분석 보드</b></td><td>운영시간 증가/감소·즉시할인 증가/감소·클릭비 인상/인하 <b>6개 카드</b>(3×3). 각 카드 = 그 방향 변경들의 <b>전·후 비교 평균</b> 매출변화.</td></tr>
+    <tr><td><b>핵심 도식</b></td><td>유형별 <b>대표 1건</b>(증가=가장 오른 / 감소=가장 내린)을 변경 전·후 막대로 시각화.</td></tr>
+    <tr><td><b>매출 그래프</b></td><td>일매출선 + <b>주요 변경시점만</b> 점으로 마킹, 커서 올리면 상세 툴팁.</td></tr>
+    <tr><td><b>변경 목록</b></td><td>매출에 영향 준 변경만(±2%↑) 카테고리별 표.</td></tr>
+    <tr><td><b>복합 변경 분석</b></td><td>여러 요인이 며칠 내 겹쳐 순변화한 <b>실제 케이스</b>를 찾아 그때 매출변화·<b>주요인 후보</b>(추정) 도출.</td></tr>
+    <tr><td><b>매장 비교(1:1)</b></td><td>기준매장 vs 선택매장 — 비교표·지수 추이그래프·<b>효과 순위</b>·<b>권장 액션</b>(효과 기반 우선/권장/참고/주의 등급).</td></tr>
+    <tr><td><b>가맹점 리포트</b></td><td>비교 결과를 독립 HTML로 내보내 전달(인쇄→PDF 가능).</td></tr>
+    <tr><td><b>표본 저장/불러오기</b></td><td>분석한 매장을 <b>브랜드별</b>로 브라우저(localStorage)에 저장 → 생성기·비교탭에서 재사용.</td></tr>
+  </table>
+  <div class="tip"><b>용어:</b> 우리가게클릭 광고의 입찰가는 화면 표기를 <b>“클릭비”</b>로 통일. (데이터 파서는 옛 표기도 호환)</div>
+
+  <h2>9 · 분석의 한계 &amp; 해석 원칙</h2>
+  <div class="warn">
+    <ul style="margin:6px 0 0;">
+      <li>표본매장은 변경이 <b>매우 잦아</b>(클릭비 거의 매일 등) 한 변경의 <b>단독 인과를 깨끗이 분리하기 어렵다</b> → 모든 수치는 <b>참고치</b>.</li>
+      <li>비교 창 안에 다른 변경이 섞이거나 <b>전체 매출 추세</b>가 함께 잡힐 수 있다(같은 시기 연장·축소가 둘 다 +로 보이는 식).</li>
+      <li>그래서 <b>보드(전체 평균)·도식(대표 1건)·복합분석(겹친 케이스)</b>을 <b>함께</b> 보고, 권장 액션은 <b>작게 적용 후 재측정</b>하는 것을 원칙으로 한다.</li>
+    </ul>
+  </div>
+
+  <p class="foot">진행 기록 & 로직 정리 · 이 문서는 sample_collection/ 에 함께 보관</p>
+  </div><!-- /tab-doc -->
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+/* ===== 핵심 로직 (core.js) ===== */
+// 표본매장 분석 코어 로직 (브라우저/노드 공용). merge_sales.py + analyze.py 의 JS 포팅.
+(function (root) {
+  // ---------- 공통 ----------
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(v) {
+    if (v == null) return null;
+    if (v instanceof Date) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+    return String(v).slice(0, 10);
+  }
+  function addDays(dt, n) { const d = new Date(dt + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function wdayMon(dt) { const w = new Date(dt + 'T00:00:00').getDay(); return (w + 6) % 7; } // 0=월
+  const WEEK = ['월', '화', '수', '목', '금', '토', '일'];
+
+  // ---------- matetech 파싱 ----------
+  function detectType(rows) {
+    const hdr = rows.slice(0, 3).map(r => (r || []).map(x => x == null ? '' : String(x)).join(' ')).join(' ');
+    if (hdr.indexOf('주문채널') >= 0) return 'ju';
+    if (hdr.indexOf('시간대') >= 0) return 'si';
+    return null;
+  }
+  function parseJu(rowsList) {
+    const daily = {};
+    rowsList.forEach(rows => {
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const dd = r[0], ch = r[2];
+        if (!dd || dd === '합계' || !ch) continue;
+        const dt = fmtDate(dd), cnt = +r[4] || 0, amt = +r[6] || 0;
+        if (!daily[dt]) daily[dt] = { baemin: [0, 0], coupang: [0, 0], total: [0, 0] };
+        daily[dt].total[0] += cnt; daily[dt].total[1] += amt;
+        if (ch === '배달의민족') { daily[dt].baemin[0] += cnt; daily[dt].baemin[1] += amt; }
+        else if (ch === '쿠팡이츠') { daily[dt].coupang[0] += cnt; daily[dt].coupang[1] += amt; }
+      }
+    });
+    return daily;
+  }
+  function parseSi(rowsList) {
+    const hourly = [];
+    rowsList.forEach(rows => {
+      let cur = null;
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const rawd = r[0], slot = r[1];
+        if (rawd && String(rawd) !== '합계') {
+          const m = String(rawd).match(/(\d{1,2})월\s*(\d{1,2})일/);
+          if (m) { const mo = +m[1], dy = +m[2], yr = mo === 12 ? 2025 : 2026; cur = yr + '-' + pad(mo) + '-' + pad(dy); }
+          else { const f = fmtDate(rawd); if (/^\d{4}-/.test(f)) cur = f; }
+        }
+        if (!slot || String(slot) === '합계' || !/^\d/.test(String(slot))) continue;
+        if (!cur) continue;
+        hourly.push({ date: cur, slot: String(slot), dc: +r[8] || 0, da: +r[9] || 0, tc: +r[2] || 0, ta: +r[4] || 0 });
+      }
+    });
+    hourly.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.slot < b.slot ? -1 : 1));
+    return hourly;
+  }
+  function dailyFromHourly(hourly) {
+    const d = {};
+    hourly.forEach(h => { if (!d[h.date]) d[h.date] = { delivery: [0, 0], total: [0, 0] }; d[h.date].delivery[0] += h.dc; d[h.date].delivery[1] += h.da; d[h.date].total[0] += h.tc; d[h.date].total[1] += h.ta; });
+    return d;
+  }
+
+  // ---------- 변경이력 번들 파싱 ----------
+  const SHOP_LABELS = {
+    SHOP_OPERATION_HOUR_MODIFY: '운영시간', SHOP_MENU_INFO_MENU_INTRO_MODIFY: '주문안내',
+    SHOP_DELIVERY_RULES_MODIFY: '주문금액·배달팁', SHOP_DELIVERY_RULES_RESERVATION_MODIFY: '주문금액·배달팁(예약)',
+    SHOP_REGION_DELIVERY_FEE_MODIFY: '지역 할증 배달팁', SHOP_DAY_OFF_MODIFY: '휴무일 변경',
+    TEMPORARY_STOP_MODIFY: '임시중지', SHOP_TEMPORARY_STOP_MODIFY: '임시중지', SHOP_STATUS_MODIFY: '가게 상태',
+    SHOP_REST_HOUR_MODIFY: '휴게시간 변경', SHOP_CONTENTS_MODIFY: '가게소개/콘텐츠',
+    SHOP_TELEPHONE_INFO_MODIFY: '전화번호 변경', SHOP_MENU_INFO_MODIFY: '메뉴 정보', SHOP_BASE_INFO_MODIFY: '기본 정보',
+  };
+  const AD_TYPES = { LISTING_INVENTORY_DISPLAY_PAUSE: '노출 ON/OFF', CPC_BUDGET: '클릭비·예산' };
+  function shopLabel(ci, sub) { return SHOP_LABELS[ci] || ci || sub || '기타'; }
+  function adTypeLabel(t) { return AD_TYPES[t] || t || ''; }
+  function fmtAd(v) {
+    if (v == null) return '';
+    let s = String(v);
+    if (s.charAt(0) === '{') {
+      try {
+        const o = JSON.parse(s), cpc = o.cpc || o, p = [];
+        if ('bid' in cpc) p.push('클릭비 ' + Number(cpc.bid).toLocaleString() + '원');
+        if ('autoBidding' in cpc) p.push(cpc.autoBidding ? '자동입찰' : '수동입찰');
+        // 예산(월예산·최대입찰)은 매출영향 분석에 불필요 → 표시 제외
+        return p.length ? p.join(', ') : s;
+      } catch (e) { return s; }
+    }
+    return s;
+  }
+  function parseBundle(b) {
+    const rows = [];
+    (b.shop || []).forEach(r => rows.push({ date: String(r.modified || r.createdAt || '').slice(0, 10), ts: String(r.modified || r.createdAt || ''), gubun: '가게', item: shopLabel(r.changedItem, r.subDivision), before: (r.beforeState || '').trim(), after: (r.afterState || '').trim() }));
+    (b.instantDiscount || []).forEach(r => rows.push({ date: String(r.modifiedAt || '').slice(0, 10), ts: String(r.modifiedAt || ''), gubun: '즉시할인', item: r.name || r.type || '', before: '', after: (r.description || '').trim() }));
+    (b.ad || []).forEach(r => rows.push({ date: String(r.createdAt || '').slice(0, 10), ts: String(r.createdAt || ''), gubun: '광고', item: (r.adKindTitle || '') + ' (' + adTypeLabel(r.historyType) + ')', before: fmtAd(r.beforeValue), after: fmtAd(r.afterValue) }));
+    rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return rows;
+  }
+
+  // ---------- 분석 ----------
+  function bidOf(s) { const m = String(s).match(/(?:입찰|클릭비)\s*([\d,]+)\s*원/); return m ? +m[1].replace(/,/g, '') : null; }
+  function categorize(changes) {
+    const by = {};
+    function ensure(d) { if (!by[d]) by[d] = { 운영시간: [], 할인: [], 우리가게클릭: [] }; return by[d]; }
+    changes.forEach(c => {
+      if (c.gubun === '가게' && c.item === '운영시간') ensure(c.date).운영시간.push(c.after.replace(/\n/g, ' / '));
+      else if (c.gubun === '즉시할인') ensure(c.date).할인.push(c.item);
+      else if (c.gubun === '광고' && String(c.item).indexOf('우리가게클릭') === 0) {
+        const ba = bidOf(c.before), aa = bidOf(c.after);
+        if (ba != null && aa != null) { const ar = aa > ba ? '▲인상' : (aa < ba ? '▼인하' : '유지'); ensure(c.date).우리가게클릭.push('클릭비 ' + ba + '→' + aa + '원 (' + ar + ')'); }
+        else ensure(c.date).우리가게클릭.push(c.after || c.item);
+      }
+    });
+    return by;
+  }
+  function getDaily(workbookData) {
+    // workbookData: {ju:{...}|null, hourly:[...]}
+    if (workbookData.ju && Object.keys(workbookData.ju).length) {
+      const d = {}; for (const k in workbookData.ju) d[k] = { sales: workbookData.ju[k].baemin[1], cnt: workbookData.ju[k].baemin[0], total: workbookData.ju[k].total[1] };
+      return { daily: d, salesName: '배민매출', hasChannel: true, ju: workbookData.ju };
+    }
+    const dfh = dailyFromHourly(workbookData.hourly); const d = {};
+    for (const k in dfh) d[k] = { sales: dfh[k].delivery[1], cnt: dfh[k].delivery[0], total: dfh[k].total[1] };
+    return { daily: d, salesName: '배달매출', hasChannel: false };
+  }
+  function avg(xs) { xs = xs.filter(x => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
+  function analyze(daily, cats) {
+    const days = Object.keys(daily).sort();
+    function wow(dt) { const p = daily[addDays(dt, -7)]; if (!p || !p.sales) return null; return (daily[dt].sales - p.sales) / p.sales * 100; }
+    const has = (dt, k, pred) => (cats[dt] && cats[dt][k] || []).some(pred || (() => true));
+    const opDays = days.filter(dt => cats[dt] && cats[dt].운영시간.length);
+    const dStart = days.filter(dt => has(dt, '할인', x => x.indexOf('[시작]') >= 0));
+    const dEnd = days.filter(dt => has(dt, '할인', x => x.indexOf('[종료]') >= 0));
+    const bidUp = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▲인상') >= 0));
+    const bidDn = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▼인하') >= 0));
+    const base = avg(days.map(wow));
+    const m = arr => avg(arr.map(wow));
+    return {
+      base: base, op: { n: opDays.length, v: m(opDays) }, dStart: { n: dStart.length, v: m(dStart) },
+      dEnd: { n: dEnd.length, v: m(dEnd) }, bidUp: { n: bidUp.length, v: m(bidUp) }, bidDn: { n: bidDn.length, v: m(bidDn) },
+    };
+  }
+  function weekly(daily) {
+    const agg = {}; for (const dt in daily) { const mon = addDays(dt, -wdayMon(dt)); if (!agg[mon]) agg[mon] = [0, 0]; agg[mon][0] += daily[dt].sales; agg[mon][1] += daily[dt].cnt; } return agg;
+  }
+  function monthly(daily) { const agg = {}; for (const dt in daily) { const ym = dt.slice(0, 7); if (!agg[ym]) agg[ym] = [0, 0]; agg[ym][0] += daily[dt].sales; agg[ym][1] += daily[dt].cnt; } return agg; }
+
+  const API = { fmtDate, addDays, wdayMon, WEEK, detectType, parseJu, parseSi, dailyFromHourly, parseBundle, categorize, getDaily, analyze, weekly, monthly };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  else root.SAMPLE = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== 앱 ===== */
+(function(){
+  var SAMPLE = window.SAMPLE;
+  var dropped = [];
+  var computed = null;
+  var drop=document.getElementById('drop'), picker=document.getElementById('picker'),
+      filelist=document.getElementById('filelist'), runBtn=document.getElementById('run'),
+      statusEl=document.getElementById('status');
+
+  if(window.XLSX) document.getElementById('neednet').style.display='none';
+
+  drop.addEventListener('click',function(){picker.click();});
+  ['dragover','dragenter'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('over');});});
+  ['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('over');});});
+  drop.addEventListener('drop',function(ev){addFiles(ev.dataTransfer.files);});
+  picker.addEventListener('change',function(ev){addFiles(ev.target.files);});
+
+  function addFiles(list){
+    for(var i=0;i<list.length;i++){
+      var f=list[i], n=f.name.toLowerCase();
+      if(n.endsWith('.json')||n.endsWith('.xlsx')) dropped.push(f);
+    }
+    render();
+  }
+  function render(){
+    filelist.innerHTML='';
+    dropped.forEach(function(f){
+      var n=f.name.toLowerCase(), tag='<span class="tag t-x">기타</span>';
+      if(n.endsWith('.json')) tag='<span class="tag t-j">변경이력</span>';
+      else if(n.endsWith('.xlsx')) tag='<span class="tag t-s">매출</span>';
+      var li=document.createElement('li'); li.innerHTML=tag+f.name; filelist.appendChild(li);
+    });
+    runBtn.disabled = dropped.length===0;
+  }
+
+  runBtn.addEventListener('click',function(){ run().catch(function(e){ statusEl.innerHTML='<span class="err">'+e+'</span>'; }); });
+
+  async function buildComputed(files, nameHint){
+    if(!window.XLSX) throw '엑셀 라이브러리를 불러오지 못했습니다(인터넷 확인).';
+    var bundle=null, ju=[], si=[];
+    for(var i=0;i<files.length;i++){
+      var f=files[i], n=f.name.toLowerCase();
+      if(n.endsWith('.json')){ bundle=JSON.parse(await f.text()); }
+      else if(n.endsWith('.xlsx')){
+        var buf=await f.arrayBuffer(); var wb=XLSX.read(buf,{type:'array'});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+        var t=SAMPLE.detectType(rows);
+        if(t==='ju') ju.push(rows); else if(t==='si') si.push(rows);
+      }
+    }
+    if(!bundle) throw '배민 변경이력 JSON(baemin_변경이력_*.json)이 필요합니다.';
+    if(!ju.length && !si.length) throw 'matetech 매출 엑셀(주문경로별/시간대별)이 필요합니다.';
+    var gd=SAMPLE.getDaily({ju:SAMPLE.parseJu(ju),hourly:SAMPLE.parseSi(si)});
+    var changes=SAMPLE.parseBundle(bundle);
+    var name=((nameHint||'')||('매장_'+(bundle.shopNumber||''))).trim();
+    return {gd:gd,hourly:SAMPLE.parseSi(si),changes:changes,cats:SAMPLE.categorize(changes),name:name,shopNumber:bundle.shopNumber};
+  }
+
+  async function run(){
+    statusEl.textContent='처리 중…';
+    computed=await buildComputed(dropped, document.getElementById('storename').value);
+    showResult();
+    statusEl.textContent='완료!';
+  }
+
+  function pctStr(p){ return p==null?'N/A':(p>=0?'+':'')+p.toFixed(1)+'%'; }
+  function cls(p){ return p==null?'':(p>0?'up':(p<0?'dn':'')); }
+  function netStr(n){ return n==null?'N/A':(n>=0?'+':'')+n.toFixed(1)+'%p'; }
+  function verdictOf(net){ if(net==null) return {t:'데이터 없음',c:'neu',ic:'–'};
+    if(net>=3) return {t:'매출 상승',c:'pos',ic:'▲'}; if(net<=-3) return {t:'매출 하락',c:'neg',ic:'▼'};
+    return {t:'영향 미미',c:'neu',ic:'–'}; }
+  // 보드: 변경 방향별(증가/감소)로 나눠, 각 변경 '전/후 14일 비교' 매출변화의 평균 (그래프와 동일 측정)
+  function buildBoard(comp){
+    var daily=comp.gd.daily, days=Object.keys(daily).sort();
+    function avg(xs){ xs=xs.filter(function(x){return x!=null;}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; }
+    var avgDaily=avg(days.map(function(d){return daily[d].sales;})), rows0=detailRows(comp);
+    function grp(cat,pred){ var es=rows0.filter(function(r){return r.cat===cat&&r.measurable&&pred(r);}); return {n:es.length, v:avg(es.map(function(r){return r.pct;}))}; }
+    var defs=[
+      ['운영시간 증가','운영시간',function(r){return r.kind==='연장'||r.kind==='신규';},''],
+      ['운영시간 감소','운영시간',function(r){return r.kind==='감소';},''],
+      ['즉시할인 증가','즉시할인',function(r){return r.kind==='시작';},''],
+      ['즉시할인 감소','즉시할인',function(r){return r.kind==='종료';},'⚠ 종료일↑은 역인과 가능'],
+      ['우리가게클릭 클릭비 인상','우리가게클릭',function(r){return r.kind==='인상';},''],
+      ['우리가게클릭 클릭비 인하','우리가게클릭',function(r){return r.kind==='인하';},'']
+    ];
+    var rows=defs.map(function(d){ var g=grp(d[1],d[2]), vd=verdictOf(g.v);
+      return {label:d[0],n:g.n,v:g.v,c:vd.c,verdict:vd.ic+' '+vd.t,note:d[3]}; });
+    return {avgDaily:avgDaily, days:days.length, span:days.length?days[0]+' ~ '+days[days.length-1]:'', rows:rows};
+  }
+  // 복합 변경 분석: 여러 요인이 며칠 내 함께 '순변화'한 실제 케이스를 찾아 그때 매출변화를 도출
+  function comboAnalysis(comp){
+    var daily=comp.gd.daily, days=Object.keys(daily).sort(); if(days.length<2) return {cases:[]};
+    var first=days[0], last=days[days.length-1], ch=comp.changes, GAP=3;
+    // 운영시간 실효 타임라인
+    var opRaw=ch.filter(function(c){return c.gubun==='가게'&&c.item==='운영시간';})
+      .map(function(c){ var ao=opHours(c.after); return ao?{date:c.date,ts:c.ts||c.date,h:ao.min/ao.days/60}:null; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:1;});
+    var opEff={}; opRaw.forEach(function(e){ opEff[e.date]=e.h; }); var opDates=Object.keys(opEff).sort();
+    // 클릭비(입찰) 종가 타임라인
+    var bl=ch.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;})
+      .map(function(c){ var x=bidNum(c.before),y=bidNum(c.after); return (x==null||y==null)?null:{date:c.date,ts:c.ts||c.date,a:y}; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:1;});
+    var bidEnd={}; bl.forEach(function(e){ bidEnd[e.date]=e.a; }); var bidDates=Object.keys(bidEnd).sort();
+    // 할인 시작/종료 카운트
+    var ds={}; ch.filter(function(c){return c.gubun==='즉시할인';}).forEach(function(c){
+      var mk=c.item.indexOf('[시작]')>=0?'s':(c.item.indexOf('[종료]')>=0?'e':null); if(!mk) return;
+      if(!ds[c.date]) ds[c.date]={s:0,e:0}; ds[c.date][mk]++; });
+    var allDates=Object.keys(opEff).concat(Object.keys(ds)).concat(bidDates).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+    if(!allDates.length) return {cases:[]};
+    // 인접 변경일 클러스터(gap 이내)
+    var cl=[],cur=null; allDates.forEach(function(d){ if(cur&&dBetween(cur.end,d)<=GAP){cur.end=d;} else {cur={start:d,end:d}; cl.push(cur);} });
+    function lastBefore(map,keys,d){ var v=null; for(var i=0;i<keys.length;i++){ if(keys[i]<d) v=map[keys[i]]; else break; } return v; }
+    function lastAt(map,keys,d){ var v=null; for(var i=0;i<keys.length;i++){ if(keys[i]<=d) v=map[keys[i]]; else break; } return v; }
+    function segAvg2(s,e){ var sum=0,n=0; for(var k in daily){ if(k>=s&&k<=e){sum+=daily[k].sales;n++;} } return n?sum/n:null; }
+    function measure(d0,d1){ var A=SAMPLE.addDays, W=Math.min(dBetween(first,d0),dBetween(d1,last)+1,14); W=Math.floor(W/7)*7;
+      if(W<7) return null; var bf=segAvg2(A(d0,-W),A(d0,-1)), af=segAvg2(d1,A(d1,W-1)); return bf?{W:W,pct:(af-bf)/bf*100}:null; }
+    var bd=buildBoard(comp), solo={};
+    var solomap={'운영시간 증가':'운영↑','운영시간 감소':'운영↓','즉시할인 증가':'할인↑','즉시할인 감소':'할인↓','우리가게클릭 클릭비 인상':'클릭비↑','우리가게클릭 클릭비 인하':'클릭비↓'};
+    bd.rows.forEach(function(r){ if(solomap[r.label]!=null) solo[solomap[r.label]]=r.v; });
+    var cases=[];
+    cl.forEach(function(c){ var fs=[];
+      var ob=lastBefore(opEff,opDates,c.start), oe=lastAt(opEff,opDates,c.end);
+      if(ob!=null&&oe!=null&&Math.abs(oe-ob)>=0.1) fs.push({cat:'운영시간',dir:oe>ob?'↑':'↓',key:oe>ob?'운영↑':'운영↓',col:'#1971c2',detail:ob.toFixed(1)+'→'+oe.toFixed(1)+'h'});
+      var s=0,e=0; for(var d in ds){ if(d>=c.start&&d<=c.end){ s+=ds[d].s; e+=ds[d].e; } }
+      if(s-e>0) fs.push({cat:'즉시할인',dir:'↑',key:'할인↑',col:'#e8590c',detail:'시작 '+(s-e)+'건'}); else if(s-e<0) fs.push({cat:'즉시할인',dir:'↓',key:'할인↓',col:'#e8590c',detail:'종료 '+(e-s)+'건'});
+      var bb=lastBefore(bidEnd,bidDates,c.start), be=lastAt(bidEnd,bidDates,c.end);
+      if(bb!=null&&be!=null&&bb!==be) fs.push({cat:'클릭비',dir:be>bb?'↑':'↓',key:be>bb?'클릭비↑':'클릭비↓',col:'#e03131',detail:bb.toLocaleString()+'→'+be.toLocaleString()+'원'});
+      if(fs.length<2) return;
+      var m=measure(c.start,c.end); if(!m) return;
+      var main=null, match=null; fs.forEach(function(f){ f.solo=solo[f.key]; if(f.solo==null) return;
+        if(main==null||Math.abs(f.solo)>Math.abs(main.solo)) main=f;
+        if((m.pct>=0)===(f.solo>=0) && (match==null||Math.abs(f.solo)>Math.abs(match.solo))) match=f; });
+      cases.push({start:c.start,end:c.end,span:c.start+(c.start!==c.end?' ~ '+c.end:''),factors:fs,pct:m.pct,W:m.W,main:match||main});
+    });
+    cases.sort(function(a,b){return b.pct-a.pct;});
+    return {cases:cases};
+  }
+
+  // ===== 변경 건별 상세 (직전 구간 vs 직후 구간 = 다음 같은유형 변경 전까지) =====
+  var CATCOL={운영시간:'#1971c2',즉시할인:'#e8590c',우리가게클릭:'#e03131'};
+  function fmtWon(v){ return v==null?'-':Math.round(v).toLocaleString()+'원'; }
+  function bidNum(s){ var m=String(s).match(/(?:입찰|클릭비)\s*([\d,]+)\s*원/); return m?+m[1].replace(/,/g,''):null; }
+  function opHours(s){ if(!s) return null; var re=/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/g,m,tot=0,d=0;
+    while((m=re.exec(s))){ var o=+m[1]*60+ +m[2], c=+m[3]*60+ +m[4]; if(c<o)c+=1440; tot+=c-o; d++; } return d?{min:tot,days:d}:null; }
+  function segAvg(daily,s,e){ var sum=0,n=0; for(var k in daily){ if(k>=s&&k<=e){ sum+=daily[k].sales; n++; } } return {avg:n?sum/n:null,n:n}; }
+  function dBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+  var MINEFFECT=2;  // |매출변화%| 이 값 미만이면 '변화 없음'으로 간주해 제외
+  var WINMAX=14;    // 변경 전/후 비교 창 최대(일) — 7의 배수라 전·후 요일 구성이 동일
+  // 변경 전/후를 '동일 길이·동일 요일구성' 창으로 비교(이웃 변경에 묶지 않는 고정창)
+  function measure(daily,date,first,last){
+    var A=SAMPLE.addDays;
+    var W=Math.min(dBetween(first,date), dBetween(date,last)+1, WINMAX); W=Math.floor(W/7)*7;
+    if(W<7) return {W:0,bf:null,bfn:0,af:null,afn:0,pct:null,measurable:false};
+    var bf=segAvg(daily,A(date,-W),A(date,-1)), af=segAvg(daily,date,A(date,W-1));
+    var pct=(bf.avg&&af.avg!=null)?(af.avg-bf.avg)/bf.avg*100:null;
+    return {W:W,bf:bf.avg,bfn:bf.n,af:af.avg,afn:af.n,pct:pct,measurable:pct!=null};
+  }
+  // 변경을 '카테고리별 하루 1건(그날 순변화)'으로 통합 — 하루에 여러 번 손대도 그날 최종 결과만 셈
+  function changeEvents(comp){
+    var ch=comp.changes, ev={운영시간:[],즉시할인:[],우리가게클릭:[]};
+    // 운영시간: 그날 실운영시간(마지막 적용값) → 전일 대비 실제 변동만
+    var opRaw=ch.filter(function(c){return c.gubun==='가게'&&c.item==='운영시간';})
+      .map(function(c){ var ao=opHours(c.after); return ao?{date:c.date,ts:c.ts||c.date,h:ao.min/ao.days/60}:null; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:x.ts>y.ts?1:0;});
+    var effH={}; opRaw.forEach(function(e){ effH[e.date]=e.h; });
+    var prevH=null;
+    Object.keys(effH).sort().forEach(function(d){ var h=effH[d];
+      if(prevH==null) ev.운영시간.push({date:d,content:'신규 '+h.toFixed(1)+'h/일',change:'신규 설정',kind:'신규'});
+      else { var dl=h-prevH; if(Math.abs(dl)>=0.1) ev.운영시간.push({date:d,content:prevH.toFixed(1)+'h → '+h.toFixed(1)+'h',change:(dl>0?'연장 +':'감소 ')+dl.toFixed(1)+'h/일',kind:dl>0?'연장':'감소'}); }
+      prevH=h; });
+    // 즉시할인: 그날 시작·종료를 모아 순증감 + '무슨 할인'인지(금액/율)까지 표시
+    function discAmt(name){ var m=name.match(/([\d,]+\s*원|\d+\s*%)/); return m?m[1].replace(/\s+/g,''):name.replace(/^모든주문\s*/,'').replace(/\s*할인$/,'').trim(); }
+    function uniq(a){ return a.filter(function(v,i){return a.indexOf(v)===i;}); }
+    var ds={}; ch.filter(function(c){return c.gubun==='즉시할인';}).forEach(function(c){
+      var mk=c.item.indexOf('[시작]')>=0?'s':(c.item.indexOf('[종료]')>=0?'e':null); if(!mk) return;
+      if(!ds[c.date]) ds[c.date]={s:[],e:[]};
+      ds[c.date][mk].push(discAmt(c.item.replace(/\[(시작|종료)\]\s*/,'').trim())); });
+    Object.keys(ds).sort().forEach(function(d){ var o=ds[d], net=o.s.length-o.e.length;
+      if(net>0) ev.즉시할인.push({date:d,content:'할인 시작: '+uniq(o.s).join(', '),change:'시작',kind:'시작'});
+      else if(net<0) ev.즉시할인.push({date:d,content:'할인 종료: '+uniq(o.e).join(', '),change:'종료',kind:'종료'}); });
+    // 우리가게클릭: 그날 입찰 첫 변경전 → 마지막 변경후 (순변동만)
+    var bl=ch.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;})
+      .map(function(c){ var b=bidNum(c.before),a=bidNum(c.after); return (b==null||a==null)?null:{date:c.date,ts:c.ts||c.date,b:b,a:a}; })
+      .filter(Boolean).sort(function(x,y){return x.ts<y.ts?-1:x.ts>y.ts?1:0;});
+    var bd={}; bl.forEach(function(e){ if(!bd[e.date]) bd[e.date]={b:e.b,a:e.a}; else bd[e.date].a=e.a; });
+    Object.keys(bd).sort().forEach(function(d){ var o=bd[d]; if(o.b===o.a) return;
+      ev.우리가게클릭.push({date:d,content:'클릭비 '+o.b.toLocaleString()+'→'+o.a.toLocaleString()+'원',change:o.a>o.b?'인상':'인하',kind:o.a>o.b?'인상':'인하'}); });
+    return ev;
+  }
+  function detailRows(comp){
+    comp=comp||computed;
+    var daily=comp.gd.daily, days=Object.keys(daily).sort(); if(!days.length) return [];
+    var first=days[0], last=days[days.length-1], ev=changeEvents(comp), out=[];
+    ['운영시간','즉시할인','우리가게클릭'].forEach(function(cat){
+      ev[cat].forEach(function(e){
+        var m=measure(daily,e.date,first,last);
+        out.push({cat:cat,date:e.date,content:e.content,change:e.change,kind:e.kind,
+          W:m.W,bf:m.bf,bfn:m.bfn,af:m.af,afn:m.afn,pct:m.pct,measurable:m.measurable});
+      });
+    });
+    return out;
+  }
+  function pctCell(pc){ var col=pc==null?'var(--mut)':(pc>0?'var(--g)':(pc<0?'var(--r)':'var(--mut)'));
+    var txt=pc==null?'N/A':(pc>=0?'+':'')+pc.toFixed(1)+'% '+(pc>0?'▲':pc<0?'▼':'–');
+    return '<td class="num" style="color:'+col+';font-weight:700">'+txt+'</td>'; }
+  function avgCell(v,n){ return '<td class="num">'+fmtWon(v)+'<br><span style="color:var(--mut);font-size:11px">'+n+'일</span></td>'; }
+  // 변경 → 매출효과 도식 (변경 전/후 일평균 막대 + 변화율)
+  function effectDiagram(r,col){
+    var bf=r.bf||0, af=r.af||0, mx=Math.max(bf,af)||1, up=r.pct>=0;
+    var pc=up?'var(--g)':'var(--r)';
+    function bar(lbl,val,color){ return '<div class="fxrow"><span class="fxlabel">'+lbl+'</span>'
+      +'<span class="fxtrack"><span class="fxbar" style="width:'+Math.max(val/mx*100,3).toFixed(0)+'%;background:'+color+'"></span></span>'
+      +'<span class="fxval">'+fmtWon(val)+'</span></div>'; }
+    return '<div class="fx" style="border-left:4px solid '+col+'">'
+      +'<div class="fxhead">'+esc(r.date)+' · <b style="color:'+col+'">'+esc(r.change)+'</b> <span style="color:var(--mut);font-weight:400">('+esc(r.content)+')</span></div>'
+      +bar('변경 전 '+r.W+'일', bf, '#adb5bd')
+      +bar('변경 후 '+r.W+'일', af, col)
+      +'<div class="fxbadge" style="background:'+pc+'">'+(up?'▲ 매출 +':'▼ 매출 ')+r.pct.toFixed(1)+'%</div>'
+      +'<span class="fxnote">동일 '+r.W+'일·동일 요일구성 비교</span>'
+      +'</div>';
+  }
+  function renderDetails(){
+    var rows=detailRows(computed), cats=[['운영시간','#1971c2'],['즉시할인','#e8590c'],['우리가게클릭','#e03131']], html='';
+    // ① 변경 '유형(방향)별' 가장 극대화된 1건만 도식화
+    html+='<h3 style="margin:6px 0 4px;font-size:16px">🏆 변경 유형별 가장 큰 효과 <span style="color:var(--mut);font-weight:400;font-size:13px">(유형당 1건)</span></h3>';
+    html+='<p class="legend" style="margin-top:0">유형을 <b>증가 레버</b>(운영시간 연장·할인 시작·클릭비 인상)와 <b>감소 레버</b>(운영시간 축소·할인 종료·클릭비 인하)로 나눠, <b>증가 레버는 매출이 가장 많이 오른 1건</b>, <b>감소 레버는 가장 많이 내린 1건</b>을 보여줍니다. (여러 건의 평균이 아닌 단일 변경. 막대 높이는 그 변경 전/후 14일간 일평균 매출.)</p>';
+    var subTypes=[
+      {cat:'운영시간',label:'운영시간 — 연장(증가)',col:'#1971c2',dir:'up',match:function(r){return r.kind==='연장'||r.kind==='신규';}},
+      {cat:'운영시간',label:'운영시간 — 축소(감소)',col:'#1971c2',dir:'down',match:function(r){return r.kind==='감소';}},
+      {cat:'즉시할인',label:'즉시할인 — 시작(증가)',col:'#e8590c',dir:'up',match:function(r){return r.kind==='시작';}},
+      {cat:'즉시할인',label:'즉시할인 — 종료(감소)',col:'#e8590c',dir:'down',match:function(r){return r.kind==='종료';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 클릭비 — 인상(증가)',col:'#e03131',dir:'up',match:function(r){return r.kind==='인상';}},
+      {cat:'우리가게클릭',label:'우리가게클릭 클릭비 — 인하(감소)',col:'#e03131',dir:'down',match:function(r){return r.kind==='인하';}}
+    ];
+    subTypes.forEach(function(st){
+      var rs=rows.filter(function(r){return r.cat===st.cat&&r.measurable&&st.match(r);});
+      var best=null; rs.forEach(function(r){ if(!best||(st.dir==='down'?r.pct<best.pct:r.pct>best.pct)) best=r; });
+      html+='<div class="fxcat" style="color:'+st.col+'">'+st.label+'</div>';
+      html+=best?effectDiagram(best,st.col):'<p style="color:var(--mut);font-size:12.5px;margin:2px 0 8px">측정 가능한 변경이 없습니다.</p>';
+    });
+    // ② 효과가 있었던 변경만 표 (변화 없음·측정불가 제외)
+    html+='<h3 style="margin:22px 0 4px;font-size:16px">📋 매출에 영향을 준 변경 목록</h3>';
+    html+='<p class="legend" style="margin-top:0">매출 변화 ±'+MINEFFECT+'% 이상만 표시(변화 없음·측정 불가 제외). <b style="color:var(--g)">▲상승</b> / <b style="color:var(--r)">▼하락</b>.</p>';
+    var shown=0, excluded=0;
+    cats.forEach(function(g){
+      var all=rows.filter(function(r){return r.cat===g[0];});
+      var imp=all.filter(function(r){return r.measurable&&Math.abs(r.pct)>=MINEFFECT;});
+      excluded+=all.length-imp.length;
+      if(!imp.length) return; shown+=imp.length;
+      html+='<h4 style="margin:14px 0 5px;color:'+g[1]+';font-size:14px">'+g[0]+' <span style="color:var(--mut);font-weight:400;font-size:12px">'+imp.length+'건</span></h4>';
+      html+='<table><tr><th>변경일</th><th>내용</th><th>구분</th><th>변경 전<br>일평균</th><th>변경 후<br>일평균</th><th>매출 변화</th></tr>';
+      imp.sort(function(a,b){return b.pct-a.pct;}).forEach(function(r){
+        html+='<tr><td>'+r.date+'</td><td>'+r.content+'</td><td>'+r.change+'</td>'+avgCell(r.bf,r.W)+avgCell(r.af,r.W)+pctCell(r.pct)+'</tr>'; });
+      html+='</table>';
+    });
+    if(!shown) html+='<p style="color:var(--mut);font-size:13px">±'+MINEFFECT+'% 이상 매출 변화를 준 변경이 없습니다.</p>';
+    if(excluded) html+='<p class="legend" style="margin-top:8px">· 변화 없음/측정 불가로 제외된 변경: '+excluded+'건</p>';
+    // ③ 복합 변경 분석 (여러 요인이 겹친 실제 케이스)
+    html+='<h3 style="margin:22px 0 4px;font-size:16px">🧩 복합 변경 분석 <span style="color:var(--mut);font-weight:400;font-size:13px">(여러 요인이 겹친 실제 케이스)</span></h3>';
+    html+='<p class="legend" style="margin-top:0">며칠 안에 <b>2개 이상 요인이 함께 순변화</b>한 실제 구간을 찾아, 그때 매출이 어떻게 됐는지 도출합니다. <b>주요인 후보</b>(★)는 그 요인을 <b>단독으로 바꿨을 때 평균 효과</b>가 가장 컸던 항목입니다(추정).</p>';
+    var combo=comboAnalysis(computed), cc=combo.cases;
+    if(!cc.length){ html+='<p style="color:var(--mut);font-size:13px">2개 이상 요인이 동시에(순변화 기준) 겹친 측정 가능한 케이스가 없습니다. (변경이 너무 잦아 단일 요인으로 정리되거나, 전·후 1주가 확보되지 않은 경우)</p>'; }
+    else {
+      var up=cc[0], dn=cc[cc.length-1];
+      if(up.pct>0) html+='<div class="tip" style="margin-top:0">📈 가장 매출이 오른 조합: <b>'+up.factors.map(function(f){return f.cat+f.dir;}).join(' + ')+'</b> → <b style="color:var(--g)">+'+up.pct.toFixed(1)+'%</b> ('+up.span+')</div>';
+      if(dn.pct<0) html+='<div class="warn" style="margin-top:6px">📉 가장 매출이 내린 조합: <b>'+dn.factors.map(function(f){return f.cat+f.dir;}).join(' + ')+'</b> → <b style="color:var(--r)">'+dn.pct.toFixed(1)+'%</b> ('+dn.span+')</div>';
+      cc.forEach(function(c){
+        var pcol=c.pct>=0?'var(--g)':'var(--r)';
+        html+='<div class="combo"><div class="combohead">'+c.span+' <span style="color:var(--mut);font-size:12px">· 전·후 '+c.W+'일 비교</span><span class="combopct" style="color:'+pcol+'">'+(c.pct>=0?'▲ +':'▼ ')+c.pct.toFixed(1)+'%</span></div>'
+          +'<div class="combochips">'+c.factors.map(function(f){ var isMain=c.main&&f.key===c.main.key;
+            return '<span class="cchip" style="border-color:'+f.col+';color:'+f.col+'">'+(isMain?'★ ':'')+f.cat+' '+f.dir+' <span style="opacity:.65;font-weight:400">'+f.detail+'</span></span>'; }).join('')+'</div>'
+          +(c.main?'<div class="combonote">주요인 후보 ★ <b style="color:'+c.main.col+'">'+c.main.cat+c.main.dir+'</b> (단독 평균효과 '+pctStr(c.main.solo)+')</div>':'')
+          +'</div>';
+      });
+    }
+    document.getElementById('details').innerHTML=html;
+  }
+
+  // 주요 변경시점: 매출을 실제로 크게 움직인 변경만 소수 선별(겹침 방지 위해 5일 내 중복 제외)
+  function majorChanges(comp,limit){
+    var rows=detailRows(comp).filter(function(r){return r.measurable&&Math.abs(r.pct)>=MINEFFECT;});
+    rows.sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);});
+    var picked=[]; rows.forEach(function(r){
+      if(picked.length>=(limit||6)) return;
+      if(picked.some(function(p){return Math.abs(dBetween(p.date,r.date))<5;})) return;
+      picked.push(r); });
+    picked.sort(function(a,b){return a.date<b.date?-1:1;});
+    return picked;
+  }
+  // ===== 매출 추이 그래프 (일매출선 + 주요 변경시점 점 마킹, 호버 툴팁) =====
+  function salesChart(comp){
+    comp=comp||computed;
+    var daily=comp.gd.daily, days=Object.keys(daily).sort();
+    if(days.length<2) return '<p style="color:var(--mut)">데이터가 부족합니다.</p>';
+    var vals=days.map(function(d){return daily[d].sales;});
+    var W=860,H=340,pL=58,pR=16,pT=18,pB=38, n=days.length;
+    var maxV=Math.max.apply(null,vals)*1.08||1;
+    function X(i){ return pL+(W-pL-pR)*(n<=1?0:i/(n-1)); }
+    function Y(v){ return pT+(H-pT-pB)*(1-v/maxV); }
+    var grid='';
+    for(var g=0;g<=4;g++){ var yv=maxV*g/4, yy=Y(yv);
+      grid+='<line x1="'+pL+'" y1="'+yy+'" x2="'+(W-pR)+'" y2="'+yy+'" stroke="#eef1f4"/>'
+        +'<text x="'+(pL-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="10" fill="#adb5bd">'+Math.round(yv/10000)+'만</text>'; }
+    var xlab='',seen={}; days.forEach(function(d,i){ var m=d.slice(0,7); if(!seen[m]){ seen[m]=1; var xx=X(i);
+      xlab+='<line x1="'+xx+'" y1="'+pT+'" x2="'+xx+'" y2="'+(H-pB)+'" stroke="#f3f5f7"/>'
+        +'<text x="'+xx+'" y="'+(H-pB+18)+'" text-anchor="middle" font-size="10" fill="#adb5bd">'+m.slice(2)+'</text>'; } });
+    var idx={}; days.forEach(function(d,i){idx[d]=i;});
+    function w만(v){ return v==null?'-':Math.round(v/10000).toLocaleString()+'만'; }
+    function tipHtml(r){ var pcol=r.pct>=0?'#69db7c':'#ff8787';
+      return ('<b>'+r.date+' · '+r.cat+'</b><br>'+esc(r.content)+' ('+esc(r.change)+')<br>'
+        +'매출 변화 <b style="color:'+pcol+'">'+(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%</b><br>'
+        +'<span style="opacity:.8">변경 전 '+w만(r.bf)+'원 → 변경 후 '+w만(r.af)+'원 · 동일 '+r.W+'일 비교</span>').replace(/"/g,'&quot;'); }
+    var majors=majorChanges(comp), dots='';
+    majors.forEach(function(r){ var i=idx[r.date]; if(i==null)return; var xx=X(i), yy=Y(vals[i]), col=CATCOL[r.cat]||'#868e96';
+      dots+='<circle class="mk" cx="'+xx+'" cy="'+yy+'" r="6" fill="'+col+'" stroke="#fff" stroke-width="2.5" data-tip="'+tipHtml(r)+'"/>'; });
+    var area=days.map(function(d,i){return X(i)+','+Y(vals[i]);}).join(' ');
+    var line=vals.map(function(v,i){return X(i)+','+Y(v);}).join(' ');
+    return '<div class="chartwrap" style="position:relative">'
+      +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="background:#fff;border:1px solid var(--line);border-radius:10px">'
+      +grid+xlab
+      +'<polygon points="'+X(0)+','+Y(0)+' '+area+' '+X(n-1)+','+Y(0)+'" fill="#4dabf7" fill-opacity="0.08"/>'
+      +'<polyline points="'+line+'" fill="none" stroke="#1c7ed6" stroke-width="1.8" stroke-linejoin="round"/>'
+      +dots+'</svg>'
+      +'<div class="charttip"></div></div>'
+      +'<div style="font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +'<span>━ <b style="color:#1c7ed6">일매출</b></span>'
+      +'<span>● 주요 변경시점 — <span style="color:#1971c2;font-weight:700">운영</span> · <span style="color:#e8590c;font-weight:700">할인</span> · <span style="color:#e03131;font-weight:700">클릭비</span></span>'
+      +'<span style="color:var(--mut)">점에 커서를 올리면 상세 정보가 보입니다 ('+majors.length+'건)</span></div>';
+  }
+  function wireChartTips(root){
+    var tip=root.querySelector('.charttip'); if(!tip) return;
+    Array.prototype.slice.call(root.querySelectorAll('.mk')).forEach(function(c){
+      c.addEventListener('mouseenter',function(){
+        var r=c.getBoundingClientRect(), wr=root.getBoundingClientRect();
+        tip.innerHTML=c.getAttribute('data-tip'); tip.style.display='block';
+        tip.style.left=(r.left-wr.left+r.width/2)+'px'; tip.style.top=(r.top-wr.top-10)+'px';
+      });
+      c.addEventListener('mouseleave',function(){ tip.style.display='none'; });
+    });
+  }
+
+  function showResult(){
+    var gd=computed.gd, cats=computed.cats, days=Object.keys(gd.daily).sort();
+    document.getElementById('result').classList.remove('hide');
+    var snEl=document.getElementById('saveName'); if(snEl && !snEl.value) snEl.value=computed.name;
+    document.getElementById('saveStatus').textContent='';
+    document.getElementById('kpi').innerHTML=
+      kpi(computed.changes.length,'변경이력')+kpi(days.length,'매출 일수')+
+      kpi(Object.keys(cats).length,'변경 있던 날')+kpi(gd.salesName,'매출 기준');
+    var bd=buildBoard(computed);
+    var bh='<div class="bcard base"><div class="blabel">전체 일평균 매출</div><div class="bnet">'+fmtWon(bd.avgDaily)+'</div><div class="bsub">'+bd.span+' · '+bd.days+'일</div></div>';
+    bd.rows.forEach(function(r){ bh+='<div class="bcard '+r.c+'"><div class="blabel">'+r.label+'</div><div class="bnet">'+pctStr(r.v)+'</div><div class="bsub">적용 '+r.n+'건 · 전·후 14일 비교</div><div class="bverdict">'+r.verdict+'</div>'+(r.note?'<div class="bnote">'+r.note+'</div>':'')+'</div>'; });
+    document.getElementById('board').innerHTML=bh;
+    // 월별
+    var mo=SAMPLE.monthly(gd.daily), mk=Object.keys(mo).sort();
+    var mh='<tr><th>월</th><th>'+gd.salesName+'</th><th>건수</th><th>전월 대비</th></tr>';
+    mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:null; var p=pv?((s-pv)/pv*100):null;
+      mh+='<tr><td>'+ym+'</td><td class="num">'+s.toLocaleString()+'</td><td class="num">'+c.toLocaleString()+'</td><td class="num '+cls(p)+'">'+pctStr(p)+'</td></tr>'; });
+    document.getElementById('montable').innerHTML=mh;
+    var chEl=document.getElementById('chart'); chEl.innerHTML=salesChart(computed); wireChartTips(chEl);
+    renderDetails();
+  }
+  function kpi(v,l){ return '<div><b>'+(typeof v==='number'?v.toLocaleString():v)+'</b><span>'+l+'</span></div>'; }
+
+  // ===== 엑셀 빌드 =====
+  function catRange(cats,dates){ var o={운영시간:[],할인:[],우리가게클릭:[]};
+    dates.forEach(function(dt){ var c=cats[dt]; if(!c)return; ['운영시간','할인','우리가게클릭'].forEach(function(k){ o[k]=o[k].concat(c[k]); }); });
+    var r={}; ['운영시간','할인','우리가게클릭'].forEach(function(k){ r[k]=Array.from(new Set(o[k])).join(' ; '); }); return r; }
+
+  function buildAnalysis(){
+    var gd=computed.gd, cats=computed.cats, daily=gd.daily, days=Object.keys(daily).sort();
+    var addDays=SAMPLE.addDays, WEEK=SAMPLE.WEEK, wd=SAMPLE.wdayMon;
+    var a1=[['날짜','요일',gd.salesName,'건수','운영시간 변경','할인 변경','우리가게클릭 변경','전주동일요일 매출','차이(원)','차이(%)']];
+    days.forEach(function(dt){ var v=daily[dt], c=cats[dt]||{운영시간:[],할인:[],우리가게클릭:[]}, p=daily[addDays(dt,-7)], pv=p?p.sales:'';
+      var diff=(pv!=='')?v.sales-pv:'', pc=(pv!==''&&pv)?((v.sales-pv)/pv*100):null;
+      a1.push([dt,WEEK[wd(dt)],v.sales,v.cnt,c.운영시간.join(' ; '),c.할인.join(' ; '),c.우리가게클릭.join(' ; '),pv,diff,pctStr(pc)]); });
+    var wk=SAMPLE.weekly(daily), wkeys=Object.keys(wk).sort();
+    var a2=[['주차(월~일)',gd.salesName,'건수','전주차 매출','차이(원)','차이(%)','운영시간','할인','우리가게클릭']];
+    wkeys.forEach(function(mon){ var s=wk[mon][0],c=wk[mon][1],prev=wk[addDays(mon,-7)],pv=prev?prev[0]:'';
+      var cs=catRange(cats,days.filter(function(dt){return dt>=mon&&dt<=addDays(mon,6);}));
+      a2.push([mon+' ~ '+addDays(mon,6).slice(5),s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
+    var mo=SAMPLE.monthly(daily), mk=Object.keys(mo).sort();
+    var a3=[['월',gd.salesName,'건수','전월 매출','차이(원)','차이(%)','운영시간','할인','우리가게클릭']];
+    mk.forEach(function(ym,i){ var s=mo[ym][0],c=mo[ym][1],pv=i>0?mo[mk[i-1]][0]:'';
+      var cs=catRange(cats,days.filter(function(dt){return dt.slice(0,7)===ym;}));
+      a3.push([ym,s,c,pv,(pv!=='')?s-pv:'',(pv!==''&&pv)?pctStr((s-pv)/pv*100):'',cs.운영시간,cs.할인,cs.우리가게클릭]); });
+    var bd=buildBoard(computed);
+    var a4=[['[ 분석 보드 ] 변경 전/후 14일 비교 매출변화 평균'],[''],
+      ['전체 일평균 매출', fmtWon(bd.avgDaily)],['분석기간', bd.span+' ('+bd.days+'일)'],[''],
+      ['변경 유형','적용건수','평균 매출변화(전·후 14일)','판정']];
+    bd.rows.forEach(function(r){ a4.push([r.label, r.n, pctStr(r.v), r.verdict]); });
+    a4.push([''],
+      ['※ 각 값 = 그 변경 전/후 같은 길이(최대 14일)·같은 요일구성 일평균 매출의 변화율 평균.'],
+      ['※ ＋면 매출 상승, －면 하락. (±3% 미만은 영향 미미)'],
+      ['※ 우리가게클릭은 클릭비(입찰가) 변화만 반영합니다(예산 제외).'],
+      ['※ 변경이 잦은 구간은 비교 창에 다른 변경이 섞일 수 있어 참고치입니다.']);
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a4),'분석 보드');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a1),'일자별 분석');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a2),'주차별 비교');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a3),'월별 비교');
+    var a5=[['변경일','구분','내용','변화','비교기간(일,전=후)','변경 전 일평균','변경 후 일평균','매출 변화(%)','비고']];
+    detailRows(computed).forEach(function(r){
+      var note=!r.measurable?'측정불가(전·후 1주 미확보)':(Math.abs(r.pct)<MINEFFECT?'변화 미미(제외)':'');
+      a5.push([r.date, r.cat, r.content, r.change, r.W||'',
+        r.bf==null?'':Math.round(r.bf), r.af==null?'':Math.round(r.af),
+        r.pct==null?'':(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%', note]); });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a5),'변경별 매출효과');
+    return wb;
+  }
+  function buildMerged(){
+    var gd=computed.gd, cats=computed.cats, hourly=computed.hourly, changes=computed.changes;
+    var daily=gd.daily, days=Object.keys(daily).sort(), WEEK=SAMPLE.WEEK, wd=SAMPLE.wdayMon;
+    var t1; if(gd.hasChannel){ t1=[['날짜','요일','배민매출','배민건수','쿠팡매출','쿠팡건수','총매출','그날 운영변경']];
+      days.forEach(function(dt){ var ju=gd.ju[dt],c=cats[dt]; var sm=c?[c.운영시간.join(' '),c.할인.join(' '),c.우리가게클릭.join(' ')].filter(Boolean).join(' | '):'';
+        t1.push([dt,WEEK[wd(dt)],ju.baemin[1],ju.baemin[0],ju.coupang[1],ju.coupang[0],ju.total[1],sm]); }); }
+    else { t1=[['날짜','요일','배달매출','배달건수','총매출','그날 운영변경']];
+      days.forEach(function(dt){ var v=daily[dt],c=cats[dt]; var sm=c?[c.운영시간.join(' '),c.할인.join(' '),c.우리가게클릭.join(' ')].filter(Boolean).join(' | '):'';
+        t1.push([dt,WEEK[wd(dt)],v.sales,v.cnt,v.total,sm]); }); }
+    var t2=[['날짜','요일','시간대','배달건수','배달매출','총건수','총매출']];
+    hourly.forEach(function(h){ t2.push([h.date,WEEK[wd(h.date)],h.slot,h.dc,h.da,h.tc,h.ta]); });
+    var t3=[['변경일','구분','항목','변경전','변경후']];
+    changes.forEach(function(c){ t3.push([c.date,c.gubun,c.item,c.before,c.after]); });
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t1),'일자별 타임라인');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t2),'시간대별');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t3),'배민 변경이력');
+    return wb;
+  }
+  document.getElementById('dlAnalysis').addEventListener('click',function(){ XLSX.writeFile(buildAnalysis(), computed.name+'_분석.xlsx'); });
+  document.getElementById('dlMerged').addEventListener('click',function(){ XLSX.writeFile(buildMerged(), computed.name+'_통합본.xlsx'); });
+
+  // ===================== 🆚 매장 비교 =====================
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  function avgOf(arr){ arr=arr.filter(function(x){return x!=null;}); return arr.length?arr.reduce(function(a,b){return a+b;},0)/arr.length:null; }
+  function netOf(o,base){ return (o&&o.v!=null&&base!=null)?o.v-base:null; }
+  function storeMetrics(comp){
+    var daily=comp.gd.daily, days=Object.keys(daily).sort();
+    var avgDaily=avgOf(days.map(function(d){return daily[d].sales;}));
+    // 효과 = 변경 전·후(최대 14일·동일 요일구성) 매출변화 평균 — 분석 보드와 동일 측정
+    var rows0=detailRows(comp);
+    function grp(cat,pred){ var es=rows0.filter(function(r){return r.cat===cat&&r.measurable&&pred(r);}); return {n:es.length, v:avgOf(es.map(function(r){return r.pct;}))}; }
+    var eff={
+      opUp:grp('운영시간',function(r){return r.kind==='연장'||r.kind==='신규';}),
+      opDn:grp('운영시간',function(r){return r.kind==='감소';}),
+      dUp:grp('즉시할인',function(r){return r.kind==='시작';}),
+      dDn:grp('즉시할인',function(r){return r.kind==='종료';}),
+      bidUp:grp('우리가게클릭',function(r){return r.kind==='인상';}),
+      bidDn:grp('우리가게클릭',function(r){return r.kind==='인하';})
+    };
+    var ophrs=null, opL=comp.changes.filter(function(c){return c.gubun==='가게'&&c.item==='운영시간';}).sort(function(x,y){return x.date<y.date?-1:1;});
+    if(opL.length){ var ao=opHours(opL[opL.length-1].after); if(ao) ophrs=ao.min/ao.days/60; }
+    var dStarts=comp.changes.filter(function(c){return c.gubun==='즉시할인'&&c.item.indexOf('[시작]')>=0;}).length;
+    var bid=null, bL=comp.changes.filter(function(c){return c.gubun==='광고'&&c.item.indexOf('우리가게클릭')===0;});
+    for(var i=bL.length-1;i>=0;i--){ var v=bidNum(bL[i].after); if(v!=null){ bid=v; break; } }
+    return {name:comp.name, days:days.length, span:[days[0],days[days.length-1]], avgDaily:avgDaily,
+      eff:eff, ophrs:ophrs, dStarts:dStarts, bid:bid, comp:comp,
+      salesName:comp.gd.salesName};
+  }
+  function maIndex(comp){
+    var daily=comp.gd.daily, days=Object.keys(daily).sort(), vals=days.map(function(d){return daily[d].sales;});
+    var ma=[]; for(var i=0;i<vals.length;i++){ var s=0,c=0; for(var j=Math.max(0,i-6);j<=i;j++){s+=vals[j];c++;} ma.push(s/c); }
+    var base=ma[0]||1; return {days:days, idx:ma.map(function(v){return v/base*100;})};
+  }
+  function compareChart(R,S){
+    var A=maIndex(R.comp), B=maIndex(S.comp), mapA={},mapB={};
+    A.days.forEach(function(d,i){mapA[d]=A.idx[i];}); B.days.forEach(function(d,i){mapB[d]=B.idx[i];});
+    var dates=Object.keys(mapA).concat(Object.keys(mapB)).filter(function(v,i,arr){return arr.indexOf(v)===i;}).sort();
+    var n=dates.length; if(n<2) return '';
+    var W=860,H=300,pL=46,pR=14,pT=14,pB=40, allv=A.idx.concat(B.idx);
+    var maxV=Math.max.apply(null,allv)*1.05, minV=Math.min.apply(null,allv)*0.95;
+    function X(i){return pL+(W-pL-pR)*i/(n-1);} function Y(v){return pT+(H-pT-pB)*(1-(v-minV)/(maxV-minV));}
+    function poly(map,color){ var seg=[],cur=[]; dates.forEach(function(d,i){ var v=map[d];
+      if(v==null){ if(cur.length){seg.push(cur);cur=[];} } else cur.push(X(i)+','+Y(v)); }); if(cur.length)seg.push(cur);
+      return seg.map(function(p){return '<polyline points="'+p.join(' ')+'" fill="none" stroke="'+color+'" stroke-width="2.5"/>';}).join(''); }
+    var y100=Y(100), xlab='',seen={};
+    dates.forEach(function(d,i){ var m=d.slice(0,7); if(!seen[m]){seen[m]=1; xlab+='<text x="'+X(i)+'" y="'+(H-pB+18)+'" text-anchor="middle" font-size="10" fill="#868e96">'+m.slice(2)+'</text>';} });
+    var di={}; dates.forEach(function(d,i){di[d]=i;});
+    function ticks(comp,color,yy){ var sn={}, s=''; detailRows(comp).forEach(function(r){ if(di[r.date]==null||sn[r.date])return; sn[r.date]=1;
+      var x=X(di[r.date]); s+='<polygon points="'+(x-3.2)+','+yy+' '+(x+3.2)+','+yy+' '+x+','+(yy+5.5)+'" fill="'+color+'"/>'; }); return s; }
+    return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="background:#fff;border:1px solid var(--line);border-radius:10px">'
+      +'<line x1="'+pL+'" y1="'+y100+'" x2="'+(W-pR)+'" y2="'+y100+'" stroke="#dee2e6" stroke-dasharray="4 4"/>'
+      +'<text x="'+(pL-4)+'" y="'+(y100+4)+'" text-anchor="end" font-size="10" fill="#868e96">100</text>'
+      +xlab+poly(mapA,'#1971c2')+poly(mapB,'#e8590c')
+      +ticks(R.comp,'#1971c2',pT)+ticks(S.comp,'#e8590c',pT+7)+'</svg>'
+      +'<div style="font-size:12px;color:var(--mut);margin-top:6px"><span style="color:#1971c2">━ 기준 '+esc(R.name)+'</span> &nbsp; <span style="color:#e8590c">━ 선택 '+esc(S.name)+'</span> &nbsp; <span>▼ 변경 시점(파랑=기준·주황=선택)</span> &nbsp;(각 매장 시작=100 지수 · 7일 이동평균)</div>';
+  }
+  function buildSolution(R,S){
+    var levers=[['운영시간 증가','opUp'],['운영시간 감소','opDn'],['즉시할인 증가','dUp'],['즉시할인 감소','dDn'],['클릭비 인상','bidUp'],['클릭비 인하','bidDn']];
+    var ranked=levers.map(function(l){ return {k:l[0], key:l[1], Rnet:R.eff[l[1]].v, Snet:S.eff[l[1]].v, Rn:R.eff[l[1]].n, Sn:S.eff[l[1]].n }; })
+      .sort(function(a,b){ return (b.Rnet==null?-999:b.Rnet)-(a.Rnet==null?-999:a.Rnet); });
+    // 등급: 기준매장(표본)에서 '변경 전·후 비교로 측정된 효과(E)' 기준 — 격차가 아니라 효과로 추천
+    function tier(E){ return E>=10?'우선':E>=3?'권장':'참고'; }
+    function mk(title,t,detail,basis,pri){ return {title:title,tier:t,detail:detail,basis:basis,pri:pri||0}; }
+    function E(key){ return R.eff[key]?R.eff[key].v:null; }     // 기준매장 효과(전·후 비교 평균)
+    var acts=[];
+    // 1) 운영시간: 기준매장이 더 길고 + 운영시간 증가 효과가 +일 때만 연장 추천
+    var Eop=E('opUp');
+    if(R.ophrs!=null && S.ophrs!=null && R.ophrs-S.ophrs>=0.5){
+      var dh=(R.ophrs-S.ophrs).toFixed(1);
+      if(Eop!=null && Eop>=3) acts.push(mk('운영시간 연장', tier(Eop),
+        '기준매장 '+R.ophrs.toFixed(1)+'h/일 · 선택매장 '+S.ophrs.toFixed(1)+'h/일 (선택 −'+dh+'h)',
+        '기준매장에서 운영시간 증가 후 매출 '+pctStr(Eop)+' → 효과 확인됨', 100+(Eop||0)));
+      else acts.push(mk('운영시간 연장(참고)','참고',
+        '기준매장이 '+dh+'h 더 길지만, 운영시간 증가의 매출효과는 약함('+pctStr(Eop)+')',
+        '효과 근거 약함 → 우선순위 낮음', 5));
+    }
+    // 2) 즉시할인: 기준매장이 더 자주 + 할인 증가 효과가 +일 때만 도입 추천
+    var Ed=E('dUp');
+    if(R.dStarts>S.dStarts){
+      if(Ed!=null && Ed>=3) acts.push(mk('즉시할인 도입·확대', tier(Ed),
+        '기준매장 할인 시작 '+R.dStarts+'회 · 선택매장 '+S.dStarts+'회',
+        '기준매장에서 할인 증가 후 매출 '+pctStr(Ed)+' → 효과 확인됨', 100+(Ed||0)));
+      else acts.push(mk('즉시할인 도입(참고)','참고',
+        '기준매장이 할인을 더 자주('+R.dStarts+'회) 하지만 효과는 약함('+pctStr(Ed)+')',
+        '효과 근거 약함 → 참고', 4));
+    }
+    // 3) 클릭비: '인상' 효과가 +면 상향 추천 / 효과가 −면 반대(점검·하향) 조언
+    var Eup=E('bidUp');
+    if(R.bid!=null && S.bid!=null){
+      if(Eup!=null && Eup>=3 && R.bid>S.bid*1.05)
+        acts.push(mk('우리가게클릭 클릭비 상향', tier(Eup),
+          '기준매장 클릭비 '+R.bid.toLocaleString()+'원 · 선택매장 '+S.bid.toLocaleString()+'원',
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+' → 효과 확인됨', 100+(Eup||0)));
+      else if(Eup!=null && Eup<=-3 && S.bid>R.bid*1.05)
+        acts.push(mk('우리가게클릭 클릭비 점검·하향','주의',
+          '선택매장 클릭비('+S.bid.toLocaleString()+'원)가 기준매장('+R.bid.toLocaleString()+'원)보다 높음',
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+'(효과 부정) → 비용 대비 점검', 50+Math.abs(Eup)));
+      else if(Eup!=null && Eup<=-3 && R.bid>S.bid*1.05)
+        acts.push(mk('클릭비 상향은 보류','주의',
+          '기준매장 클릭비가 더 높지만, 클릭비 인상은 매출에 마이너스',
+          '기준매장에서 클릭비 인상 후 매출 '+pctStr(Eup)+'(효과 부정) → 단순 따라하기 금지', 30));
+    }
+    if(!acts.length) acts.push(mk('효과가 확인되는 개선 레버 없음','참고',
+      '운영시간·할인·클릭비에서 "기준매장 효과 + 격차"가 동시에 성립하는 항목이 없습니다. 메뉴·리뷰·가게 상세 콘텐츠 등 다른 요인을 검토하세요.','',0));
+    acts.sort(function(a,b){return (b.pri||0)-(a.pri||0);});
+    return {ranked:ranked, actions:acts};
+  }
+  function renderCompare(R,S){
+    var ratio=(R.avgDaily&&S.avgDaily)?(S.avgDaily/R.avgDaily*100):null;
+    var html='<h2>📊 핵심 비교</h2>';
+    html+='<div class="tip" style="margin-top:0">선택매장 <b>'+esc(S.name)+'</b>의 일평균 매출은 기준매장 <b>'+esc(R.name)+'</b>의 <b>'+(ratio==null?'N/A':ratio.toFixed(0)+'%')+'</b> 수준입니다.</div>';
+    function won(v){return v==null?'-':Math.round(v).toLocaleString()+'원';}
+    function row(label,r,s){ return '<tr><td>'+label+'</td><td class="num">'+r+'</td><td class="num">'+s+'</td></tr>'; }
+    html+='<table><tr><th>항목</th><th>🔵 기준 '+esc(R.name)+'</th><th>🟠 선택 '+esc(S.name)+'</th></tr>'
+      +row('분석기간(일)',R.days+'일',S.days+'일')
+      +row('일평균 매출',won(R.avgDaily),won(S.avgDaily))
+      +row('현재 운영시간',R.ophrs==null?'-':R.ophrs.toFixed(1)+'h/일',S.ophrs==null?'-':S.ophrs.toFixed(1)+'h/일')
+      +row('즉시할인 시작 횟수',R.dStarts+'회',S.dStarts+'회')
+      +row('최신 클릭비',R.bid==null?'-':R.bid.toLocaleString()+'원',S.bid==null?'-':S.bid.toLocaleString()+'원')
+      +'</table>';
+    html+='<h2>📈 매출 추이 비교 (지수 100 기준)</h2>'+compareChart(R,S);
+    var sol=buildSolution(R,S);
+    html+='<h2>🏆 변경 효과 순위 &amp; 근거</h2>';
+    html+='<p class="legend">각 유형을 <b>변경 전·후(최대 14일·동일 요일구성)</b>로 비교한 <b>평균 매출변화</b>입니다(분석 보드와 동일 측정). 기준매장에서 효과가 큰 순서로 정렬, 선택매장 수치도 함께 비교하세요.</p>';
+    html+='<table><tr><th>순위</th><th>변경 유형</th><th>🔵 기준 매출변화</th><th>🟠 선택 매출변화</th></tr>';
+    sol.ranked.forEach(function(r,i){ function c(v){return '<td class="num" style="color:'+(v==null?'var(--mut)':v>0?'var(--g)':v<0?'var(--r)':'var(--mut)')+';font-weight:700">'+pctStr(v)+'</td>';}
+      html+='<tr><td>'+(i+1)+'</td><td>'+r.k+' <span style="color:var(--mut);font-size:11px">(기준 '+r.Rn+'건/선택 '+r.Sn+'건)</span></td>'+c(r.Rnet)+c(r.Snet)+'</tr>'; });
+    html+='</table>';
+    html+='<h2>✅ 선택매장 권장 액션</h2>';
+    html+='<p class="legend">격차가 아니라 <b>기준매장에서 변경 전·후로 측정된 효과</b>로 추천합니다. 효과 큰 순서로 <b style="color:var(--r)">우선</b>(≥+10%)·<b style="color:var(--g)">권장</b>(≥+3%)·<b style="color:var(--mut)">참고</b>(효과 약함), 효과가 마이너스인 레버는 <b style="color:var(--o)">주의</b>(반대 조언)로 표시합니다.</p>';
+    sol.actions.forEach(function(a,i){
+      var tc=a.tier==='우선'?'var(--r)':a.tier==='권장'?'var(--g)':a.tier==='주의'?'var(--o)':'var(--mut)';
+      html+='<div class="sol-card" style="border-left-color:'+tc+'"><b>'+(i+1)+'. '+esc(a.title)+'</b><span class="pri" style="background:'+tc+'">'+a.tier+'</span>'
+      +'<div style="font-size:13.5px;margin-top:3px">'+esc(a.detail)+'</div>'+(a.basis?'<div class="basis">'+esc(a.basis)+'</div>':'')+'</div>'; });
+    html+='<div class="warn" style="margin-top:14px"><b>주의:</b> 권장 액션은 두 매장의 데이터 격차에 기반한 <b>가설</b>입니다. 상관관계가 인과를 보장하지 않으므로, 적용은 작게 시작해 효과를 재측정하세요.</div>';
+    var el=document.getElementById('cmpResult');
+    el.innerHTML='<div style="margin:6px 0 10px"><button class="dl" id="cmpReport">📄 가맹점 전달용 리포트 생성</button></div>'+html;
+    el.classList.remove('hide');
+    document.getElementById('cmpReport').addEventListener('click',function(){ downloadReport(R,S,html); });
+  }
+  var REPORTCSS=":root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}"
+    +"*{box-sizing:border-box}body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.6;margin:0;background:#fff;}"
+    +".rwrap{max-width:840px;margin:0 auto;padding:30px 22px 60px;}"
+    +"h1{font-size:24px;margin:0 0 4px;}h2{font-size:18px;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}"
+    +".rmeta{color:var(--mut);margin:0 0 18px;font-size:14px;}.rfoot{margin-top:30px;color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:12px;}"
+    +"table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px;}th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;}th{background:#f1f3f5;}"
+    +"td.num{text-align:right;font-variant-numeric:tabular-nums;}"
+    +".tip{background:var(--b2);border-left:4px solid var(--b);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}"
+    +".warn{background:#fff9db;border-left:4px solid var(--o);padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;}"
+    +".legend{font-size:13px;color:var(--mut);margin:4px 0 10px;}"
+    +".sol-card{border:1px solid var(--line);border-left:4px solid var(--g);border-radius:0 10px 10px 0;padding:11px 14px;margin:8px 0;}"
+    +".sol-card .pri{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--r);border-radius:20px;padding:1px 8px;margin-left:6px;}"
+    +".sol-card .basis{font-size:12px;color:var(--mut);margin-top:4px;}"
+    +"@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}";
+  function downloadReport(R,S,body){
+    var today=new Date().toISOString().slice(0,10);
+    var doc='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+      +'<title>매장 비교 리포트 — '+esc(R.name)+' vs '+esc(S.name)+'</title><style>'+REPORTCSS+'</style></head><body><div class="rwrap">'
+      +'<h1>📊 매장 비교 리포트</h1><p class="rmeta">기준매장 <b>'+esc(R.name)+'</b> vs 선택매장 <b>'+esc(S.name)+'</b> · 생성일 '+today+'</p>'
+      +body
+      +'<p class="rfoot">본 리포트의 권장 액션은 두 매장 데이터 격차에 기반한 가설입니다. 적용은 작게 시작해 효과를 재측정하세요. · 브라우저에서 인쇄(Ctrl+P) → PDF로 저장해 전달할 수 있습니다.</p>'
+      +'</div></body></html>';
+    var blob=new Blob([doc],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='매장비교리포트_'+R.name+'_vs_'+S.name+'.html'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // --- 비교 탭 파일 입력 ---
+  function wireZone(dzId, pickId, listId, arr, onChange){
+    var dz=document.getElementById(dzId), pick=document.getElementById(pickId), list=document.getElementById(listId);
+    dz.addEventListener('click',function(){pick.click();});
+    ['dragover','dragenter'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.add('over');});});
+    ['dragleave','drop'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.remove('over');});});
+    dz.addEventListener('drop',function(ev){add(ev.dataTransfer.files);});
+    pick.addEventListener('change',function(ev){add(ev.target.files);});
+    function add(fl){ for(var i=0;i<fl.length;i++){ var n=fl[i].name.toLowerCase(); if(n.endsWith('.json')||n.endsWith('.xlsx')) arr.push(fl[i]); } draw(); onChange(); }
+    function draw(){ list.innerHTML=''; arr.forEach(function(f){ var n=f.name.toLowerCase(), tag=n.endsWith('.json')?'<span class="tag t-j">변경이력</span>':'<span class="tag t-s">매출</span>';
+      var li=document.createElement('li'); li.innerHTML=tag+f.name; list.appendChild(li); }); }
+  }
+  // ===================== 💾 표본매장 저장/불러오기 (브랜드별, localStorage) =====================
+  var SKEY='stockalert_samples_v1';
+  function loadSamples(){ try{ return JSON.parse(localStorage.getItem(SKEY))||[]; }catch(e){ return []; } }
+  function saveSamples(a){ try{ localStorage.setItem(SKEY,JSON.stringify(a)); return true; }catch(e){ alert('브라우저 저장 공간이 부족합니다. 저장된 표본을 일부 삭제해 주세요.'); return false; } }
+  function slimComp(c){ return {gd:{daily:c.gd.daily,salesName:c.gd.salesName,hasChannel:c.gd.hasChannel}, changes:c.changes, cats:c.cats, name:c.name, shopNumber:c.shopNumber}; }
+  function putSample(brand,name,comp){
+    var a=loadSamples(), id=brand+''+name,
+      rec={id:id,brand:brand,name:name,savedAt:new Date().toISOString().slice(0,16).replace('T',' '),comp:slimComp(comp)};
+    var i=-1; a.forEach(function(x,k){ if(x.id===id) i=k; }); if(i>=0) a[i]=rec; else a.push(rec);
+    return saveSamples(a)?rec:null;
+  }
+  function delSample(id){ saveSamples(loadSamples().filter(function(x){return x.id!==id;})); }
+  function pickSample(id){ if(!id) return null; var f=loadSamples().filter(function(x){return x.id===id;}); return f.length?f[0]:null; }
+  function fillSelect(sel){ if(!sel) return; var a=loadSamples(), by={};
+    a.forEach(function(r){ (by[r.brand]=by[r.brand]||[]).push(r); });
+    var h='<option value="">📂 저장된 표본 불러오기…</option>';
+    Object.keys(by).sort().forEach(function(b){ h+='<optgroup label="'+esc(b)+'">';
+      by[b].forEach(function(r){ h+='<option value="'+esc(r.id)+'">'+esc(r.name)+' ('+r.savedAt.slice(0,10)+')</option>'; }); h+='</optgroup>'; });
+    sel.innerHTML=h;
+  }
+  function renderSavedList(){ var box=document.getElementById('savedBox'); if(!box) return;
+    var a=loadSamples();
+    if(!a.length){ box.innerHTML='<p class="legend">저장된 표본이 없습니다. <b>분석 생성기</b>에서 매장을 분석한 뒤 "표본 저장"으로 추가하세요.</p>'; return; }
+    var by={}; a.forEach(function(r){ (by[r.brand]=by[r.brand]||[]).push(r); });
+    var h='<b style="font-size:14px">📂 저장된 표본 ('+a.length+'개)</b><div class="savedlist" style="margin-top:6px">';
+    Object.keys(by).sort().forEach(function(b){ by[b].forEach(function(r){
+      h+='<div class="row"><span class="bchip">'+esc(b)+'</span> <b>'+esc(r.name)+'</b> <span style="color:var(--mut);font-size:12px">'+r.savedAt+'</span><button class="del" data-id="'+esc(r.id)+'">삭제</button></div>'; }); });
+    h+='</div>'; box.innerHTML=h;
+    Array.prototype.slice.call(box.querySelectorAll('.del')).forEach(function(btn){ btn.addEventListener('click',function(){
+      if(confirm('이 표본을 삭제할까요?')){ delSample(btn.getAttribute('data-id')); refreshSamples(); } }); });
+  }
+  function refreshSamples(){ fillSelect(document.getElementById('loadGen')); fillSelect(document.getElementById('loadRef')); fillSelect(document.getElementById('loadTgt')); renderSavedList(); }
+  window.__refreshSamples=refreshSamples;
+  // 분석 생성기: 저장된 표본 불러와서 분석 보기
+  var loadGen=document.getElementById('loadGen');
+  if(loadGen) loadGen.addEventListener('change',function(){
+    var rec=pickSample(this.value); if(!rec) return;
+    computed=Object.assign({hourly:[]},rec.comp);   // 저장본엔 시간대 원본이 없음(분석엔 불필요)
+    document.getElementById('storename').value=rec.name;
+    showResult();
+    document.getElementById('status').innerHTML='<span style="color:var(--g)">불러옴: ['+esc(rec.brand)+'] '+esc(rec.name)+'</span>';
+    document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+  // 분석 생성기: 표본 저장 버튼
+  var saveBtn=document.getElementById('saveSample');
+  if(saveBtn) saveBtn.addEventListener('click',function(){
+    var st=document.getElementById('saveStatus');
+    if(!computed){ st.innerHTML='<span class="err">먼저 분석을 실행하세요.</span>'; return; }
+    var brand=(document.getElementById('saveBrand').value||'').trim();
+    var name=(document.getElementById('saveName').value||computed.name||'').trim();
+    if(!brand){ st.innerHTML='<span class="err">브랜드명을 입력하세요.</span>'; return; }
+    if(!name){ st.innerHTML='<span class="err">표본매장 이름을 입력하세요.</span>'; return; }
+    if(putSample(brand,name,computed)){ st.innerHTML='<span style="color:var(--g)">✓ 저장됨 — ['+esc(brand)+'] '+esc(name)+'</span>'; refreshSamples(); }
+  });
+
+  if(document.getElementById('dzRef')){
+    var refFiles=[], tgtFiles=[], refSaved=null, tgtSaved=null,
+        cmpRun=document.getElementById('cmpRun'), cmpStatus=document.getElementById('cmpStatus');
+    function chk(){ cmpRun.disabled=!((refFiles.length||refSaved)&&(tgtFiles.length||tgtSaved)); }
+    wireZone('dzRef','pickRef','listRef',refFiles,chk);
+    wireZone('dzTgt','pickTgt','listTgt',tgtFiles,chk);
+    document.getElementById('loadRef').addEventListener('change',function(){ refSaved=pickSample(this.value);
+      if(refSaved) document.getElementById('nameRef').value=refSaved.name; chk(); });
+    document.getElementById('loadTgt').addEventListener('change',function(){ tgtSaved=pickSample(this.value);
+      if(tgtSaved) document.getElementById('nameTgt').value=tgtSaved.name; chk(); });
+    function getComp(saved,files,nameId,def){
+      var nm=(document.getElementById(nameId).value||'').trim();
+      if(saved){ var c=Object.assign({},saved.comp); if(nm) c.name=nm; return Promise.resolve(c); }
+      return buildComputed(files, nm||def);
+    }
+    cmpRun.addEventListener('click',function(){
+      cmpStatus.textContent='비교 분석 중…';
+      Promise.all([ getComp(refSaved,refFiles,'nameRef','기준매장'), getComp(tgtSaved,tgtFiles,'nameTgt','선택매장') ]).then(function(res){
+        renderCompare(storeMetrics(res[0]), storeMetrics(res[1]));
+        cmpStatus.textContent='완료!';
+      }).catch(function(e){ cmpStatus.innerHTML='<span class="err">'+e+'</span>'; });
+    });
+    refreshSamples();
+  }
+})();
+</script>
+<script type="text/plain" id="bmsnippet">
+// 배민 변경이력 콘솔 수집 스니펫 (응답 가로채기 방식)
+// ─────────────────────────────────────────────────────────────
+// 핵심: 우리가 요청을 새로 만들지 않고, 앱이 스스로 부르는 응답을 가로채서 모은다.
+//       → 토큰/CORS/403 문제가 원천적으로 없음.
+//
+// 사용법(매장 1개당 반복):
+//  1) self.baemin.com 로그인 → '변경이력' 화면.
+//  2) F12 → Console 에 이 코드를 붙여넣고 Enter. (매장 바꿀 때마다 새로고침 후 다시 붙여넣기)
+//  3) '가게' 탭 → '조회' → __scrollAll()
+//  4) '즉시할인' 탭 → '조회' → __scrollAll()
+//  5) '광고·서비스' 탭 → '조회' → __scrollAll()
+//  6) __save() → JSON 다운로드. (매장명을 묻는 창이 뜨면 매출 파일과 똑같이 입력)
+//
+//  ⚡ 자동: 붙여넣은 뒤 __auto() 한 줄이면 3~5단계를 자동으로 돌고 __save()까지 합니다.
+//     (탭/조회 버튼을 글자로 찾아 누름. 광고 캠페인 선택이 필요하면 그 탭만 수동으로)
+//
+//  ★ 200개 매장은 반드시 '매장별로 따로' __save() 하세요. (한 세션에 여러 매장을 쌓으면 섞입니다)
+//  ★ 매장이 바뀐 게 감지되면 자동으로 초기화합니다. 수동 초기화는 __reset().
+//  ★ 매장명을 미리 지정하려면 __setName('육식사관학교 강동천호점').
+// ─────────────────────────────────────────────────────────────
+(() => {
+  if (window.__bmReady) { console.log('이미 설치됨. 탭 조회/스크롤 후 __save() 하세요. (다른 매장이면 새로고침 후 다시 붙여넣기)'); return; }
+  const origFetch = window.fetch.bind(window);
+  const store = { shopNumber: null, shopName: null, owner: null, shop: [], instantDiscount: [], ad: [], promotion: [] };
+  let seen = new Set();
+
+  function resetStore() {
+    store.shop.length = 0; store.instantDiscount.length = 0; store.ad.length = 0; store.promotion.length = 0;
+    seen = new Set();
+  }
+
+  function push(arr, rows, key) {
+    if (!Array.isArray(rows)) return 0;
+    let added = 0;
+    for (const r of rows) {
+      const id = key(r);
+      if (seen.has(id)) continue;
+      seen.add(id); arr.push(r); added++;
+    }
+    return added;
+  }
+
+  // 응답 JSON에서 매장명을 최대한 자동으로 잡아둔다(있을 때만).
+  function grabName(data) {
+    if (store.shopName) return;
+    try {
+      const c = data && (data.shopName || data.name
+        || (data.shop && (data.shop.shopName || data.shop.name))
+        || (data.shopInfo && (data.shopInfo.shopName || data.shopInfo.name))
+        || (data.data && (data.data.shopName || (data.data.shop && data.data.shop.shopName))));
+      if (typeof c === 'string' && c.trim()) { store.shopName = c.trim(); console.log('%c매장명 자동감지: ' + store.shopName, 'color:#2f9e44'); }
+    } catch (e) {}
+  }
+
+  function absorb(url, text) {
+    if (!url || url.indexOf('self-api.baemin.com') < 0 || !text) return;
+    let m = url.match(/shopNumber=(\d+)/);
+    if (m) {
+      const sn = m[1];
+      if (store.shopNumber && store.shopNumber !== sn) {
+        console.warn('%c⚠ 다른 매장 감지 (shopNumber ' + store.shopNumber + ' → ' + sn + ') · 이전 데이터를 자동 초기화했습니다. 매장 전환 시엔 새로고침을 권장합니다.', 'color:#e03131;font-weight:bold;font-size:13px');
+        resetStore(); store.shopName = null; store.owner = null;
+      }
+      store.shopNumber = sn;
+    }
+    m = url.match(/shop-owners\/(\d+)\//); if (m) store.owner = m[1];
+    let data; try { data = JSON.parse(text); } catch (e) { return; }
+    grabName(data);
+    const content = (data && data.content) || (data && data.data && data.data.content);
+    let added = 0, label = '';
+    if (url.indexOf('modify-history/shop') >= 0) { added = push(store.shop, content, r => 'S' + r.id); label = '가게'; }
+    else if (url.indexOf('modify-history/instant-discount') >= 0) { added = push(store.instantDiscount, content, r => 'D' + r.id); label = '즉시할인'; }
+    else if (url.indexOf('modify-history/ad-campaign') >= 0) { added = push(store.ad, content, r => 'A' + (r.id || (r.adCampaignId + r.historyType + r.createdAt + r.beforeValue + r.afterValue))); label = '광고'; }
+    else if (url.indexOf('promotions/history') >= 0) { added = push(store.promotion, content, r => 'P' + (r.id || JSON.stringify(r).slice(0, 40))); label = '메뉴할인'; }
+    else return;
+    if (added) console.log('  +' + added + ' ' + label + '  (누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length + ')');
+  }
+
+  // fetch 응답 가로채기
+  window.fetch = function (input, init) {
+    const url = (typeof input === 'string') ? input : (input && input.url);
+    return origFetch.apply(this, arguments).then(res => {
+      try { if (url && url.indexOf('self-api.baemin.com') >= 0) res.clone().text().then(t => absorb(url, t)).catch(() => {}); } catch (e) {}
+      return res;
+    });
+  };
+
+  // XHR 응답 가로채기 (배민은 XHR을 쓸 수 있음)
+  const oOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) { this.__u = url; return oOpen.apply(this, arguments); };
+  const oSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function () {
+    this.addEventListener('load', () => {
+      try { if (this.__u && this.__u.indexOf('self-api.baemin.com') >= 0) absorb(this.__u, this.responseText); } catch (e) {}
+    });
+    return oSend.apply(this, arguments);
+  };
+
+  // 현재 탭 목록을 끝까지 자동 스크롤해서 모두 불러온다
+  window.__scrollAll = async function () {
+    let last = -1, same = 0;
+    for (let i = 0; i < 300 && same < 5; i++) {
+      window.scrollTo(0, document.body.scrollHeight);
+      const sc = document.scrollingElement || document.documentElement;
+      if (sc) sc.scrollTop = sc.scrollHeight;
+      await new Promise(r => setTimeout(r, 600));
+      const h = (sc ? sc.scrollHeight : document.body.scrollHeight);
+      if (h === last) same++; else { same = 0; last = h; }
+    }
+    console.log('%c스크롤 완료. 누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length, 'color:#1971c2');
+  };
+
+  // 매장명을 수동으로 지정(매출 파일의 매장명과 똑같이)
+  window.__setName = function (n) { store.shopName = String(n || '').trim(); console.log('%c매장명 설정: ' + store.shopName, 'color:#2f9e44;font-weight:bold'); };
+
+  // 현재 누적분을 비우고 새 매장 수집 시작
+  window.__reset = function () { resetStore(); store.shopNumber = null; store.shopName = null; store.owner = null; console.log('%c초기화 완료. 새 매장 수집을 시작하세요.', 'color:#e8590c;font-weight:bold'); };
+
+  // ── 자동 수집(__auto): 탭 이동 → 조회 → 스크롤을 자동으로 반복 ──
+  function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function isVisible(el) {
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    var s = getComputedStyle(el);
+    return s.visibility !== 'hidden' && s.display !== 'none';
+  }
+  // 화면에서 글자가 text를 포함하는 '가장 작은(잎)' 클릭요소를 찾는다
+  function findClickable(text) {
+    var els = document.querySelectorAll("button,a,li,span,div,[role='tab'],[role='button']");
+    var best = null, bestLen = 1e9;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], t = (el.textContent || '').trim();
+      if (!t || t.indexOf(text) < 0) continue;
+      if (!isVisible(el)) continue;
+      if (t.length < bestLen) { best = el; bestLen = t.length; }
+    }
+    return best;
+  }
+  window.__click = function (text) { var el = findClickable(text); if (el) { el.click(); console.log('클릭:', text); return true; } console.warn('못찾음:', text); return false; };
+
+  // 네이티브 <select> 값을 React가 인식하도록 변경
+  function setSelectValue(sel, value) {
+    try {
+      var d = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+      if (d && d.set) d.set.call(sel, value); else sel.value = value;
+    } catch (e) { sel.value = value; }
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function optionsOf(sel) { return Array.prototype.slice.call(sel.options); }
+  function realOpts(sel) { return optionsOf(sel).filter(function (o) { return o.text && o.text.indexOf('선택') < 0; }); }
+  function findSelect(kw) {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) { if (optionsOf(sels[i]).some(function (o) { return o.text.indexOf(kw) >= 0; })) return sels[i]; }
+    return null;
+  }
+  async function clickQuery() { var q = findClickable('조회'); if (q) { q.click(); return true; } console.warn('  ⚠ 조회 버튼 못찾음'); return false; }
+
+  // 광고탭 '변경항목(대분류)' select 찾기: 가게/네비/캠페인이 아닌 '남는' select
+  function findCatSel(campSel) {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) {
+      var s = sels[i]; if (s === campSel) continue;
+      var texts = optionsOf(s).map(function (o) { return o.text; });
+      if (texts.some(function (t) { return t.indexOf('음식배달') >= 0; })) continue;       // 가게 선택
+      if (texts.some(function (t) { return t.indexOf('배민셀프서비스') >= 0; })) continue;  // 상단 네비
+      if (texts.some(function (t) { return t.indexOf('캠페인 선택') >= 0; })) continue;     // 캠페인
+      return s;  // 남는 것 = 변경항목(대분류)
+    }
+    return null;
+  }
+  // 캠페인 드롭다운 찾기: placeholder('캠페인')에 의존하지 않고 상태값으로도 식별
+  function findCampSel() {
+    var sels = document.querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) {
+      if (optionsOf(sels[i]).some(function (o) { return o.text.indexOf('캠페인') >= 0; })) return sels[i];
+    }
+    for (var k = 0; k < sels.length; k++) {
+      var texts = optionsOf(sels[k]).map(function (o) { return o.text; });
+      if (texts.some(function (t) { return t.indexOf('음식배달') >= 0; })) continue;  // 가게 선택 제외
+      if (texts.some(function (t) { return /진행중|진행종료|종료|대기|진행예정/.test(t); })) return sels[k];
+    }
+    return null;
+  }
+  // 광고탭: 캠페인 → (변경항목)을 하나씩 골라가며 조회+스크롤 (전부 자동 순회)
+  async function collectAd() {
+    var campSel = findCampSel();
+    if (!campSel) { console.warn('  ⚠ 캠페인 드롭다운 못찾음 → 직접 골라 조회/스크롤 하세요.'); await clickQuery(); await wait(1600); await window.__scrollAll(); return; }
+    var camps = realOpts(campSel);
+    console.log('  광고 캠페인 ' + camps.length + '개 자동 순회');
+    for (var i = 0; i < camps.length; i++) {
+      console.log('    · 캠페인 [' + (i + 1) + '/' + camps.length + '] ' + camps[i].text.trim());
+      setSelectValue(campSel, camps[i].value); await wait(1200);
+      var catSel = findCatSel(campSel);
+      var cats = catSel ? realOpts(catSel) : [];
+      if (cats.length) {
+        console.log('      변경항목 ' + cats.length + '개 순회');
+        for (var j = 0; j < cats.length; j++) {
+          setSelectValue(catSel, cats[j].value); await wait(800);
+          await clickQuery(); await wait(1400); await window.__scrollAll();
+        }
+      } else {
+        console.warn('      ⚠ 변경항목 옵션 없음 → 캠페인만으로 조회 (변경항목 선택이 필수면 광고는 수동 권장)');
+        await clickQuery(); await wait(1400); await window.__scrollAll();
+      }
+    }
+  }
+
+  window.__auto = async function (opts) {
+    opts = opts || {};
+    var tabs = opts.tabs || ['가게', '즉시할인', '광고'];   // 탭 라벨(부분일치)
+    var doSave = opts.save !== false;                        // 기본: 끝나면 __save()
+    console.log('%c▶ __auto 시작 (탭: ' + tabs.join(', ') + ')', 'color:#1971c2;font-weight:bold;font-size:13px');
+    for (var i = 0; i < tabs.length; i++) {
+      var tab = tabs[i];
+      console.log('%c— [' + (i + 1) + '/' + tabs.length + '] 탭 이동: ' + tab, 'color:#495057');
+      var tabEl = findClickable(tab);
+      if (!tabEl) { console.warn('  ⚠ 탭을 못찾음: "' + tab + '" → 직접 누르고 __scrollAll() 하세요. 건너뜀.'); continue; }
+      tabEl.click(); await wait(1300);
+      if (tab.indexOf('광고') >= 0) {
+        await collectAd();
+      } else {
+        await clickQuery(); await wait(1600); await window.__scrollAll();
+      }
+    }
+    console.log('%c✓ 자동 수집 완료. 누적 가게 ' + store.shop.length + ' / 즉시할인 ' + store.instantDiscount.length + ' / 광고 ' + store.ad.length, 'color:#2f9e44;font-weight:bold;font-size:13px');
+    if (doSave) window.__save(); else console.log('저장하려면 __save()');
+  };
+
+  window.__save = function () {
+    if (!store.shopName) {
+      const g = window.prompt('이 매장의 매장명을 매출 파일과 똑같이 입력하세요.\n(예: 육식사관학교 강동천호점)', '');
+      if (g && g.trim()) store.shopName = g.trim();
+    }
+    const safe = (store.shopName || '').replace(/[\\/:*?"<>|]/g, '').trim();
+    const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'baemin_변경이력_' + (store.shopNumber || 'shop') + (safe ? ('_' + safe) : '') + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    console.log('%c✓ 저장 완료! [' + (store.shopName || '매장명없음') + ' / ' + (store.shopNumber || '?') + '] 총 ' + (store.shop.length + store.instantDiscount.length + store.ad.length + store.promotion.length) + '건', 'color:green;font-weight:bold;font-size:14px');
+  };
+
+  window.__bmStore = store;
+  window.__bmReady = true;
+  console.log('%c[설치완료] ⚡ __auto() 하면 자동으로 다 모으고 저장합니다. (수동: 탭 조회 → __scrollAll() → __save())', 'color:#e8590c;font-weight:bold;font-size:14px');
+})();
+</script>
+<script>
+(function(){var el=document.getElementById("bmsnippet");if(!el)return;var raw=el.textContent.trim();var v=document.getElementById("snipview");if(v)v.textContent=raw;window.copySnippet=function(b){navigator.clipboard.writeText(raw).then(function(){b.textContent="✓ 복사됨";b.classList.add("done");setTimeout(function(){b.textContent="📋 복사";b.classList.remove("done");},1600);});};})();
+</script>
+<script>
+(function(){
+  var tabs=Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  tabs.forEach(function(t){ t.addEventListener('click',function(){
+    tabs.forEach(function(x){x.classList.remove('active');});
+    Array.prototype.slice.call(document.querySelectorAll('.tab-panel')).forEach(function(p){p.classList.remove('active');});
+    t.classList.add('active');
+    var tab=t.getAttribute('data-tab');
+    var el=document.getElementById('tab-'+tab); if(el) el.classList.add('active');
+    if((tab==='compare'||tab==='gen') && window.__refreshSamples) window.__refreshSamples();
+    window.scrollTo(0,0);
+  }); });
+})();
+</script>
+</body>
+</html>

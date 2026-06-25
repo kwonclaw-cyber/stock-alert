@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>샵인샵 전용 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
+.hdr{background:linear-gradient(135deg,#1a8c34 0%,#178030 50%,#1a8c34 100%);color:#fff;padding:0 28px;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(15,35,66,.3);position:sticky;top:0;z-index:100;}
+.hdr-l{display:flex;align-items:center;gap:14px;}
+.hdr-logo{width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.15);border-radius:11px;}
+.hdr h1{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.hdr p{font-size:11px;opacity:.7;margin-top:1px;}
+.hdr-date{font-size:11.5px;opacity:.7;text-align:right;line-height:1.6;}
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 28px;display:flex;overflow-x:auto;box-shadow:0 1px 4px rgba(0,0,0,.04);position:sticky;top:64px;z-index:99;}
+.nav-tab{padding:14px 20px;font-size:13.5px;font-weight:500;cursor:pointer;color:#64748b;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;display:flex;align-items:center;gap:6px;}
+.nav-tab:hover{color:#1a56db;background:#f8fafc;}
+.nav-tab.on{color:#1a56db;border-bottom-color:#1a56db;font-weight:700;}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 28px 80px;}
+.sec{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.9px;text-transform:uppercase;margin:6px 0 14px;display:flex;align-items:center;gap:8px;}
+.sec::before{content:'';width:3px;height:13px;background:#1a56db;border-radius:2px;}
+.brandup{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+.bz{background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.06);overflow:hidden;border-top:4px solid #1a56db;}
+.bz:nth-child(2){border-color:#f59e0b;}.bz:nth-child(3){border-color:#16a34a;}
+.bz-head{padding:12px 16px 8px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.bz-drop{margin:0 14px;border:2px dashed #cbd5e1;border-radius:11px;padding:16px 10px;text-align:center;cursor:pointer;transition:all .2s;}
+.bz-drop:hover,.bz-drop.over{border-color:#1a56db;background:#eff6ff;}
+.bz-drop .di{font-size:24px;} .bz-drop .dt{font-size:11.5px;color:#64748b;margin-top:4px;}
+.bz-files{list-style:none;padding:8px 16px 14px;font-size:11px;min-height:14px;} .bz-files li{padding:2px 0;color:#64748b;display:flex;align-items:center;gap:4px;}
+.bz-files li button{margin-left:auto;border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:13px;line-height:1;}
+.bz-files li button:hover{color:#dc2626;}
+.uplabel{font-size:13px;color:#334155;margin-bottom:8px;}
+.saleslist{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.sl-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:7px 12px;font-size:12.5px;}
+.sl-nm{flex:1;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sl-row select{border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:12px;font-family:inherit;color:#1e293b;background:#f8fafc;cursor:pointer;}
+.sl-row .rm{border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:15px;}.sl-row .rm:hover{color:#dc2626;}
+.sl-empty{font-size:12px;color:#94a3b8;padding:6px 2px;}
+#upbox.collapsed{display:none;}
+.tag{display:inline-block;font-size:9.5px;font-weight:700;border-radius:5px;padding:0 6px;margin-right:5px;color:#fff;}
+.t-j{background:#7c3aed;} .t-s{background:#16a34a;} .t-x{background:#94a3b8;}
+button.go{background:#1a56db;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14.5px;font-weight:700;cursor:pointer;}
+button.go:disabled{background:#cbd5e1;cursor:not-allowed;}
+.hide{display:none;} .err{color:#dc2626;font-weight:700;}
+.cachebar{margin-top:12px;padding:9px 13px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:9px;font-size:13px;}
+.cachebar button{margin-left:8px;border:1px solid #e2e8f0;background:#fff;border-radius:6px;padding:2px 9px;cursor:pointer;font-size:12px;color:#dc2626;}
+.modebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 16px;}
+.modetab{padding:9px 18px;border-radius:22px;font-size:13.5px;font-weight:700;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;transition:all .15s;}
+.modetab:hover{border-color:#1a56db;color:#1a56db;}
+.modetab.on{background:#1a56db;color:#fff;border-color:#1a56db;}
+.brandchips{display:flex;gap:6px;flex-wrap:wrap;margin-left:6px;}
+.chip{padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;transition:all .15s;}
+.chip:hover{border-color:#93c5fd;color:#1a56db;} .chip.on{background:#eff6ff;border-color:#1a56db;color:#1a56db;}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:#fff;border-radius:14px;padding:18px 18px 14px;box-shadow:0 1px 8px rgba(0,0,0,.06);border-top:4px solid #1a56db;position:relative;overflow:hidden;}
+.kpi:nth-child(2){border-color:#7c3aed;}.kpi:nth-child(3){border-color:#0891b2;}.kpi:nth-child(4){border-color:#16a34a;}.kpi:nth-child(5){border-color:#f59e0b;}.kpi:nth-child(6){border-color:#ef4444;}
+.kpi-icon{position:absolute;right:12px;top:12px;font-size:24px;opacity:.12;}
+.kpi-lbl{font-size:11px;color:#64748b;font-weight:500;margin-bottom:8px;}
+.kpi-val{font-size:21px;font-weight:800;color:#1e293b;line-height:1.1;}
+.kpi-sub{font-size:10.5px;color:#94a3b8;margin-top:5px;}
+.cc{background:#fff;border-radius:14px;padding:20px 22px;box-shadow:0 1px 8px rgba(0,0,0,.06);margin-bottom:18px;}
+.cc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.cc-head h3{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.cc-head small{font-size:11px;color:#94a3b8;font-weight:400;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;} .row2>.cc{margin-bottom:0;}
+.cw{position:relative;height:300px;} .cwl{position:relative;height:360px;}
+.panel{display:none;} .panel.on{display:block;}
+.eff{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:6px 0 4px;}
+.eff>div{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.06);border-top:3px solid #e2e8f0;}
+.eff .t{font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;} .eff .v{font-size:21px;font-weight:800;} .eff .n{font-size:10.5px;color:#94a3b8;margin-top:3px;}
+.up{color:#16a34a;} .dn{color:#dc2626;}
+table{border-collapse:collapse;width:100%;font-size:13px;} th,td{border-bottom:1px solid #eef2f7;padding:8px 10px;text-align:left;} th{background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;}
+td.num{text-align:right;font-variant-numeric:tabular-nums;}
+.tablewrap{max-height:440px;overflow:auto;border:1px solid #eef2f7;border-radius:10px;}
+.tip{background:#eff6ff;border-left:4px solid #1a56db;padding:11px 15px;border-radius:0 8px 8px 0;margin:10px 0 0;font-size:13.5px;color:#334155;}
+.foot{margin-top:30px;color:#94a3b8;font-size:12px;text-align:center;}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr);}.row2,.brandup{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-l"><div class="hdr-logo">🧩</div><div><h1>샵인샵 전용 대시보드</h1><p>제로고기찜 · 제주할멍고기국수 · 황제쌀국수 — 브랜드별 / 통합 분석</p></div></div>
+  <div class="hdr-date" id="hdrdate"></div>
+</div>
+<div class="nav" id="nav">
+  <div class="nav-tab on" data-tab="ov" onclick="DG.tab('ov',this)">📋 개요</div>
+  <div class="nav-tab" data-tab="hw" onclick="DG.tab('hw',this)">🕐 시간대·요일</div>
+  <div class="nav-tab" data-tab="ef" onclick="DG.tab('ef',this)">⚙️ 설정 효과</div>
+  <div class="nav-tab" data-tab="tl" onclick="DG.tab('tl',this)">📈 타임라인</div>
+</div>
+<div class="wrap">
+  <div class="sec" id="upsec" onclick="DG.toggleUp()" style="cursor:pointer;justify-content:space-between;">
+    <span>데이터 업로드</span>
+    <span id="uptoggle" style="color:#1a56db;font-weight:700;font-size:11px;">▲ 접기</span>
+  </div>
+  <div id="upbox">
+    <div class="uplabel">① 브랜드별 <b>배민 변경이력(JSON)</b> — 각 브랜드 칸에 그 브랜드 JSON</div>
+    <div class="brandup" id="brandjson"></div>
+    <div class="uplabel" style="margin-top:14px;">② <b>매출 엑셀(xlsx)</b> — 한번에 올린 뒤 각 파일의 브랜드를 지정하세요 <span style="color:#94a3b8">(매출 파일엔 매장 정보가 없어 자동 구분 불가)</span></div>
+    <div id="salesdrop" class="bz-drop" style="margin:0;border-color:#16a34a;background:#f0fdf4;">
+      <div class="di">📦</div><div class="dt"><b>주문경로별·시간대별 xlsx 전부</b> 끌어놓기/클릭 (브랜드 무관, 여러 달)</div>
+      <input type="file" id="salespick" multiple accept=".xlsx" class="hide">
+    </div>
+    <div id="saleslist" class="saleslist"></div>
+    <div style="margin-top:16px;"><button class="go" id="run" disabled>대시보드 생성 ▶</button><span id="status" style="margin-left:10px;font-size:13px;color:#64748b;"></span></div>
+    <div id="cachebar" class="cachebar hide">💾 <b>저장된 샵인샵 데이터로 보는 중</b> <span id="cacheinfo" style="color:#64748b"></span> · 새 파일을 올리면 교체됩니다.<button id="clearCache">저장 데이터 지우기</button></div>
+    <p id="neednet" style="color:#dc2626;font-size:13px;margin:10px 0 0">⚠ 인터넷이 필요합니다(차트/엑셀 라이브러리 로딩). 연결 후 새로고침하세요.</p>
+  </div>
+
+  <div id="result" class="hide">
+    <div class="modebar">
+      <div class="modetab on" id="m-brand" onclick="DG.mode('brand')">🏪 브랜드별 보기</div>
+      <div class="modetab" id="m-unified" onclick="DG.mode('unified')">🧩 통합 분석</div>
+      <div id="brandchips" class="brandchips"></div>
+    </div>
+    <div class="panel on" id="p-ov"></div>
+    <div class="panel" id="p-hw"></div>
+    <div class="panel" id="p-ef"></div>
+    <div class="panel" id="p-tl"></div>
+  </div>
+  <p class="foot">모든 처리는 브라우저 안에서만 수행됩니다 · 데이터는 외부로 전송되지 않습니다.</p>
+</div>
+<script>
+/* ===== 핵심 로직 (core.js) ===== */
+// 표본매장 분석 코어 로직 (브라우저/노드 공용). merge_sales.py + analyze.py 의 JS 포팅.
+(function (root) {
+  // ---------- 공통 ----------
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(v) {
+    if (v == null) return null;
+    if (v instanceof Date) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+    return String(v).slice(0, 10);
+  }
+  function addDays(dt, n) { const d = new Date(dt + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function wdayMon(dt) { const w = new Date(dt + 'T00:00:00').getDay(); return (w + 6) % 7; } // 0=월
+  const WEEK = ['월', '화', '수', '목', '금', '토', '일'];
+
+  // ---------- matetech 파싱 ----------
+  function detectType(rows) {
+    const hdr = rows.slice(0, 3).map(r => (r || []).map(x => x == null ? '' : String(x)).join(' ')).join(' ');
+    if (hdr.indexOf('주문채널') >= 0) return 'ju';
+    if (hdr.indexOf('시간대') >= 0) return 'si';
+    return null;
+  }
+  function parseJu(rowsList) {
+    const daily = {};
+    rowsList.forEach(rows => {
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const dd = r[0], ch = r[2];
+        if (!dd || dd === '합계' || !ch) continue;
+        const dt = fmtDate(dd), cnt = +r[4] || 0, amt = +r[6] || 0;
+        if (!daily[dt]) daily[dt] = { baemin: [0, 0], coupang: [0, 0], total: [0, 0] };
+        daily[dt].total[0] += cnt; daily[dt].total[1] += amt;
+        if (ch === '배달의민족') { daily[dt].baemin[0] += cnt; daily[dt].baemin[1] += amt; }
+        else if (ch === '쿠팡이츠') { daily[dt].coupang[0] += cnt; daily[dt].coupang[1] += amt; }
+      }
+    });
+    return daily;
+  }
+  function parseSi(rowsList) {
+    const hourly = [];
+    rowsList.forEach(rows => {
+      let cur = null;
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i]; if (!r) continue;
+        const rawd = r[0], slot = r[1];
+        if (rawd && String(rawd) !== '합계') {
+          const m = String(rawd).match(/(\d{1,2})월\s*(\d{1,2})일/);
+          if (m) { const mo = +m[1], dy = +m[2], yr = mo === 12 ? 2025 : 2026; cur = yr + '-' + pad(mo) + '-' + pad(dy); }
+          else { const f = fmtDate(rawd); if (/^\d{4}-/.test(f)) cur = f; }
+        }
+        if (!slot || String(slot) === '합계' || !/^\d/.test(String(slot))) continue;
+        if (!cur) continue;
+        hourly.push({ date: cur, slot: String(slot), dc: +r[8] || 0, da: +r[9] || 0, tc: +r[2] || 0, ta: +r[4] || 0 });
+      }
+    });
+    hourly.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.slot < b.slot ? -1 : 1));
+    return hourly;
+  }
+  function dailyFromHourly(hourly) {
+    const d = {};
+    hourly.forEach(h => { if (!d[h.date]) d[h.date] = { delivery: [0, 0], total: [0, 0] }; d[h.date].delivery[0] += h.dc; d[h.date].delivery[1] += h.da; d[h.date].total[0] += h.tc; d[h.date].total[1] += h.ta; });
+    return d;
+  }
+
+  // ---------- 변경이력 번들 파싱 ----------
+  const SHOP_LABELS = {
+    SHOP_OPERATION_HOUR_MODIFY: '운영시간', SHOP_MENU_INFO_MENU_INTRO_MODIFY: '주문안내',
+    SHOP_DELIVERY_RULES_MODIFY: '주문금액·배달팁', SHOP_DELIVERY_RULES_RESERVATION_MODIFY: '주문금액·배달팁(예약)',
+    SHOP_REGION_DELIVERY_FEE_MODIFY: '지역 할증 배달팁', SHOP_DAY_OFF_MODIFY: '휴무일 변경',
+    TEMPORARY_STOP_MODIFY: '임시중지', SHOP_TEMPORARY_STOP_MODIFY: '임시중지', SHOP_STATUS_MODIFY: '가게 상태',
+    SHOP_REST_HOUR_MODIFY: '휴게시간 변경', SHOP_CONTENTS_MODIFY: '가게소개/콘텐츠',
+    SHOP_TELEPHONE_INFO_MODIFY: '전화번호 변경', SHOP_MENU_INFO_MODIFY: '메뉴 정보', SHOP_BASE_INFO_MODIFY: '기본 정보',
+  };
+  const AD_TYPES = { LISTING_INVENTORY_DISPLAY_PAUSE: '노출 ON/OFF', CPC_BUDGET: '클릭비·예산' };
+  function shopLabel(ci, sub) { return SHOP_LABELS[ci] || ci || sub || '기타'; }
+  function adTypeLabel(t) { return AD_TYPES[t] || t || ''; }
+  function fmtAd(v) {
+    if (v == null) return '';
+    let s = String(v);
+    if (s.charAt(0) === '{') {
+      try {
+        const o = JSON.parse(s), cpc = o.cpc || o, p = [];
+        if ('bid' in cpc) p.push('클릭비 ' + Number(cpc.bid).toLocaleString() + '원');
+        if ('autoBidding' in cpc) p.push(cpc.autoBidding ? '자동입찰' : '수동입찰');
+        // 예산(월예산·최대입찰)은 매출영향 분석에 불필요 → 표시 제외
+        return p.length ? p.join(', ') : s;
+      } catch (e) { return s; }
+    }
+    return s;
+  }
+  function parseBundle(b) {
+    const rows = [];
+    (b.shop || []).forEach(r => rows.push({ date: String(r.modified || r.createdAt || '').slice(0, 10), ts: String(r.modified || r.createdAt || ''), gubun: '가게', item: shopLabel(r.changedItem, r.subDivision), before: (r.beforeState || '').trim(), after: (r.afterState || '').trim() }));
+    (b.instantDiscount || []).forEach(r => rows.push({ date: String(r.modifiedAt || '').slice(0, 10), ts: String(r.modifiedAt || ''), gubun: '즉시할인', item: r.name || r.type || '', before: '', after: (r.description || '').trim() }));
+    (b.ad || []).forEach(r => rows.push({ date: String(r.createdAt || '').slice(0, 10), ts: String(r.createdAt || ''), gubun: '광고', item: (r.adKindTitle || '') + ' (' + adTypeLabel(r.historyType) + ')', before: fmtAd(r.beforeValue), after: fmtAd(r.afterValue) }));
+    rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return rows;
+  }
+
+  // ---------- 분석 ----------
+  function bidOf(s) { const m = String(s).match(/(?:입찰|클릭비)\s*([\d,]+)\s*원/); return m ? +m[1].replace(/,/g, '') : null; }
+  function categorize(changes) {
+    const by = {};
+    function ensure(d) { if (!by[d]) by[d] = { 운영시간: [], 할인: [], 우리가게클릭: [] }; return by[d]; }
+    changes.forEach(c => {
+      if (c.gubun === '가게' && c.item === '운영시간') ensure(c.date).운영시간.push(c.after.replace(/\n/g, ' / '));
+      else if (c.gubun === '즉시할인') ensure(c.date).할인.push(c.item);
+      else if (c.gubun === '광고' && String(c.item).indexOf('우리가게클릭') === 0) {
+        const ba = bidOf(c.before), aa = bidOf(c.after);
+        if (ba != null && aa != null) { const ar = aa > ba ? '▲인상' : (aa < ba ? '▼인하' : '유지'); ensure(c.date).우리가게클릭.push('클릭비 ' + ba + '→' + aa + '원 (' + ar + ')'); }
+        else ensure(c.date).우리가게클릭.push(c.after || c.item);
+      }
+    });
+    return by;
+  }
+  function getDaily(workbookData) {
+    // workbookData: {ju:{...}|null, hourly:[...]}
+    if (workbookData.ju && Object.keys(workbookData.ju).length) {
+      const d = {}; for (const k in workbookData.ju) d[k] = { sales: workbookData.ju[k].baemin[1], cnt: workbookData.ju[k].baemin[0], total: workbookData.ju[k].total[1] };
+      return { daily: d, salesName: '배민매출', hasChannel: true, ju: workbookData.ju };
+    }
+    const dfh = dailyFromHourly(workbookData.hourly); const d = {};
+    for (const k in dfh) d[k] = { sales: dfh[k].delivery[1], cnt: dfh[k].delivery[0], total: dfh[k].total[1] };
+    return { daily: d, salesName: '배달매출', hasChannel: false };
+  }
+  function avg(xs) { xs = xs.filter(x => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
+  function analyze(daily, cats) {
+    const days = Object.keys(daily).sort();
+    function wow(dt) { const p = daily[addDays(dt, -7)]; if (!p || !p.sales) return null; return (daily[dt].sales - p.sales) / p.sales * 100; }
+    const has = (dt, k, pred) => (cats[dt] && cats[dt][k] || []).some(pred || (() => true));
+    const opDays = days.filter(dt => cats[dt] && cats[dt].운영시간.length);
+    const dStart = days.filter(dt => has(dt, '할인', x => x.indexOf('[시작]') >= 0));
+    const dEnd = days.filter(dt => has(dt, '할인', x => x.indexOf('[종료]') >= 0));
+    const bidUp = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▲인상') >= 0));
+    const bidDn = days.filter(dt => has(dt, '우리가게클릭', x => x.indexOf('▼인하') >= 0));
+    const base = avg(days.map(wow));
+    const m = arr => avg(arr.map(wow));
+    return {
+      base: base, op: { n: opDays.length, v: m(opDays) }, dStart: { n: dStart.length, v: m(dStart) },
+      dEnd: { n: dEnd.length, v: m(dEnd) }, bidUp: { n: bidUp.length, v: m(bidUp) }, bidDn: { n: bidDn.length, v: m(bidDn) },
+    };
+  }
+  function weekly(daily) {
+    const agg = {}; for (const dt in daily) { const mon = addDays(dt, -wdayMon(dt)); if (!agg[mon]) agg[mon] = [0, 0]; agg[mon][0] += daily[dt].sales; agg[mon][1] += daily[dt].cnt; } return agg;
+  }
+  function monthly(daily) { const agg = {}; for (const dt in daily) { const ym = dt.slice(0, 7); if (!agg[ym]) agg[ym] = [0, 0]; agg[ym][0] += daily[dt].sales; agg[ym][1] += daily[dt].cnt; } return agg; }
+
+  const API = { fmtDate, addDays, wdayMon, WEEK, detectType, parseJu, parseSi, dailyFromHourly, parseBundle, categorize, getDaily, analyze, weekly, monthly };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  else root.SAMPLE = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+
+/* ===== 샵인샵 멀티브랜드 대시보드 앱 (Chart.js) ===== */
+var DG=(function(){
+  var SAMPLE=window.SAMPLE, WEEK=['일','월','화','수','목','금','토'];
+  var BRANDS=[{key:'제로고기찜',icon:'🥩',col:'#1a56db'},{key:'제주할멍고기국수',icon:'🍜',col:'#f59e0b'},{key:'황제쌀국수',icon:'🍲',col:'#16a34a'}];
+  var store={}; BRANDS.forEach(function(b){store[b.key]={jsonFile:null,comp:null};});
+  var salesFiles=[]; // {id, file, brand}
+  var salesSeq=0;
+  var CKEY='shopinshop_brands_v1', charts={}, VIEW=null, META={}, curMode='brand', selBrand=null, activeTab='ov';
+  var PAL={blue:'#1a56db',purple:'#7c3aed',cyan:'#0891b2',green:'#16a34a',amber:'#f59e0b',red:'#ef4444',gray:'#cbd5e1'};
+
+  function won(v){return v==null?'-':Math.round(v).toLocaleString()+'원';}
+  function manwon(v){return v==null?'-':Math.round(v/10000).toLocaleString()+'만';}
+  function pad(n){return String(n).padStart(2,'0');}
+  function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+  function sum(a){return a.reduce(function(x,y){return x+y;},0);}
+  function colHour(h){return h>=17&&h<=21?PAL.amber:(h>=11&&h<=16?PAL.blue:PAL.gray);}
+  function iconOf(k){for(var i=0;i<BRANDS.length;i++)if(BRANDS[i].key===k)return BRANDS[i].icon;return '🏪';}
+  function colOf(k){for(var i=0;i<BRANDS.length;i++)if(BRANDS[i].key===k)return BRANDS[i].col;return PAL.gray;}
+
+  function init(){
+    if(window.XLSX&&window.Chart) document.getElementById('neednet').style.display='none';
+    if(window.Chart&&window.ChartDataLabels){try{Chart.register(ChartDataLabels);}catch(e){}}
+    var d=new Date();document.getElementById('hdrdate').innerHTML=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일<br><span style="opacity:.6;font-size:10px;">분석기준일</span>';
+    // ① 브랜드별 JSON 슬롯
+    var bu=document.getElementById('brandjson');
+    BRANDS.forEach(function(b,i){
+      var div=document.createElement('div');div.className='bz';
+      div.innerHTML='<div class="bz-head">'+b.icon+' '+b.key+'</div>'
+        +'<div class="bz-drop" id="jdrop-'+i+'"><div class="di">📁</div><div class="dt">변경이력 JSON 끌어놓기/클릭</div>'
+        +'<input type="file" id="jpick-'+i+'" accept=".json" class="hide"></div>'
+        +'<ul class="bz-files" id="jfiles-'+i+'"></ul>';
+      bu.appendChild(div);
+    });
+    BRANDS.forEach(function(b,i){
+      var dz=document.getElementById('jdrop-'+i),pk=document.getElementById('jpick-'+i);
+      dz.addEventListener('click',function(){pk.click();});
+      ['dragover','dragenter'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.add('over');});});
+      ['dragleave','drop'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.remove('over');});});
+      dz.addEventListener('drop',function(ev){addJson(b.key,i,ev.dataTransfer.files);});
+      pk.addEventListener('change',function(ev){addJson(b.key,i,ev.target.files);});
+    });
+    // ② 매출 일괄 드롭존
+    var sd=document.getElementById('salesdrop'),sp=document.getElementById('salespick');
+    sd.addEventListener('click',function(){sp.click();});
+    ['dragover','dragenter'].forEach(function(e){sd.addEventListener(e,function(ev){ev.preventDefault();sd.classList.add('over');});});
+    ['dragleave','drop'].forEach(function(e){sd.addEventListener(e,function(ev){ev.preventDefault();sd.classList.remove('over');});});
+    sd.addEventListener('drop',function(ev){addSales(ev.dataTransfer.files);});
+    sp.addEventListener('change',function(ev){addSales(ev.target.files);});
+    document.getElementById('run').addEventListener('click',function(){run().catch(function(e){document.getElementById('status').innerHTML='<span class="err">'+e+'</span>';console.error(e);});});
+    document.getElementById('clearCache').addEventListener('click',function(){clearAll();});
+    // 저장된 파일/결과 복원
+    idbLoad(function(){
+      drawSales();BRANDS.forEach(function(b,i){drawJson(b.key,i);});refreshRun();
+      var cached=loadCache(); if(cached){BRANDS.forEach(function(b){if(cached[b.key])store[b.key].comp=cached[b.key];});
+        if(loadedKeys().length){var bar=document.getElementById('cachebar');bar.classList.remove('hide');
+          document.getElementById('cacheinfo').textContent='('+loadedKeys().join(', ')+')';showResult();collapseUp(true);}}
+      var anyFile=salesFiles.length||BRANDS.some(function(b){return store[b.key].jsonFile;});
+      if(anyFile&&!loadedKeys().length) document.getElementById('status').textContent='저장된 파일 복원됨 — [대시보드 생성]을 누르세요.';
+    });
+  }
+  function defaultBrand(){for(var i=0;i<BRANDS.length;i++)if(store[BRANDS[i].key].jsonFile)return BRANDS[i].key;return BRANDS[0].key;}
+  // ── 브랜드 JSON ──
+  function addJson(key,idx,list){for(var i=0;i<list.length;i++){if(list[i].name.toLowerCase().endsWith('.json')){store[key].jsonFile=list[i];break;}}drawJson(key,idx);refreshRun();idbSave();}
+  function removeJson(key,idx){store[key].jsonFile=null;drawJson(key,idx);refreshRun();idbSave();}
+  function drawJson(key,idx){var ul=document.getElementById('jfiles-'+idx);ul.innerHTML='';var f=store[key].jsonFile;
+    if(f){var li=document.createElement('li');li.innerHTML='<span class="tag t-j">JSON</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.name)+'</span><button title="제거" onclick="DG.rmJson(\''+key+'\','+idx+')">✕</button>';ul.appendChild(li);}}
+  // ── 매출 일괄 ──
+  function addSales(list){for(var i=0;i<list.length;i++){if(list[i].name.toLowerCase().endsWith('.xlsx'))salesFiles.push({id:++salesSeq,file:list[i],brand:defaultBrand()});}drawSales();refreshRun();idbSave();}
+  function setSalesBrand(id,brand){for(var i=0;i<salesFiles.length;i++)if(salesFiles[i].id==id)salesFiles[i].brand=brand;idbSave();}
+  function removeSales(id){salesFiles=salesFiles.filter(function(s){return s.id!=id;});drawSales();refreshRun();idbSave();}
+  function drawSales(){var box=document.getElementById('saleslist');box.innerHTML='';
+    if(!salesFiles.length){box.innerHTML='<div class="sl-empty">아직 매출 파일이 없습니다.</div>';return;}
+    salesFiles.forEach(function(s){var row=document.createElement('div');row.className='sl-row';
+      var opts=BRANDS.map(function(b){return '<option value="'+b.key+'"'+(b.key===s.brand?' selected':'')+'>'+b.icon+' '+b.key+'</option>';}).join('');
+      row.innerHTML='<span class="tag t-s">xlsx</span><span class="sl-nm">'+esc(s.file.name)+'</span>'
+        +'<select onchange="DG.setSalesBrand('+s.id+',this.value)">'+opts+'</select>'
+        +'<button class="rm" title="제거" onclick="DG.removeSales('+s.id+')">✕</button>';
+      box.appendChild(row);});}
+  function refreshRun(){
+    // 실행 가능: JSON이 있고 그 브랜드에 매출이 1개 이상 배정된 브랜드가 1개 이상
+    var ok=BRANDS.some(function(b){return store[b.key].jsonFile&&salesFiles.some(function(s){return s.brand===b.key;});});
+    document.getElementById('run').disabled=!ok;}
+  function loadedKeys(){return BRANDS.filter(function(b){return store[b.key].comp;}).map(function(b){return b.key;});}
+
+  // ── 업로드 섹션 접기/펴기 ──
+  function toggleUp(){var box=document.getElementById('upbox');collapseUp(!box.classList.contains('collapsed'));}
+  function collapseUp(c){var box=document.getElementById('upbox');box.classList.toggle('collapsed',c);
+    document.getElementById('uptoggle').textContent=c?'▼ 펼치기':'▲ 접기';}
+
+  // ── IndexedDB: 업로드 파일 기억 ──
+  function idbOpen(cb){var rq=indexedDB.open('sis_db',1);
+    rq.onupgradeneeded=function(){rq.result.createObjectStore('kv');};
+    rq.onsuccess=function(){cb(rq.result);};rq.onerror=function(){cb(null);};}
+  function idbSave(){try{idbOpen(function(db){if(!db)return;var tx=db.transaction('kv','readwrite');
+    var brandsObj={};BRANDS.forEach(function(b){if(store[b.key].jsonFile)brandsObj[b.key]=store[b.key].jsonFile;});
+    var sales=salesFiles.map(function(s){return {id:s.id,file:s.file,brand:s.brand};});
+    tx.objectStore('kv').put({brands:brandsObj,sales:sales,seq:salesSeq},'state');});}catch(e){}}
+  function idbLoad(done){try{idbOpen(function(db){if(!db){done();return;}var tx=db.transaction('kv','readonly');
+    var rq=tx.objectStore('kv').get('state');
+    rq.onsuccess=function(){var st=rq.result;if(st){
+      BRANDS.forEach(function(b){if(st.brands&&st.brands[b.key])store[b.key].jsonFile=st.brands[b.key];});
+      salesFiles=(st.sales||[]).map(function(s){return {id:s.id,file:s.file,brand:s.brand};});
+      salesSeq=st.seq||salesFiles.reduce(function(m,s){return Math.max(m,s.id||0);},0);}
+      done();};
+    rq.onerror=function(){done();};});}catch(e){done();}}
+  function idbClear(){try{idbOpen(function(db){if(!db)return;db.transaction('kv','readwrite').objectStore('kv').delete('state');});}catch(e){}}
+  function clearAll(){try{localStorage.removeItem(CKEY);}catch(e){}idbClear();location.reload();}
+
+  async function buildComputed(files,defName){
+    if(!window.XLSX) throw '엑셀 라이브러리를 불러오지 못했습니다(인터넷 확인).';
+    var bundle=null,ju=[],si=[];
+    for(var i=0;i<files.length;i++){var f=files[i],n=f.name.toLowerCase();
+      if(n.endsWith('.json')){bundle=JSON.parse(await f.text());}
+      else if(n.endsWith('.xlsx')){var buf=await f.arrayBuffer(),wb=XLSX.read(buf,{type:'array'});
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:null});
+        var t=SAMPLE.detectType(rows); if(t==='ju')ju.push(rows); else if(t==='si')si.push(rows);}}
+    if(!bundle) throw defName+': 배민 변경이력 JSON이 필요합니다.';
+    if(!ju.length && !si.length) throw defName+': matetech 매출 엑셀이 필요합니다.';
+    var gd=SAMPLE.getDaily({ju:SAMPLE.parseJu(ju),hourly:SAMPLE.parseSi(si)});
+    var comp={gd:gd,hourly:SAMPLE.parseSi(si),changes:SAMPLE.parseBundle(bundle),
+            cats:SAMPLE.categorize(SAMPLE.parseBundle(bundle)),name:defName,shopNumber:bundle.shopNumber};
+    return clipToChanges(comp);
+  }
+  // 변경이력이 매출보다 짧으면, 매출을 변경이력 기간(첫 변경~마지막 변경)에 맞춰 잘라서 분석
+  function clipToChanges(comp){
+    var cd=comp.changes.map(function(c){return c.date;}).filter(Boolean).sort();
+    var sd=Object.keys(comp.gd.daily).sort();
+    if(!cd.length||!sd.length){comp._dailyLB=comp.gd.daily;return comp;}
+    var ss=sd[0], se=sd[sd.length-1], cs=cd[0], ce=cd[cd.length-1];
+    var lo=cs>ss?cs:ss, hi=ce<se?ce:se;
+    comp._fullRange=[ss,se];
+    if(lo>hi){comp._clipped=false;comp._warn=true;comp._range=[ss,se];comp._dailyLB=comp.gd.daily;return comp;} // 겹치는 구간 없음 → 클립 안 함
+    comp._range=[lo,hi];
+    comp._clipped=(lo!==ss)||(hi!==se);
+    // 전주대비(WoW) 비교를 위해 분석구간 앞 7일은 lookback용으로만 보존(표시는 분석구간만)
+    var orig=comp.gd.daily, pre=SAMPLE.addDays(lo,-7), loLB=pre<ss?ss:pre;
+    var dlb={}; for(var kk in orig){ if(kk>=loLB&&kk<=hi) dlb[kk]=orig[kk]; } comp._dailyLB=dlb;
+    if(!comp._clipped) return comp;
+    var kept=0,total=0,nd={}; for(var k in orig){total++; if(k>=lo&&k<=hi){nd[k]=orig[k];kept++;}} comp.gd.daily=nd;
+    if(comp.gd.ju){var nj={};for(var k2 in comp.gd.ju){if(k2>=lo&&k2<=hi)nj[k2]=comp.gd.ju[k2];}comp.gd.ju=nj;}
+    comp.hourly=comp.hourly.filter(function(h){return h.date>=lo&&h.date<=hi;});
+    comp._excluded=total-kept;
+    return comp;
+  }
+  async function run(){
+    document.getElementById('status').textContent='분석 중…';
+    var skipped=[];
+    for(var i=0;i<BRANDS.length;i++){var b=BRANDS[i];
+      var jf=store[b.key].jsonFile;
+      var sf=salesFiles.filter(function(s){return s.brand===b.key;}).map(function(s){return s.file;});
+      if(jf&&sf.length){store[b.key].comp=await buildComputed([jf].concat(sf),b.key);}
+      else{store[b.key].comp=null; if(jf||sf.length)skipped.push(b.key+'('+(!jf?'JSON 없음':'매출 미배정')+')');}
+    }
+    var keys=loadedKeys(); if(!keys.length) throw '분석할 브랜드가 없습니다 — 브랜드 JSON과 그 브랜드로 지정된 매출이 모두 필요합니다.';
+    saveCache(); document.getElementById('cachebar').classList.add('hide');
+    document.getElementById('status').textContent='완료! ('+keys.length+'개 브랜드: '+keys.join(', ')+')'+(skipped.length?' · 제외: '+skipped.join(', '):'');
+    selBrand=null; showResult(); collapseUp(true);
+  }
+  function saveCache(){try{var o={};BRANDS.forEach(function(b){if(store[b.key].comp)o[b.key]=store[b.key].comp;});localStorage.setItem(CKEY,JSON.stringify(o));}catch(e){}}
+  function loadCache(){try{var o=JSON.parse(localStorage.getItem(CKEY));return(o&&typeof o==='object')?o:null;}catch(e){return null;}}
+
+  // ===== 통합 병합 =====
+  function mergeComps(){
+    var daily={},ju={},hourly=[],changes=[],cats={},hasCh=false,brands=[];
+    loadedKeys().forEach(function(key){var c=store[key].comp,bsum=0,bcnt=0;
+      for(var k in c.gd.daily){var s=c.gd.daily[k];if(!daily[k])daily[k]={sales:0,cnt:0,total:0};
+        daily[k].sales+=s.sales;daily[k].cnt+=s.cnt;daily[k].total+=(s.total||s.sales);bsum+=s.sales;bcnt+=s.cnt;}
+      if(c.gd.hasChannel&&c.gd.ju){hasCh=true;for(var k2 in c.gd.ju){var j=c.gd.ju[k2];if(!ju[k2])ju[k2]={baemin:[0,0],coupang:[0,0],total:[0,0]};
+        ['baemin','coupang','total'].forEach(function(ch){ju[k2][ch][0]+=j[ch][0];ju[k2][ch][1]+=j[ch][1];});}}
+      c.hourly.forEach(function(h){hourly.push(h);});
+      c.changes.forEach(function(ch){var o={};for(var p in ch)o[p]=ch[p];o.brand=key;changes.push(o);});
+      for(var dt in c.cats){if(!cats[dt])cats[dt]={운영시간:[],할인:[],우리가게클릭:[]};
+        ['운영시간','할인','우리가게클릭'].forEach(function(kk){c.cats[dt][kk].forEach(function(v){cats[dt][kk].push(v);});});}
+      brands.push({key:key,sales:bsum,cnt:bcnt,comp:c});});
+    changes.sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:0);});
+    return {gd:{daily:daily,salesName:hasCh?'배민매출':'배달매출',hasChannel:hasCh,ju:hasCh?ju:null},hourly:hourly,changes:changes,cats:cats,name:'샵인샵 통합',brands:brands};
+  }
+
+  // ===== 모드/탭 =====
+  function showResult(){
+    var keys=loadedKeys(); if(!keys.length)return;
+    document.getElementById('result').classList.remove('hide');
+    var ch=document.getElementById('brandchips');ch.innerHTML='';
+    keys.forEach(function(k){var el=document.createElement('div');el.className='chip';el.setAttribute('data-k',k);el.textContent=iconOf(k)+' '+k;el.onclick=function(){selectBrand(k);};ch.appendChild(el);});
+    if(!selBrand||!store[selBrand].comp)selBrand=keys[0];
+    mode(curMode);
+  }
+  function mode(m){curMode=m;
+    document.getElementById('m-brand').classList.toggle('on',m==='brand');
+    document.getElementById('m-unified').classList.toggle('on',m==='unified');
+    document.getElementById('brandchips').style.display=(m==='brand')?'flex':'none';
+    if(m==='brand'){highlightChip();setView(store[selBrand].comp,{unified:false});}
+    else{setView(mergeComps(),{unified:true});}
+  }
+  function selectBrand(k){selBrand=k;highlightChip();setView(store[k].comp,{unified:false});}
+  function highlightChip(){Array.prototype.forEach.call(document.querySelectorAll('#brandchips .chip'),function(el){el.classList.toggle('on',el.getAttribute('data-k')===selBrand);});}
+  function tab(name,el){activeTab=name;
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-tab'),function(x){x.classList.remove('on');});
+    Array.prototype.forEach.call(document.querySelectorAll('.panel'),function(x){x.classList.remove('on');});
+    if(el)el.classList.add('on');document.getElementById('p-'+name).classList.add('on');
+    buildCharts(name);
+  }
+  function setView(c,meta){VIEW=c;META=meta||{};
+    renderOverview();renderHourWeek();renderEffect();renderTimeline();
+    buildCharts(activeTab);
+  }
+  function destroyCharts(){for(var k in charts){try{charts[k].destroy();}catch(e){}}charts={};}
+
+  function kpi(icon,lbl,val,sub){return '<div class="kpi"><div class="kpi-icon">'+icon+'</div><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div><div class="kpi-sub">'+(sub||'')+'</div></div>';}
+
+  function renderOverview(){
+    var c=VIEW,d=c.gd.daily,days=Object.keys(d).sort(),nDays=days.length,months=Math.max(nDays/30.4,.5);
+    var totBae=0,cnt=0;days.forEach(function(k){totBae+=d[k].sales;cnt+=d[k].cnt;});
+    var coup=0,bae=0;if(c.gd.hasChannel&&c.gd.ju){for(var k in c.gd.ju){coup+=c.gd.ju[k].coupang[1];bae+=c.gd.ju[k].baemin[1];}}
+    var g={};c.changes.forEach(function(x){g[x.gubun]=(g[x.gubun]||0)+1;});
+    var second=META.unified?kpi('🧩','브랜드 수',c.brands.length+'개',c.brands.map(function(b){return iconOf(b.key);}).join(' ')):kpi('🏪','매장',esc(c.name),'shop '+(c.shopNumber||'-'));
+    var h='<div class="sec">'+(META.unified?'샵인샵 통합 — 핵심 지표':esc(c.name)+' — 핵심 지표')+'</div><div class="kpi-grid">'
+      +kpi('📅','분석기간',(days[0]||'').slice(2)+'~'+(days[nDays-1]||'').slice(5),nDays+'일')
+      +second
+      +kpi('💰',c.gd.salesName+' 합계',manwon(totBae)+'원','월 '+manwon(totBae/months)+'원')
+      +kpi('🧾','일평균 매출',manwon(totBae/nDays)+'원',Math.round(cnt/nDays)+'건/일')
+      +(c.gd.hasChannel?kpi('🛒','쿠팡 비중',(coup+bae>0?Math.round(coup/(coup+bae)*100):0)+'%','쿠팡 '+manwon(coup)+'원'):kpi('🛒','채널','배달 합산','채널분리 없음'))
+      +kpi('⚙️','운영 변경',c.changes.length+'건',Object.keys(g).map(function(k){return k+' '+g[k];}).join(' · '))
+      +'</div>';
+    if(!META.unified&&c._clipped){
+      h+='<div class="tip" style="margin:0 0 16px;">🔗 <b>변경이력 기간에 맞춰 매출을 조정</b>했습니다 — 분석구간 <b>'+c._range[0]+' ~ '+c._range[1]+'</b> (전체 매출 '+c._fullRange[0]+'~'+c._fullRange[1]+' 중 '+(c._excluded||0)+'일 제외). 변경이력 밖 매출은 분석에서 제외됩니다.</div>';
+    }
+    if(META.unified&&c.brands){
+      var clp=c.brands.filter(function(b){return b.comp._clipped;});
+      if(clp.length) h+='<div class="tip" style="margin:0 0 16px;">🔗 <b>변경이력이 짧은 브랜드는 변경이력 기간에 맞춰 매출을 조정</b>했습니다 — '+clp.map(function(b){return iconOf(b.key)+' '+esc(b.key)+' ('+b.comp._range[0]+'~'+b.comp._range[1]+', '+(b.comp._excluded||0)+'일 제외)';}).join(' · ')+'</div>';
+    }
+    if(META.unified&&c.brands){
+      var bsorted=c.brands.slice().sort(function(a,b){return b.sales-a.sales;}),tt=sum(c.brands.map(function(b){return b.sales;}))||1;
+      h+='<div class="row2"><div class="cc"><div class="cc-head"><h3>🧩 브랜드별 매출 비중</h3></div><div class="cw"><canvas id="cv-share"></canvas></div></div>'
+        +'<div class="cc"><div class="cc-head"><h3>📋 브랜드 요약</h3></div><div class="tablewrap"><table><thead><tr><th>브랜드</th><th>매출</th><th>비중</th><th>건수</th><th>객단가</th></tr></thead><tbody>';
+      bsorted.forEach(function(b){h+='<tr><td>'+iconOf(b.key)+' '+esc(b.key)+'</td><td class="num">'+manwon(b.sales)+'원</td><td class="num">'+(b.sales/tt*100).toFixed(1)+'%</td><td class="num">'+b.cnt.toLocaleString()+'</td><td class="num">'+won(b.cnt?b.sales/b.cnt:0)+'</td></tr>';});
+      h+='</tbody></table></div></div></div>';
+    }
+    h+='<div class="cc"><div class="cc-head"><h3>📈 일별 매출 추이</h3><small>'+c.gd.salesName+(META.unified?' (3브랜드 합산)':'')+'</small></div><div class="cwl"><canvas id="cv-trend"></canvas></div></div>';
+    document.getElementById('p-ov').innerHTML=h;
+  }
+
+  function renderHourWeek(){
+    document.getElementById('p-hw').innerHTML=
+      '<div class="sec">'+(META.unified?'통합 ':'')+'시간대 · 요일 패턴</div>'
+      +'<div class="cc"><div class="cc-head"><h3>🕐 시간대별 매출 비중</h3><small id="hw-op">배달(배민) 기준</small></div><div class="cw"><canvas id="cv-hour"></canvas></div><div class="tip" id="hw-tip"></div></div>'
+      +'<div class="cc"><div class="cc-head"><h3>📅 요일별 '+VIEW.gd.salesName+'</h3></div><div class="cw"><canvas id="cv-wday"></canvas></div><div class="tip" id="wd-tip"></div></div>';
+  }
+
+  function effCard(title,o,goodUp,base){if(!o||!o.n)return '<div><div class="t">'+title+'</div><div class="v" style="color:#cbd5e1">0건</div><div class="n">변경 없음</div></div>';
+    var v=o.v,cls=v==null?'':(((v>=(base||0))===goodUp)?'up':'dn'),vs=v==null?'-':((v>=0?'+':'')+v.toFixed(1)+'%');
+    return '<div><div class="t">'+title+'</div><div class="v '+cls+'">'+vs+'</div><div class="n">'+o.n+'건 · 기준선 '+(base==null?'-':(base>=0?'+':'')+base.toFixed(1)+'%')+'</div></div>';}
+  function cell(o,goodUp,base){if(!o||!o.n)return '<td class="num" style="color:#cbd5e1">–</td>';
+    var v=o.v,cls=v==null?'':(((v>=(base||0))===goodUp)?'up':'dn'),vs=v==null?'-':((v>=0?'+':'')+v.toFixed(1)+'%');
+    return '<td class="num '+cls+'" style="font-weight:700">'+vs+' <span style="font-weight:400;color:#94a3b8">('+o.n+')</span></td>';}
+
+  function renderEffect(){
+    var c=VIEW;
+    if(META.unified&&c.brands){
+      var h='<div class="sec">브랜드별 설정 효과 비교</div>'
+        +'<p style="font-size:13px;color:#64748b;margin:-4px 0 12px;">각 변경이 있던 날의 <b>전주 동일요일 대비 매출 증감(%)</b> 평균 · 괄호=건수 · <b>참고치</b>.</p>'
+        +'<div class="cc"><div class="tablewrap"><table><thead><tr><th>브랜드</th><th>기준선</th><th>운영시간</th><th>할인시작</th><th>할인종료</th><th>클릭비▲</th><th>클릭비▼</th></tr></thead><tbody>';
+      c.brands.forEach(function(b){var a=SAMPLE.analyze(b.comp._dailyLB||b.comp.gd.daily,b.comp.cats);
+        h+='<tr><td>'+iconOf(b.key)+' '+esc(b.key)+'</td><td class="num" style="color:#94a3b8">'+(a.base==null?'-':(a.base>=0?'+':'')+a.base.toFixed(1)+'%')+'</td>'
+          +cell(a.op,true,a.base)+cell(a.dStart,true,a.base)+cell(a.dEnd,false,a.base)+cell(a.bidUp,true,a.base)+cell(a.bidDn,false,a.base)+'</tr>';});
+      h+='</tbody></table></div></div>';
+      h+=changeTable(c,true);
+      document.getElementById('p-ef').innerHTML=h;return;
+    }
+    var a=SAMPLE.analyze(c._dailyLB||c.gd.daily,c.cats),base=a.base;
+    var h='<div class="sec">설정 변경의 매출 효과</div>'
+      +'<p style="font-size:13px;color:#64748b;margin:-4px 0 12px;">각 변경이 있던 날의 <b>전주 동일요일 대비 매출 증감(%)</b> 평균. 기준선보다 좋은 쪽이면 초록 · <b>참고치</b>.</p>'
+      +'<div class="eff">'+effCard('운영시간 변경',a.op,true,base)+effCard('할인 시작',a.dStart,true,base)+effCard('할인 종료',a.dEnd,false,base)+effCard('클릭비 인상',a.bidUp,true,base)+effCard('클릭비 인하',a.bidDn,false,base)+'</div>'
+      +'<div class="cc" style="margin-top:18px;"><div class="cc-head"><h3>📊 레버별 효과 비교</h3><small>전주比 평균 %</small></div><div class="cw"><canvas id="cv-eff"></canvas></div></div>'
+      +changeTable(c,false);
+    document.getElementById('p-ef').innerHTML=h;
+  }
+  function changeTable(c,withBrand){
+    var h='<div class="cc"><div class="cc-head"><h3>📝 운영 변경 이력</h3><small>'+c.changes.length+'건</small></div>'
+      +'<div class="tablewrap"><table><thead><tr><th>날짜</th>'+(withBrand?'<th>브랜드</th>':'')+'<th>구분</th><th>항목</th><th>변경 후</th></tr></thead><tbody>';
+    c.changes.slice().reverse().forEach(function(x){h+='<tr><td>'+esc(x.date)+'</td>'+(withBrand?'<td>'+iconOf(x.brand)+' '+esc(x.brand||'')+'</td>':'')+'<td>'+esc(x.gubun)+'</td><td>'+esc(x.item)+'</td><td>'+esc((x.after||'').slice(0,60))+'</td></tr>';});
+    return h+'</tbody></table></div></div>';
+  }
+
+  function renderTimeline(){
+    document.getElementById('p-tl').innerHTML=
+      '<div class="sec">일별 매출 타임라인</div>'
+      +'<p style="font-size:13px;color:#64748b;margin:-4px 0 12px;">막대=일별 '+VIEW.gd.salesName+(META.unified?'(3브랜드 합산)':'')+'. <b style="color:#f59e0b">주황</b>=그날 운영/할인/클릭비 변경 있음(막대 위에 마우스).</p>'
+      +'<div class="cc"><div class="cwl" style="height:380px;"><canvas id="cv-tl"></canvas></div></div>';
+  }
+
+  // ===== 차트 =====
+  function mkBar(id,labels,data,colors,opt){opt=opt||{};
+    if(charts[id])charts[id].destroy();var ctx=document.getElementById(id);if(!ctx)return;
+    charts[id]=new Chart(ctx,{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:5,maxBarThickness:opt.maxBar||44}]},
+      options:{indexAxis:opt.horizontal?'y':'x',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          datalabels:opt.labels?{anchor:'end',align:opt.horizontal?'end':'top',color:'#475569',font:{size:10,weight:700},formatter:opt.fmt||function(v){return v;}}:{display:false},
+          tooltip:{callbacks:{label:opt.tip||function(c){return c.formattedValue;}}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
+                y:{grid:{color:'#f1f5f9'},ticks:{font:{size:10},color:'#94a3b8',callback:opt.ytick||function(v){return v;}},beginAtZero:true}}}});
+  }
+  function buildCharts(name){
+    if(!VIEW)return;var c=VIEW;
+    if(name==='ov'){
+      var d=c.gd.daily,days=Object.keys(d).sort();
+      if(charts['cv-trend'])charts['cv-trend'].destroy();
+      var ctx=document.getElementById('cv-trend');
+      if(ctx)charts['cv-trend']=new Chart(ctx,{type:'line',data:{labels:days.map(function(k){return k.slice(5);}),
+        datasets:[{data:days.map(function(k){return Math.round(d[k].sales/10000);}),borderColor:PAL.blue,backgroundColor:'rgba(26,86,219,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:function(x){return manwon(x.raw*10000)+'원';}}}},
+          scales:{x:{grid:{display:false},ticks:{maxTicksLimit:14,font:{size:9},color:'#94a3b8'}},y:{grid:{color:'#f1f5f9'},ticks:{font:{size:10},color:'#94a3b8',callback:function(v){return v+'만';}}}}}});
+      if(META.unified&&c.brands){var sc=document.getElementById('cv-share');
+        if(charts['cv-share'])charts['cv-share'].destroy();
+        if(sc)charts['cv-share']=new Chart(sc,{type:'doughnut',data:{labels:c.brands.map(function(b){return b.key;}),
+          datasets:[{data:c.brands.map(function(b){return Math.round(b.sales/10000);}),backgroundColor:c.brands.map(function(b){return colOf(b.key);}),borderWidth:2,borderColor:'#fff'}]},
+          options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}},
+            datalabels:{color:'#fff',font:{size:11,weight:700},formatter:function(v,ct){var t=ct.dataset.data.reduce(function(a,b){return a+b;},0);return Math.round(v/t*100)+'%';}},
+            tooltip:{callbacks:{label:function(x){return x.label+' '+manwon(x.raw*10000)+'원';}}}}}});}
+    } else if(name==='hw'){
+      var bh=[];for(var i=0;i<24;i++)bh.push(0);
+      var dvTot=0;c.hourly.forEach(function(x){dvTot+=(x.da||0);});var useDv=dvTot>0; // 배달(배민) 매출 우선, 없으면 전체
+      c.hourly.forEach(function(x){var hr=parseInt(x.slot,10);if(hr>=0&&hr<24)bh[hr]+=(useDv?(x.da||0):(x.ta||0));});
+      var tot=sum(bh)||1,cum=0,lo=null,hi=null;
+      for(var h2=0;h2<24;h2++){if(bh[h2]<=0)continue;cum+=bh[h2];if(lo==null&&cum>=tot*0.025)lo=h2;if(cum<=tot*0.975)hi=h2;}
+      var L=[],D=[],Cl=[];for(var i2=0;i2<24;i2++){if(bh[i2]<=0&&(i2<lo||i2>hi))continue;L.push(pad(i2)+'시');D.push(+(bh[i2]/tot*100).toFixed(1));Cl.push((i2<lo||i2>hi)?'#e2e8f0':colHour(i2));}
+      mkBar('cv-hour',L,D,Cl,{labels:true,fmt:function(v){return v>=4?v+'%':'';},ytick:function(v){return v+'%';},maxBar:30});
+      var dinner=0;for(var dd=17;dd<=21;dd++)dinner+=bh[dd];
+      document.getElementById('hw-op').textContent=(useDv?'배달(배민) 기준 · ':'전체 기준 · ')+'핵심영업 '+lo+'~'+hi+'시';
+      document.getElementById('hw-tip').innerHTML='<b>🕐 운영시간 권장:</b> '+(useDv?'배달(배민) ':'')+'매출 95%가 <b>'+lo+'시~'+hi+'시</b>에 발생 · 저녁 17~21시 = <b>'+(dinner/tot*100).toFixed(0)+'%</b>. 한계 시간대(회색)는 인건비 대비 효율 점검.'+(useDv?' <span style="color:#94a3b8">(시간대 파일은 채널분리가 없어 배달 전체 기준)</span>':'');
+      var d2=c.gd.daily,bw=[];for(var j=0;j<7;j++)bw.push(0);
+      Object.keys(d2).forEach(function(k){bw[new Date(k+'T00:00:00').getDay()]+=d2[k].sales;});
+      var wt=sum(bw)||1,wl=[1,2,3,4,5,6,0];
+      mkBar('cv-wday',wl.map(function(i){return WEEK[i];}),wl.map(function(i){return +(bw[i]/wt*100).toFixed(1);}),
+        wl.map(function(i){var pc=bw[i]/wt*100;return pc>=16?PAL.amber:(pc>=13?PAL.blue:PAL.gray);}),{labels:true,fmt:function(v){return v+'%';},ytick:function(v){return v+'%';}});
+      var best=wl.slice().sort(function(a,b){return bw[b]-bw[a];});
+      document.getElementById('wd-tip').innerHTML='강한 요일 <b>'+WEEK[best[0]]+'·'+WEEK[best[1]]+'</b> → 할인·광고 강화 / 약한 요일 <b>'+WEEK[best[6]]+'</b> → 프로모션 검토';
+    } else if(name==='ef'){
+      if(META.unified)return;
+      var a=SAMPLE.analyze(c._dailyLB||c.gd.daily,c.cats);
+      var items=[['운영시간',a.op,true],['할인시작',a.dStart,true],['할인종료',a.dEnd,false],['클릭비▲',a.bidUp,true],['클릭비▼',a.bidDn,false]];
+      var L2=[],D2=[],C2=[];items.forEach(function(it){if(it[1]&&it[1].n&&it[1].v!=null){L2.push(it[0]);D2.push(+it[1].v.toFixed(1));C2.push(((it[1].v>=(a.base||0))===it[2])?PAL.green:PAL.red);}});
+      mkBar('cv-eff',L2,D2,C2,{horizontal:true,labels:true,fmt:function(v){return(v>=0?'+':'')+v+'%';}});
+    } else if(name==='tl'){
+      var d3=c.gd.daily,days3=Object.keys(d3).sort();
+      var data=days3.map(function(k){return Math.round(d3[k].sales/10000);});
+      var cols=days3.map(function(k){var ca=c.cats[k];var has=ca&&((ca.운영시간&&ca.운영시간.length)||(ca.할인&&ca.할인.length)||(ca.우리가게클릭&&ca.우리가게클릭.length));return has?PAL.amber:'#bfdbfe';});
+      if(charts['cv-tl'])charts['cv-tl'].destroy();var ctx2=document.getElementById('cv-tl');if(!ctx2)return;
+      charts['cv-tl']=new Chart(ctx2,{type:'bar',data:{labels:days3,datasets:[{data:data,backgroundColor:cols,borderRadius:2,categoryPercentage:.9,barPercentage:1}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},
+          tooltip:{callbacks:{title:function(x){var k=x[0].label;return k+' ('+WEEK[new Date(k+'T00:00:00').getDay()]+')';},
+            label:function(x){return manwon(x.raw*10000)+'원';},
+            afterLabel:function(x){var ca=c.cats[x.label];if(!ca)return '';var p=[];if(ca.운영시간&&ca.운영시간.length)p.push('🕐운영');if(ca.할인&&ca.할인.length)p.push('🏷️할인');if(ca.우리가게클릭&&ca.우리가게클릭.length)p.push('🖱️클릭비');return p.length?('변경: '+p.join(' ')):'';}}}},
+          scales:{x:{grid:{display:false},ticks:{maxTicksLimit:16,font:{size:9},color:'#94a3b8'}},y:{grid:{color:'#f1f5f9'},ticks:{font:{size:10},color:'#94a3b8',callback:function(v){return v+'만';}}}}}});
+    }
+  }
+  if(document.readyState!=='loading')init();else document.addEventListener('DOMContentLoaded',init);
+  return {tab:tab,mode:mode,selBrand:selectBrand,toggleUp:toggleUp,rmJson:removeJson,setSalesBrand:setSalesBrand,removeSales:removeSales};
+})();
+</script>
+</body>
+</html>

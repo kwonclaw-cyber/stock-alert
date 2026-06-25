@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>브랜드 빅데이터 — 설정 추천 분석기</title>
+<style>
+  :root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;--b3:#f8f9fa;}
+  *{box-sizing:border-box;}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.55;margin:0;background:#f1f3f5;}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 80px;}
+  h1{font-size:24px;margin:0 0 4px;}
+  h2{font-size:19px;margin:30px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
+  .sub{color:var(--mut);font-size:14px;margin:0 0 16px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:10px 0;}
+  .legend{font-size:13px;color:var(--mut);margin:4px 0 10px;}
+  #drop{border:2.5px dashed var(--b);border-radius:14px;padding:30px 16px;text-align:center;background:var(--b2);cursor:pointer;transition:.15s;}
+  #drop.over{border-color:var(--g);background:#d3f9d8;}
+  #drop b{font-size:16px;color:var(--b);} #drop p{margin:6px 0 0;color:var(--mut);font-size:13px;}
+  .files{list-style:none;padding:0;margin:10px 0 0;font-size:13px;}
+  .files li{padding:3px 0;color:var(--mut);}
+  button.go{background:var(--b);color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:700;cursor:pointer;}
+  button.go:disabled{background:#adb5bd;cursor:not-allowed;}
+  .hide{display:none;}
+  .err{color:var(--r);font-weight:700;}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:8px 0;}
+  .kpi>div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:center;}
+  .kpi b{display:block;font-size:23px;letter-spacing:-.5px;} .kpi span{font-size:12px;color:var(--mut);}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;}
+  th{background:var(--b3);position:sticky;top:0;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .tip{background:var(--b2);border-left:4px solid var(--b);padding:11px 15px;border-radius:0 8px 8px 0;margin:10px 0;font-size:14px;}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:1px 9px;color:#fff;}
+  .t-대{background:#1971c2;} .t-중{background:#2f9e44;} .t-소{background:#e8590c;}
+  input[type=text]{padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;}
+  .tablewrap{max-height:480px;overflow:auto;border:1px solid var(--line);border-radius:10px;}
+  .tablewrap table{margin:0;} .tablewrap th{border-top:none;}
+  .barrow{display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px;}
+  .barlabel{width:42px;flex:none;text-align:right;color:var(--mut);}
+  .bartrack{flex:1;background:#f1f3f5;border-radius:4px;height:18px;overflow:hidden;}
+  .barfill{height:18px;border-radius:4px;}
+  .barval{width:96px;flex:none;text-align:right;font-variant-numeric:tabular-nums;}
+  .foot{margin-top:30px;color:var(--mut);font-size:12px;text-align:center;}
+  .selstore{cursor:pointer;}
+  .selstore:hover{background:var(--b2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 브랜드 빅데이터 — 설정 추천 분석기</h1>
+  <p class="sub">여러 매장의 <b>시간대별 매출</b>(날짜·매장명·시간대·실매출)을 한 번에 올리면, 매장 전체를 빅데이터로 묶어 <b>시간대·요일·규모</b>별 패턴과 <b>운영시간 권장</b>을 도출합니다.</p>
+
+  <div class="card">
+    <div id="drop">
+      <b>📁 매출 엑셀을 여기로 끌어다 놓으세요</b>
+      <p>또는 클릭해서 선택 · 컬럼: <code>날짜 · 매장명 · 시간대 · 실매출</code> (여러 달 파일 동시 가능)</p>
+      <input type="file" id="picker" multiple accept=".xlsx,.xls" class="hide">
+    </div>
+    <ul class="files" id="filelist"></ul>
+    <div style="margin-top:14px;">
+      <button class="go" id="run" disabled>빅데이터 분석 ▶</button>
+      <span id="status" style="margin-left:10px;font-size:13px;color:var(--mut);"></span>
+    </div>
+    <div id="cachebar" class="hide" style="margin-top:12px;padding:9px 13px;background:#e6fcf5;border:1px solid #96f2d7;border-radius:9px;font-size:13px;">
+      💾 <b>저장된 데이터로 보는 중</b> <span id="cacheinfo" style="color:var(--mut)"></span> · 새 파일을 올리면 교체됩니다.
+      <button id="clearCache" style="margin-left:8px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 9px;cursor:pointer;font-size:12px;color:var(--r);">저장 데이터 지우기</button>
+    </div>
+  </div>
+
+  <div id="result" class="hide">
+    <h2>📌 개요</h2>
+    <div class="kpi" id="kpi"></div>
+
+    <h2>🕐 시간대별 매출 분포 &amp; 운영시간 권장</h2>
+    <p class="legend">전 매장 합산. 매출이 몰리는 <b>핵심 시간대</b>와, 기여가 미미한 <b>한계 시간대</b>(닫아도 손실 적음)를 도출합니다.</p>
+    <div class="card" id="hourBox"></div>
+
+    <h2>📅 요일별 매출</h2>
+    <div class="card" id="wdayBox"></div>
+
+    <h2>🏷️ 매장 규모 등급</h2>
+    <p class="legend">월매출 기준 <b>대(상위 1/3)·중·소(하위 1/3)</b>. 규모군마다 운영 패턴이 다를 수 있어 따로 봅니다.</p>
+    <div class="card" id="tierBox"></div>
+
+    <h2>🏬 매장별 분석 <span style="font-size:13px;color:var(--mut);font-weight:400;">(행 클릭 → 상세)</span></h2>
+    <div style="margin:6px 0;"><input type="text" id="search" placeholder="매장명 검색…" style="width:260px;"></div>
+    <div class="tablewrap"><table id="storeTable"></table></div>
+    <div id="storeDetail" class="card hide" style="margin-top:12px;"></div>
+
+    <div class="tip" style="margin-top:20px;">
+      <b>다음 단계(레이어 추가 예정):</b> 배민 변경이력(운영시간·즉시할인·우리가게클릭 클릭비)과 쿠팡 설정을 매장명으로 연결하면,
+      “어떤 <b>설정값</b>이 매출을 끌어올렸나”까지 빅데이터로 도출합니다. (지금은 매출 패턴·운영시간 권장까지)
+    </div>
+  </div>
+
+  <p class="foot">모든 처리는 브라우저 안에서만 수행됩니다 · 데이터는 외부로 전송되지 않습니다.</p>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+(function(){
+  var WEEK=['일','월','화','수','목','금','토'], WORD=['월','화','수','목','금','토','일'];
+  var dropped=[], DATA=null;
+  var drop=document.getElementById('drop'), picker=document.getElementById('picker'),
+      filelist=document.getElementById('filelist'), runBtn=document.getElementById('run'),
+      statusEl=document.getElementById('status');
+
+  drop.addEventListener('click',function(){picker.click();});
+  ['dragover','dragenter'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('over');});});
+  ['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('over');});});
+  drop.addEventListener('drop',function(ev){add(ev.dataTransfer.files);});
+  picker.addEventListener('change',function(ev){add(ev.target.files);});
+  function add(list){ for(var i=0;i<list.length;i++){ var n=list[i].name.toLowerCase(); if(n.endsWith('.xlsx')||n.endsWith('.xls')) dropped.push(list[i]); } draw(); }
+  function draw(){ filelist.innerHTML=''; dropped.forEach(function(f){ var li=document.createElement('li'); li.textContent='📄 '+f.name; filelist.appendChild(li); }); runBtn.disabled=dropped.length===0; }
+
+  function won(v){ return v==null?'-':Math.round(v).toLocaleString()+'원'; }
+  function manwon(v){ return v==null?'-':Math.round(v/10000).toLocaleString()+'만'; }
+  function colHour(h){ return h>=17&&h<=21?'#e8590c':(h>=11&&h<=16?'#1971c2':'#adb5bd'); }
+
+  runBtn.addEventListener('click',function(){ run().catch(function(e){ statusEl.innerHTML='<span class="err">'+e+'</span>'; console.error(e); }); });
+
+  async function run(){
+    if(!window.XLSX) throw '엑셀 라이브러리를 불러오지 못했습니다(인터넷 확인).';
+    statusEl.textContent='파싱 중…';
+    var stores={}, dates={}, minD='9999', maxD='0', rowN=0;
+    for(var fi=0; fi<dropped.length; fi++){
+      var buf=await dropped[fi].arrayBuffer(), wb=XLSX.read(buf,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+      var hdr=(rows[0]||[]).map(function(x){return String(x==null?'':x).trim();});
+      var iN=hdr.indexOf('매장명'), iD=hdr.indexOf('날짜'), iH=hdr.indexOf('시간대'), iA=hdr.indexOf('실매출');
+      if(iD<0) iD=hdr.indexOf('판매일');
+      if(iN<0||iD<0||iH<0||iA<0) throw '컬럼(날짜·매장명·시간대·실매출)을 찾지 못했습니다: '+dropped[fi].name;
+      for(var i=1;i<rows.length;i++){
+        var r=rows[i]; if(!r) continue;
+        var name=r[iN], d=fmtD(r[iD]), h=parseInt(r[iH],10), amt=+r[iA]||0;
+        if(name==null||d==null||isNaN(h)) continue;
+        name=String(name).trim();
+        var s=stores[name]||(stores[name]={hour:newArr(24),wday:newArr(7),daily:{},total:0,days:{}});
+        s.hour[h]+=amt; s.total+=amt; s.daily[d]=(s.daily[d]||0)+amt; s.days[d]=1;
+        s.wday[new Date(d+'T00:00:00').getDay()]+=amt;
+        dates[d]=1; if(d<minD)minD=d; if(d>maxD)maxD=d; rowN++;
+      }
+    }
+    if(!Object.keys(stores).length) throw '유효한 매장 데이터가 없습니다.';
+    var nDays=Object.keys(dates).length;
+    saveCache(stores, nDays, [minD,maxD], rowN);
+    document.getElementById('cachebar').classList.add('hide');
+    finalize(stores, nDays, [minD,maxD], rowN, false);
+  }
+
+  // 파싱된 매장집계 → 파생값·등급 계산 후 렌더 (업로드/캐시 공용)
+  function finalize(stores, nDays, span, rowN, fromCache){
+    var names=Object.keys(stores), months=Math.max(nDays/30.4,0.5);
+    names.forEach(function(n){ var s=stores[n];
+      s.monthly=s.total/months;
+      s.peak=0; for(var i=0;i<24;i++) if(s.hour[i]>s.hour[s.peak]) s.peak=i;
+      var t=s.total||1, c=0; s.lo=null; s.hi=null;
+      for(var j=0;j<24;j++){ if(s.hour[j]<=0) continue; c+=s.hour[j]; if(s.lo==null&&c>=t*0.025)s.lo=j; if(c<=t*0.975)s.hi=j; }
+      var night=0; for(var k=0;k<=5;k++) night+=s.hour[k]; s.nightPct=night/t*100;
+    });
+    var sorted=names.slice().sort(function(a,b){return stores[b].monthly-stores[a].monthly;});
+    var t1=Math.floor(sorted.length/3), t2=Math.floor(sorted.length*2/3);
+    sorted.forEach(function(n,i){ stores[n].tier=i<t1?'대':(i<t2?'중':'소'); });
+    DATA={stores:stores, names:names, nDays:nDays, months:months, span:span, rowN:rowN};
+    statusEl.textContent=(fromCache?'💾 저장된 데이터':'완료!')+' ('+names.length+'개 매장 · '+rowN.toLocaleString()+'행)';
+    render();
+  }
+
+  // ── 브라우저 저장(localStorage): 집계 결과만 압축 저장 → 다음에 자동 불러오기 ──
+  var CKEY='bigdata_cache_v1';
+  function saveCache(stores, nDays, span, rowN){
+    try{ var c={nDays:nDays, span:span, rowN:rowN, stores:{}};
+      Object.keys(stores).forEach(function(n){ var s=stores[n]; c.stores[n]={hour:s.hour, wday:s.wday, total:s.total}; });
+      localStorage.setItem(CKEY, JSON.stringify(c));
+    }catch(e){ /* 용량 초과 등은 조용히 무시 */ }
+  }
+  function loadCache(){
+    try{ var c=JSON.parse(localStorage.getItem(CKEY)); if(!c||!c.stores) return null;
+      var stores={}; Object.keys(c.stores).forEach(function(n){ var s=c.stores[n]; stores[n]={hour:s.hour, wday:s.wday, total:s.total, daily:{}, days:{}}; });
+      return {stores:stores, nDays:c.nDays, span:c.span, rowN:c.rowN};
+    }catch(e){ return null; }
+  }
+  function clearCache(){ try{ localStorage.removeItem(CKEY); }catch(e){} }
+
+  document.getElementById('clearCache').addEventListener('click',function(){
+    clearCache(); location.reload();
+  });
+
+  // 페이지 열 때 저장된 데이터가 있으면 자동 복원
+  (function autoload(){
+    var c=loadCache(); if(!c) return;
+    var bar=document.getElementById('cachebar'); bar.classList.remove('hide');
+    document.getElementById('cacheinfo').textContent='('+Object.keys(c.stores).length+'개 매장 · '+(c.span?c.span[0].slice(2)+'~'+c.span[1].slice(5):'')+')';
+    finalize(c.stores, c.nDays, c.span, c.rowN, true);
+  })();
+  function fmtD(v){ if(v==null)return null;
+    if(v instanceof Date){ return v.getFullYear()+'-'+p2(v.getMonth()+1)+'-'+p2(v.getDate()); }
+    var s=String(v).trim(); var m=s.match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/); if(m) return m[1]+'-'+p2(m[2])+'-'+p2(m[3]); return s.slice(0,10); }
+  function p2(n){ return String(n).padStart(2,'0'); }
+  function newArr(n){ var a=[]; for(var i=0;i<n;i++)a.push(0); return a; }
+  function sum(a){ return a.reduce(function(x,y){return x+y;},0); }
+
+  function render(){
+    var S=DATA.stores, names=DATA.names;
+    document.getElementById('result').classList.remove('hide');
+    var totalAll=0; names.forEach(function(n){totalAll+=S[n].total;});
+    document.getElementById('kpi').innerHTML=
+      kpi(names.length,'매장 수')+kpi(DATA.span[0].slice(2)+'~'+DATA.span[1].slice(5),'분석 기간')+
+      kpi(DATA.nDays+'일','일수')+kpi(manwon(totalAll)+'원','총매출')+kpi(manwon(totalAll/names.length/DATA.months)+'원','매장 월평균');
+
+    // 시간대 분포
+    var bh=newArr(24); names.forEach(function(n){ for(var i=0;i<24;i++) bh[i]+=S[n].hour[i]; });
+    var tot=sum(bh)||1, mx=Math.max.apply(null,bh)||1, cum=0, coreLo=null, coreHi=null;
+    var hh='<div style="font-size:12px;color:var(--mut);margin-bottom:6px">막대=시간대 매출비중 · 회색=한계시간대(누적 꼬리 5%)</div>';
+    for(var i=0;i<24;i++){ cum+=bh[i]; if(coreLo==null&&cum-bh[i]>=tot*0.025){} }
+    // core window by 2.5/97.5
+    cum=0; for(var h=0;h<24;h++){ if(bh[h]<=0) continue; cum+=bh[h]; if(coreLo==null&&cum>=tot*0.025)coreLo=h; if(cum<=tot*0.975)coreHi=h; }
+    for(var h2=0;h2<24;h2++){ var pc=bh[h2]/tot*100, w=bh[h2]/mx*100;
+      var col=(h2<coreLo||h2>coreHi)?'#ced4da':colHour(h2);
+      hh+='<div class="barrow"><span class="barlabel">'+p2(h2)+'시</span><span class="bartrack"><span class="barfill" style="width:'+Math.max(w,0.5).toFixed(1)+'%;background:'+col+'"></span></span><span class="barval">'+pc.toFixed(1)+'%</span></div>';
+    }
+    // 운영시간 권장 요약
+    var dinner=0; for(var d=17;d<=21;d++) dinner+=bh[d];
+    hh+='<div class="tip" style="margin-top:10px"><b>🕐 운영시간 권장(전 매장 기준):</b> 매출의 95%가 <b>'+coreLo+'시~'+coreHi+'시</b>에 발생합니다. '
+      +'저녁 피크대(<b>17~21시 = 전체 '+(dinner/tot*100).toFixed(0)+'%</b>)는 반드시 영업, '
+      +'<b>'+(coreLo>0?('0~'+(coreLo-1)+'시'):'심야')+'</b> 등 한계시간대는 인건비 대비 효율을 점검하세요.</div>';
+    document.getElementById('hourBox').innerHTML=hh;
+
+    // 요일
+    var bw=newArr(7); names.forEach(function(n){ for(var i=0;i<7;i++) bw[i]+=S[n].wday[i]; });
+    var wtot=sum(bw)||1, wmx=Math.max.apply(null,bw)||1, wh='';
+    [1,2,3,4,5,6,0].forEach(function(i){ var pc=bw[i]/wtot*100, w=bw[i]/wmx*100;
+      var col=pc>=15?'#e8590c':(pc>=12?'#1971c2':'#adb5bd');
+      wh+='<div class="barrow"><span class="barlabel">'+WEEK[i]+'</span><span class="bartrack"><span class="barfill" style="width:'+w.toFixed(1)+'%;background:'+col+'"></span></span><span class="barval">'+pc.toFixed(1)+'%</span></div>'; });
+    var best=[1,2,3,4,5,6,0].slice().sort(function(a,b){return bw[b]-bw[a];});
+    wh+='<div class="legend" style="margin-top:8px">매출 강한 요일: <b>'+WEEK[best[0]]+'·'+WEEK[best[1]]+'</b> → 할인·광고 강화 / 약한 요일: <b>'+WEEK[best[6]]+'</b> → 프로모션 검토</div>';
+    document.getElementById('wdayBox').innerHTML=wh;
+
+    // 규모 등급
+    var tiers={대:[],중:[],소:[]}; names.forEach(function(n){ tiers[S[n].tier].push(n); });
+    var tb='<table><tr><th>등급</th><th>매장수</th><th>월매출 평균</th><th>평균 핵심영업</th><th>심야(0~5시) 비중</th></tr>';
+    ['대','중','소'].forEach(function(t){ var ns=tiers[t]; if(!ns.length) return;
+      var mAvg=avg(ns.map(function(n){return S[n].monthly;})), lo=Math.round(avg(ns.map(function(n){return S[n].lo;}))), hi=Math.round(avg(ns.map(function(n){return S[n].hi;}))), ni=avg(ns.map(function(n){return S[n].nightPct;}));
+      tb+='<tr><td><span class="pill t-'+t+'">'+t+'</span></td><td class="num">'+ns.length+'</td><td class="num">'+manwon(mAvg)+'원</td><td class="num">'+lo+'~'+hi+'시</td><td class="num">'+ni.toFixed(1)+'%</td></tr>'; });
+    tb+='</table>';
+    document.getElementById('tierBox').innerHTML=tb;
+
+    renderTable('');
+    document.getElementById('search').oninput=function(){ renderTable(this.value.trim()); };
+  }
+  function kpi(v,l){ return '<div><b>'+v+'</b><span>'+l+'</span></div>'; }
+  function avg(a){ a=a.filter(function(x){return x!=null;}); return a.length?sum(a)/a.length:0; }
+
+  function renderTable(q){
+    var S=DATA.stores, names=DATA.names.slice().sort(function(a,b){return S[b].monthly-S[a].monthly;});
+    if(q) names=names.filter(function(n){return n.indexOf(q)>=0;});
+    var h='<tr><th>매장</th><th>등급</th><th>월매출</th><th>피크</th><th>핵심영업</th><th>심야%</th></tr>';
+    names.slice(0,300).forEach(function(n){ var s=S[n];
+      h+='<tr class="selstore" data-n="'+encodeURIComponent(n)+'"><td>'+n+'</td><td><span class="pill t-'+s.tier+'">'+s.tier+'</span></td><td class="num">'+manwon(s.monthly)+'</td><td class="num">'+s.peak+'시</td><td class="num">'+s.lo+'~'+s.hi+'시</td><td class="num">'+s.nightPct.toFixed(1)+'%</td></tr>'; });
+    var tbl=document.getElementById('storeTable'); tbl.innerHTML=h;
+    Array.prototype.slice.call(tbl.querySelectorAll('.selstore')).forEach(function(tr){ tr.onclick=function(){ showStore(decodeURIComponent(tr.getAttribute('data-n'))); }; });
+  }
+
+  function showStore(n){
+    var s=DATA.stores[n], box=document.getElementById('storeDetail');
+    var mx=Math.max.apply(null,s.hour)||1, tot=s.total||1, hrows='';
+    for(var i=0;i<24;i++){ if(s.hour[i]<=0 && (i<s.lo||i>s.hi)) { /* skip empty tail */ }
+      var pc=s.hour[i]/tot*100, w=s.hour[i]/mx*100, col=(i<s.lo||i>s.hi)?'#ced4da':colHour(i);
+      if(s.hour[i]>0 || (i>=s.lo&&i<=s.hi))
+        hrows+='<div class="barrow"><span class="barlabel">'+p2(i)+'시</span><span class="bartrack"><span class="barfill" style="width:'+Math.max(w,0.5).toFixed(1)+'%;background:'+col+'"></span></span><span class="barval">'+pc.toFixed(1)+'%</span></div>';
+    }
+    var bw=s.wday, wtot=sum(bw)||1, bestW=[1,2,3,4,5,6,0].slice().sort(function(a,b){return bw[b]-bw[a];});
+    box.classList.remove('hide');
+    box.innerHTML='<h3 style="margin:0 0 8px">'+n+' <span class="pill t-'+s.tier+'">'+s.tier+'</span></h3>'
+      +'<div class="kpi" style="margin:0 0 12px"><div><b>'+manwon(s.monthly)+'원</b><span>월매출</span></div><div><b>'+s.peak+'시</b><span>피크 시간대</span></div><div><b>'+s.lo+'~'+s.hi+'시</b><span>핵심영업창</span></div><div><b>'+s.nightPct.toFixed(1)+'%</b><span>심야(0~5시)</span></div></div>'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">시간대별 매출 비중</div>'+hrows
+      +'<div class="tip" style="margin-top:10px"><b>운영시간 권장:</b> 이 매장 매출의 95%는 <b>'+s.lo+'시~'+s.hi+'시</b>에 발생'
+      +(s.nightPct>=8?(' · 심야 비중이 <b>'+s.nightPct.toFixed(0)+'%</b>로 높아 <b>심야 영업 유지</b>가 유리'):' · 심야 비중 낮음 → 마감시간 점검 가능')
+      +' · 강한 요일 <b>'+WEEK[bestW[0]]+'·'+WEEK[bestW[1]]+'</b></div>';
+    box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+})();
+</script>
+</body>
+</html>
