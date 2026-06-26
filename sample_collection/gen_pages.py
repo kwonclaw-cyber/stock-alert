@@ -873,7 +873,7 @@ def _pctile(vals, p):
 
 
 def prescribe_data(D, EFF, TM, feats):
-    """매장별 처방: 현재→권장 설정 + 기대 매출증가액(원/월). 매출 기준(마진 별도)."""
+    """매장별 컨설팅: 현재→권장 설정 + 기대 매출증가액(원/월). 매출 기준(마진 별도)."""
     dmap = {n: e for n, e in EFF}
     ad_opt = dmap.get("광고 예산 증액", {}).get("amt", 0.0)   # 낙관(전후)
     ad_did = dmap.get("광고 예산 증액", {}).get("did", 0.0)   # 보수(추세보정)
@@ -971,7 +971,7 @@ function prefill(){
 function renderPr(){
   const monthly=(+document.getElementById('prMonthly').value||0)*1e4;
   const box=document.getElementById('prCards');
-  if(monthly<=0){ box.innerHTML='<div class="bcard flat"><h3>한 달 배달매출을 입력해 주세요</h3><p style="margin:0;font-size:14px;">매출을 넣으면 우리 빅데이터(비슷한 규모 매장들)와 비교해 처방을 계산합니다.</p></div>'; return; }
+  if(monthly<=0){ box.innerHTML='<div class="bcard flat"><h3>한 달 배달매출을 입력해 주세요</h3><p style="margin:0;font-size:14px;">매출을 넣으면 우리 빅데이터(비슷한 규모 매장들)와 비교해 컨설팅 결과를 알려드립니다.</p></div>'; return; }
   const tier=tierOf(monthly), b=PRB.bench[tier], e=PRB.eff;
   const closeMin=+document.getElementById('prClose').value;
   const bid=(+document.getElementById('prBid').value||0);
@@ -1008,10 +1008,10 @@ def prescribe_parts(D, EFF, TM, feats):
     data, default_total = prescribe_data(D, EFF, TM, feats)
     inp = "padding:8px 11px;font-size:15px;border:1px solid var(--line);border-radius:8px;"
     body = f"""
-  <div class="win"><b>💊 우리 매장 매출 올리는 법</b> — 매장을 고른 뒤 <b>지금 실제 설정값을 입력</b>하면,
+  <div class="win"><b>💡 우리 매장 매출 올리는 법</b> — 매장을 고른 뒤 <b>지금 실제 설정값을 입력</b>하면,
   <b>무엇을 바꾸면 매출이 얼마나 오를지</b> 바로 알려드려요. 비슷한 매장들의 6개월 실제 데이터가 근거입니다.</div>
   <div class="card">
-    <div style="margin:2px 0 6px;"><b>지금 우리 매장 설정을 입력</b> <span style="color:var(--mut);font-size:12px;">— 우리 빅데이터(비슷한 규모 매장 평균)와 비교해 처방해 드려요</span></div>
+    <div style="margin:2px 0 6px;"><b>지금 우리 매장 설정을 입력</b> <span style="color:var(--mut);font-size:12px;">— 우리 빅데이터(비슷한 규모 매장 평균)와 비교해 컨설팅해 드려요</span></div>
     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;">
       <label>한 달 배달매출 <span style="color:#e03131;">*</span><br><input id="prMonthly" type="number" min="0" step="1" style="{inp}width:120px;"> 만원</label>
       <label>영업 마감시각<br><select id="prClose" style="{inp}"></select></label>
@@ -1071,7 +1071,7 @@ def gen_combined(D, EFF):
   <div class="tab" data-t="time">⏰ 시간대</div>
   <div class="tab" data-t="drill">🏪 매장별</div>
   <div class="tab" data-t="cmp">⚖️ 표본vs대상</div>
-  <div class="tab" data-t="presc">💊 처방</div>
+  <div class="tab" data-t="presc">💡 컨설팅</div>
   <div class="tab" data-t="prog">🧭 진행기록/로직</div>
 </div>
 <div class="wrap">
@@ -1080,7 +1080,7 @@ def gen_combined(D, EFF):
   <div class="panel" id="time" style="display:none"><h1 class="panel-title">⏰ 시간대 분석</h1><p class="panel-sub">배달 피크타임 · 영업시간 변경 효과</p>{time_body}</div>
   <div class="panel" id="drill" style="display:none"><h1 class="panel-title">🏪 매장별 드릴다운</h1>{drill_body}</div>
   <div class="panel" id="cmp" style="display:none"><h1 class="panel-title">⚖️ 표본매장 vs 대상매장</h1>{cmp_body}</div>
-  <div class="panel" id="presc" style="display:none"><h1 class="panel-title">💊 매장별 최적 처방</h1><p class="panel-sub">현재 → 권장 설정 + 기대 매출증가액(추정)</p>{presc_body}</div>
+  <div class="panel" id="presc" style="display:none"><h1 class="panel-title">💡 매장별 최적 컨설팅</h1><p class="panel-sub">현재 → 권장 설정 + 기대 매출증가액(추정)</p>{presc_body}</div>
   <div class="panel" id="prog" style="display:none"><h1 class="panel-title">🧭 진행 기록 & 로직</h1><p class="panel-sub">수동 364회 → 자동 1회</p>{prog}</div>
 </div>
 <script>{dash_script}{time_script}{drill_script}{cmp_script}{presc_script}{match_script}{HIDE_JS}
