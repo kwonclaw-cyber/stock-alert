@@ -98,6 +98,8 @@ export default function Board({
   const [zoom, setZoom] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<Record<string, boolean>>({});
   const toggleEditor = (id: string) => setShowEditor((s) => ({ ...s, [id]: !s[id] }));
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleCollapse = (id: string) => setCollapsed((s) => ({ ...s, [id]: !s[id] }));
 
   async function pasteImages(postId: string, files: File[], caret: number) {
     const added: BoardPost["images"] = [];
@@ -136,48 +138,63 @@ export default function Board({
         {posts.map((post, pi) => (
           <article key={post.id} className="rounded-xl border border-white/10 bg-[#1a1d24] p-4">
             <div className="mb-2 flex items-center gap-2">
+              <button
+                onClick={() => toggleCollapse(post.id)}
+                className="shrink-0 rounded-md px-1.5 py-1 text-sm text-white/45 transition hover:bg-white/10 hover:text-white"
+                title={collapsed[post.id] ? "펼치기" : "접기 (제목만 보기)"}
+              >
+                {collapsed[post.id] ? "▸" : "▾"}
+              </button>
               <TextInput
                 value={post.title}
                 onChange={(v) => mutate((list) => { list[pi].title = v; list[pi].updatedAt = new Date().toISOString(); })}
                 placeholder="제목"
                 className="flex-1 text-base font-semibold"
               />
-              <button
-                onClick={() => toggleEditor(post.id)}
-                className={`rounded-md border px-2 py-1 text-xs transition ${showEditor[post.id] ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
-                title={showEditor[post.id] ? "읽기 모드로 (입력창 숨김)" : "편집 모드로 (입력창 열기)"}
-              >
-                {showEditor[post.id] ? "📖 읽기 모드" : "✏️ 편집 모드"}
-              </button>
-              <button onClick={() => { if (confirmDelete("이 글을 삭제할까요?")) mutate((list) => { list.splice(pi, 1); }); }} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
+              {!collapsed[post.id] && (
+                <>
+                  <button
+                    onClick={() => toggleEditor(post.id)}
+                    className={`rounded-md border px-2 py-1 text-xs transition ${showEditor[post.id] ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
+                    title={showEditor[post.id] ? "읽기 모드로 (입력창 숨김)" : "편집 모드로 (입력창 열기)"}
+                  >
+                    {showEditor[post.id] ? "📖 읽기 모드" : "✏️ 편집 모드"}
+                  </button>
+                  <button onClick={() => { if (confirmDelete("이 글을 삭제할까요?")) mutate((list) => { list.splice(pi, 1); }); }} className="text-red-300/60 hover:text-red-300" title="삭제">삭제</button>
+                </>
+              )}
             </div>
 
-            {showEditor[post.id] && (
-              <BodyEditor
-                value={post.body}
-                onChange={(v) => mutate((list) => { list[pi].body = v; list[pi].updatedAt = new Date().toISOString(); })}
-                onPasteImages={(files, caret) => pasteImages(post.id, files, caret)}
-                placeholder="내용을 입력하세요. 유튜브·mp4·숲VOD·사진 링크를 넣거나 사진을 Ctrl+V로 붙여넣으면 그 자리에 표시돼요."
-              />
-            )}
+            {!collapsed[post.id] && (
+              <>
+                {showEditor[post.id] && (
+                  <BodyEditor
+                    value={post.body}
+                    onChange={(v) => mutate((list) => { list[pi].body = v; list[pi].updatedAt = new Date().toISOString(); })}
+                    onPasteImages={(files, caret) => pasteImages(post.id, files, caret)}
+                    placeholder="내용을 입력하세요. 유튜브·mp4·숲VOD·사진 링크를 넣거나 사진을 Ctrl+V로 붙여넣으면 그 자리에 표시돼요."
+                  />
+                )}
 
-            {post.body.trim() || post.images.length > 0 ? (
-              <div className={`space-y-2 text-sm text-white/85 ${showEditor[post.id] ? "mt-2" : ""}`}>
-                {renderContent(post.body, post.images, setZoom)}
-              </div>
-            ) : (
-              !showEditor[post.id] && <p className="py-3 text-center text-xs text-white/30">내용이 없어요. ‘✏️ 편집 모드’를 눌러 작성하세요.</p>
-            )}
+                {post.body.trim() || post.images.length > 0 ? (
+                  <div className={`space-y-2 text-sm text-white/85 ${showEditor[post.id] ? "mt-2" : ""}`}>
+                    {renderContent(post.body, post.images, setZoom)}
+                  </div>
+                ) : (
+                  !showEditor[post.id] && <p className="py-3 text-center text-xs text-white/30">내용이 없어요. ‘✏️ 편집 모드’를 눌러 작성하세요.</p>
+                )}
 
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <TextInput
-                value={post.author}
-                onChange={(v) => mutate((list) => { list[pi].author = v; })}
-                placeholder="작성자"
-                className="w-32"
-              />
-              <span className="text-xs text-white/35">{post.author && `${post.author} · `}{new Date(post.updatedAt).toLocaleString("ko-KR")}</span>
-            </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <TextInput
+                    value={post.author}
+                    onChange={(v) => mutate((list) => { list[pi].author = v; })}
+                    placeholder="작성자"
+                    className="w-32"
+                  />
+                  <span className="text-xs text-white/35">{post.author && `${post.author} · `}{new Date(post.updatedAt).toLocaleString("ko-KR")}</span>
+                </div>
+              </>
+            )}
           </article>
         ))}
         {posts.length === 0 && (
