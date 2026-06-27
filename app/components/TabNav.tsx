@@ -14,7 +14,7 @@ const TABS: Tab[] = [
   { href: "/iron", label: "철타이머", timer: true },
   { href: "/daily", label: "일숙" },
   { href: "/villagemap", label: "마을지도" },
-  { href: "/dwelling", label: "영단(수정중)" },
+  { href: "/dwelling", label: "영단" },
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/amulet", label: "부적" },
   { href: "/setting", label: "세팅 계산기" },
