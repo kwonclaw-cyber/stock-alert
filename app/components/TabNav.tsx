@@ -17,6 +17,7 @@ const TABS: Tab[] = [
   { href: "/dwelling", label: "영단(수정중)" },
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/amulet", label: "부적" },
+  { href: "/setting", label: "세팅 계산기" },
   { href: "/imagemerge", label: "이미지 합치기 도우미" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
