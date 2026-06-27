@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.39.0",
+    date: "2026-06-27",
+    changes: [
+      "영단 탭 정리 — '추가 내실' 영단 시스템 설명(무인의 거처 대체·획득처·테크 선택·0~10레벨) + 영단 종류 목록, 화면 캡쳐 붙여넣기 영역",
+    ],
+  },
+  {
     version: "1.38.0",
     date: "2026-06-27",
     changes: [
