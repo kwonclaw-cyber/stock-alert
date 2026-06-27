@@ -151,6 +151,20 @@ export default function Board({
                 placeholder="제목"
                 className="flex-1 text-base font-semibold"
               />
+              <div className="flex shrink-0 flex-col">
+                <button
+                  onClick={() => mutate((list) => { if (pi > 0) { const [m] = list.splice(pi, 1); list.splice(pi - 1, 0, m); } })}
+                  disabled={pi === 0}
+                  className="px-1 text-xs leading-none text-white/40 transition hover:text-white disabled:opacity-20"
+                  title="위로"
+                >▲</button>
+                <button
+                  onClick={() => mutate((list) => { if (pi < list.length - 1) { const [m] = list.splice(pi, 1); list.splice(pi + 1, 0, m); } })}
+                  disabled={pi === posts.length - 1}
+                  className="px-1 text-xs leading-none text-white/40 transition hover:text-white disabled:opacity-20"
+                  title="아래로"
+                >▼</button>
+              </div>
               {!collapsed[post.id] && (
                 <>
                   <button
