@@ -18,14 +18,29 @@ export default function AmuletPage() {
   if (!data) return <Loading />;
 
   const a = data.amulet;
-  const N = a.combineCount || 10;
   const price = a.pullCostNormal || 0;
   const q = Math.max(1, qty);
 
-  // 등급별: 일반 → 고급(N개) → 희귀(N²개)
+  // 강화·조합 모델 (가이드 기준)
+  // - 일반 재료 1개 = matExpNormal exp
+  // - 등급별 1레벨업 필요 exp(levelExp*), 최대 maxLevel 레벨
+  // - 조합: 같은 등급 10레벨 combinePerGrade개 + 부적석 stonePerCombine개 → 상위 1개
+  const maxLv = a.maxLevel || 10;
+  const matExp = a.matExpNormal || 10;
+  const cmb = a.combinePerGrade || 2;
+  const stone = a.stonePerCombine || 1;
+  // 한 부적을 0→maxLv까지 올리는 데 필요한 "일반 부적(재료)" 수
+  const matToMax = (levelExp: number) => Math.ceil((maxLv * (levelExp || 0)) / matExp);
+  // 등급별 10레벨 1개를 만드는 데 누적으로 필요한 일반 부적 수 / 부적석 수
+  const nNormal = 1 + matToMax(a.levelExpNormal); // 일반 10레벨 = 베이스1 + 재료
+  const nAdv = cmb * nNormal + matToMax(a.levelExpAdvanced); // 고급 10레벨
+  const nRare = cmb * nAdv + matToMax(a.levelExpRare); // 희귀 10레벨
+  const sAdv = stone; // 고급 1개 = 조합 1회
+  const sRare = cmb * sAdv + stone; // 희귀 1개 = 고급 cmb개 조합 + 희귀 조합 1회
+
   const tiers = [
-    { grade: "고급", per: N, color: "text-sky-300" },
-    { grade: "희귀", per: N * N, color: "text-fuchsia-300" },
+    { grade: "고급", per: nAdv, stones: sAdv, color: "text-sky-300" },
+    { grade: "희귀", per: nRare, stones: sRare, color: "text-fuchsia-300" },
   ];
 
   async function addImage(files: FileList | File[]) {
@@ -47,15 +62,31 @@ export default function AmuletPage() {
         <b>부적 시스템</b> 정보와 <b>계산기</b>예요. 아래 <b>계산기</b>에서 조합 개수·뽑기 가격을 맞추면 등급별로 필요한 <b>일반 부적 수·비용(전)</b>이 계산돼요. 옵션 효과표와 수치는 칸을 눌러 직접 수정할 수 있고, 참고 이미지도 붙여넣을 수 있어요. (모두에게 공유됨)
       </PageHelp>
 
+      {/* 핵심 정보 & 주의 */}
+      <section className="mb-5 rounded-xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
+        <h2 className="mb-2 text-base font-bold text-amber-300">📌 핵심 정보 & 주의</h2>
+        <ul className="space-y-1 text-sm text-white/75">
+          <li>• 하루 <b className="text-white">{a.dailyLimit}개</b> 구매 (인게임 {a.dailyInGame} + API 티켓 {a.dailyTicket}). <b className="text-rose-300">일일 한도라 한 번 놓치면 못 따라감 — 매일 챙기기.</b></li>
+          <li>• 부적은 <b className="text-white">3개까지 장착</b>, 옵션 겹치지 않게.</li>
+          <li>• 강화: 일반 재료 1개 = <b className="text-white">{a.matExpNormal}exp</b>, 1레벨업 필요 exp = 일반 {a.levelExpNormal} / 고급 {a.levelExpAdvanced} / 희귀 {a.levelExpRare}. 최대 {a.maxLevel}레벨.</li>
+          <li>• 조합: 같은 등급 <b className="text-white">{a.maxLevel}레벨 {a.combinePerGrade}개 + 부적석 {a.stonePerCombine}개 → 상위 1개</b> (랜덤이라 리롤 필요). 부적석 = 제작 / 어업포인트 교환.</li>
+          <li className="text-rose-300/90">※ 효율: 필요한 갯수만큼만 재료로 / 일반 10레벨 5개 이상 만들기 금지 / 레벨업한 부적을 재료로 넣기 금지.</li>
+        </ul>
+      </section>
+
       {/* 계산기 */}
       <section className="mb-6 rounded-xl border border-white/10 bg-[#15171c] p-4">
         <h2 className="mb-3 text-base font-bold text-emerald-300">🧮 부적 계산기</h2>
 
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Param label="조합 개수 (→상위 1개)" value={a.combineCount} onChange={(v) => update((d) => { d.amulet.combineCount = Number(v) || 0; })} />
           <Param label="일반 뽑기 가격(전)" value={a.pullCostNormal} onChange={(v) => update((d) => { d.amulet.pullCostNormal = Number(v) || 0; })} />
-          <Param label="리롤 비용(티켓)" value={a.rerollCostTicket} onChange={(v) => update((d) => { d.amulet.rerollCostTicket = Number(v) || 0; })} />
-          <Param label="희귀 뽑기(티켓)" value={a.pullCostRareTicket} onChange={(v) => update((d) => { d.amulet.pullCostRareTicket = Number(v) || 0; })} />
+          <Param label="최대 레벨" value={a.maxLevel} onChange={(v) => update((d) => { d.amulet.maxLevel = Number(v) || 0; })} />
+          <Param label="일반 재료 exp" value={a.matExpNormal} onChange={(v) => update((d) => { d.amulet.matExpNormal = Number(v) || 0; })} />
+          <Param label="조합 필요 수" value={a.combinePerGrade} onChange={(v) => update((d) => { d.amulet.combinePerGrade = Number(v) || 0; })} />
+          <Param label="레벨업 exp · 일반" value={a.levelExpNormal} onChange={(v) => update((d) => { d.amulet.levelExpNormal = Number(v) || 0; })} />
+          <Param label="레벨업 exp · 고급" value={a.levelExpAdvanced} onChange={(v) => update((d) => { d.amulet.levelExpAdvanced = Number(v) || 0; })} />
+          <Param label="레벨업 exp · 희귀" value={a.levelExpRare} onChange={(v) => update((d) => { d.amulet.levelExpRare = Number(v) || 0; })} />
+          <Param label="조합당 부적석" value={a.stonePerCombine} onChange={(v) => update((d) => { d.amulet.stonePerCombine = Number(v) || 0; })} />
         </div>
 
         <div className="mb-3 flex items-center gap-2 text-sm">
@@ -67,15 +98,16 @@ export default function AmuletPage() {
             onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
             className="w-24 rounded-md border border-white/10 bg-black/30 px-2.5 py-1.5 text-center text-white outline-none focus:border-emerald-400/60"
           />
-          <span className="text-white/40">개 만들기</span>
+          <span className="text-white/40">개 만들기 ({maxLv}레벨 완성 기준)</span>
         </div>
 
         <div className="overflow-hidden rounded-lg border border-white/10">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-white/[0.04] text-xs text-white/55">
-                <th className="px-3 py-2 text-left">목표 등급</th>
+                <th className="px-3 py-2 text-left">목표 (10레벨 완성)</th>
                 <th className="px-3 py-2 text-right">필요 일반 부적</th>
+                <th className="px-3 py-2 text-right">필요 부적석</th>
                 <th className="px-3 py-2 text-right">비용 (전)</th>
               </tr>
             </thead>
@@ -86,6 +118,7 @@ export default function AmuletPage() {
                   <tr key={t.grade} className="border-t border-white/5">
                     <td className={`px-3 py-2 font-bold ${t.color}`}>{t.grade} 부적 × {q}</td>
                     <td className="px-3 py-2 text-right font-mono text-white/85">{won(need)}개</td>
+                    <td className="px-3 py-2 text-right font-mono text-white/70">{won(t.stones * q)}개</td>
                     <td className="px-3 py-2 text-right font-mono text-amber-200/90">{won(need * price)}전</td>
                   </tr>
                 );
@@ -93,8 +126,9 @@ export default function AmuletPage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-white/40">
-          ※ 같은 등급 {N}개를 조합하면 상위 등급 1개가 돼요. (고급 = 일반 {N}개 · 희귀 = 일반 {won(N * N)}개) 일반 부적만으로 올린 기준이에요.
+        <p className="mt-2 text-xs leading-relaxed text-white/40">
+          ※ 일반 10레벨 1개 = 일반 <b className="text-white/60">{won(nNormal)}</b>개(베이스1 + 재료 {won(matToMax(a.levelExpNormal))}). 고급 10레벨 = 일반 <b className="text-white/60">{won(nAdv)}</b>개 + 부적석 {sAdv} · 희귀 10레벨 = 일반 <b className="text-white/60">{won(nRare)}</b>개 + 부적석 {sRare}.<br />
+          모두 일반 부적만 재료로 쓴 기준이에요. (등급 재료를 쓰면 수가 줄어요.)
         </p>
       </section>
 

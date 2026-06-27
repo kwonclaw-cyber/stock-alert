@@ -83,10 +83,21 @@ export type AmuletRow = { id: string; name: string; effect: string };
 /** 부적 시스템 (정보 + 계산기) */
 export type AmuletState = {
   // 계산기 파라미터 (화면에서 수정 가능)
-  combineCount: number; // 같은 등급 N개 → 상위 등급 1개
+  combineCount: number; // (구) 같은 등급 N개 → 상위 1개. 신모델에선 미사용(호환 위해 유지)
   pullCostNormal: number; // 일반 부적 뽑기 가격(전)
   rerollCostTicket: number; // 리롤 비용(별풍선티켓)
   pullCostRareTicket: number; // 희귀 부적 뽑기 가격(별풍선티켓)
+  // 강화·조합 모델 (가이드 기준, 화면에서 수정 가능)
+  maxLevel: number; // 최대 강화 레벨 (10)
+  matExpNormal: number; // 일반 부적 1개를 재료로 넣을 때 주는 exp (10)
+  levelExpNormal: number; // 일반 부적 1레벨업 당 필요 exp (10)
+  levelExpAdvanced: number; // 고급 부적 1레벨업 당 필요 exp (20)
+  levelExpRare: number; // 희귀 부적 1레벨업 당 필요 exp (30)
+  combinePerGrade: number; // 조합에 필요한 같은 등급 10레벨 부적 수 (2)
+  stonePerCombine: number; // 조합 1회당 필요한 부적석 수 (1)
+  dailyLimit: number; // 하루 구매 가능 총 개수 (6)
+  dailyInGame: number; // 그중 인게임 재화 (3)
+  dailyTicket: number; // 그중 API 티켓 (3)
   // 옵션 효과표
   advanced: AmuletRow[]; // 고급 부적 옵션
   rare: AmuletRow[]; // 희귀 부적 옵션
@@ -203,6 +214,16 @@ export function defaultAmulet(): AmuletState {
     pullCostNormal: 10000,
     rerollCostTicket: 10,
     pullCostRareTicket: 5,
+    maxLevel: 10,
+    matExpNormal: 10,
+    levelExpNormal: 10,
+    levelExpAdvanced: 20,
+    levelExpRare: 30,
+    combinePerGrade: 2,
+    stonePerCombine: 1,
+    dailyLimit: 6,
+    dailyInGame: 3,
+    dailyTicket: 3,
     advanced: [
       row("백옥·구온·청검", "체력 증가"),
       row("묵호·비류", "치명타 확률 증가"),
@@ -449,6 +470,16 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
         pullCostNormal: Number(a.pullCostNormal) || def.pullCostNormal,
         rerollCostTicket: Number(a.rerollCostTicket) || def.rerollCostTicket,
         pullCostRareTicket: Number(a.pullCostRareTicket) || def.pullCostRareTicket,
+        maxLevel: Number(a.maxLevel) || def.maxLevel,
+        matExpNormal: Number(a.matExpNormal) || def.matExpNormal,
+        levelExpNormal: Number(a.levelExpNormal) || def.levelExpNormal,
+        levelExpAdvanced: Number(a.levelExpAdvanced) || def.levelExpAdvanced,
+        levelExpRare: Number(a.levelExpRare) || def.levelExpRare,
+        combinePerGrade: Number(a.combinePerGrade) || def.combinePerGrade,
+        stonePerCombine: Number(a.stonePerCombine) || def.stonePerCombine,
+        dailyLimit: Number(a.dailyLimit) || def.dailyLimit,
+        dailyInGame: Number(a.dailyInGame) || def.dailyInGame,
+        dailyTicket: Number(a.dailyTicket) || def.dailyTicket,
         advanced: rows(a.advanced, def.advanced),
         rare: rows(a.rare, def.rare),
         images: (a.images ?? []).map((c) => ({
