@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.37.0",
+    date: "2026-06-27",
+    changes: [
+      "'세팅 계산기' 탭 추가 — 회피율·공격속도 40캡 초과/부족 + 내공 합산 (개인 저장)",
+      "정보공유/영단/긴급라이브정리: 카드 접기(▾) + 순서 이동(▲▼) 버튼 추가",
+    ],
+  },
+  {
     version: "1.36.0",
     date: "2026-06-21",
     changes: [
