@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.38.0",
+    date: "2026-06-27",
+    changes: [
+      "부적 계산기를 실제 메커니즘으로 수정 — 조합(같은 등급 10레벨 2개+부적석)·강화 exp(일반10/고급20/희귀30) 반영, 필요 일반부적·부적석·비용 정확 계산",
+      "부적 탭에 '핵심 정보 & 주의'(하루 6개 한도·3개 장착·효율 강화 루트) 추가",
+    ],
+  },
+  {
     version: "1.37.0",
     date: "2026-06-27",
     changes: [
