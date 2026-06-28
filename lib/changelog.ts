@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.47.0",
+    date: "2026-06-28",
+    changes: [
+      "공부할것: 주제별 카드에 참고 슬라이드 이미지 추가(클릭하면 크게 보기)",
+    ],
+  },
+  {
     version: "1.46.0",
     date: "2026-06-28",
     changes: [
