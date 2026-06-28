@@ -167,6 +167,9 @@ export type OwnerInfo = {
 };
 
 /** 전체 앱 데이터 (서버에 통째로 저장) */
+/** 영단(추가 내실) 효과·획득처 (화면에서 수정 가능, 아이콘 이미지 선택) */
+export type Youngdan = { id: string; name: string; color: string; effect: string; source: string; icon: string };
+
 export type AppData = {
   guilds: Guild[];
   bossTimers: BossTimer[];
@@ -179,7 +182,8 @@ export type AppData = {
   liveNotes: BoardPost[]; // 긴급 라이브 정리(게시판형)
   relays: RelayPost[]; // 전달(지정 인원 제외 댓글)
   events: EventItem[];
-  dwellings: BoardPost[]; // 영단(게시판형)
+  dwellings: BoardPost[]; // 영단(게시판형 메모/캡쳐)
+  youngdan: Youngdan[]; // 영단 효과·획득처 목록
   craftings: CraftingCard[]; // 제작 및 재료 정보 카드
   villageMap: string; // 마을지도 이미지(data URL)
   amulet: AmuletState; // 부적 시스템
@@ -263,6 +267,33 @@ export function defaultOwnerInfo(): OwnerInfo {
 }
 
 /** 최초 기본 데이터 */
+/** 영단 효과·획득처 기본값 (가이드 기준, 화면에서 수정 가능 · 아이콘은 비워두면 색상 점 표시) */
+export function defaultYoungdan(): Youngdan[] {
+  const y = (name: string, color: string, effect: string, source: string): Youngdan =>
+    ({ id: uid(), name, color, effect, source, icon: "" });
+  return [
+    y("시공단", "bg-cyan-400", "물약회복량(%) +3, 경험치획득량(%) +1", "무림 맹주 제작"),
+    y("녹환단", "bg-emerald-500", "힘(%) +1, 생명력(%) +1", "우물영단상자"),
+    y("황환단", "bg-amber-400", "힘 +2, 민첩 +2, 생명력 +2, 행운 +2", "우물영단상자"),
+    y("태극단", "bg-zinc-300", "보스공격력(%) +1, 힘 +3", "검성 레이드 보상"),
+    y("천경단", "bg-fuchsia-300", "행운(%) +1, 공격력 +3", "사냥 시 확률 드랍"),
+    y("자환단", "bg-purple-500", "민첩(%) +1, 행운(%) +1", "출석체크 7일차"),
+    y("청환단", "bg-sky-500", "공격력 +3, 보스공격력(%) +1", "대장장이 제작"),
+    y("명월단", "bg-slate-200", "보스공격력(%) +1, 행운 +3", "오공 레이드 보상"),
+    y("적환단", "bg-red-500", "체력 +15, 체력(%) +1", "탐험 획득 (현재 1개 남음)"),
+    y("용혈단", "bg-red-700", "체력(%) +3, 생명력 +5", "우물영기 100개 · 우물혈석 1개 · 토끼내단 · 대장장이불 10개"),
+    y("매화단", "bg-pink-400", "치명타공격력(%) +3, 체력 +5", "수련의 탑 퀘스트"),
+    y("흑환단", "bg-zinc-700", "저항(%) +3, 물약회복량(%) +3", "약초 제작 (조합법 미공개)"),
+    y("백환단", "bg-slate-100", "경험치획득량(%) +1, 드랍율(%) +1", "항아리에서 확률적 드랍"),
+    y("은환단", "bg-slate-300", "최종공격력(%) +1", "장로쥐 레이드 보상"),
+    y("금환단", "bg-yellow-400", "스킬피해량(%) +1", "레벨 보상 및 히든 퀘스트"),
+    y("옥환단", "bg-green-400", "공격력(%) +1", "해상포인트"),
+    y("청룡단", "bg-blue-500", "경험치획득량(%) +1, 힘 +4", "희귀 약초 드랍 (낮에 캘 시 2개 획득 확률↑)"),
+    y("주작단", "bg-orange-500", "경험치획득량(%) +1, 생명력 +4", "조선장 NPC 제작 (고래기름 1개 · 10만전)"),
+    y("현무단", "bg-red-900", "경험치획득량(%) +1, 행운 +4", "주작단 제작 실패 시 획득 (5% 확률)"),
+  ];
+}
+
 export function defaultData(): AppData {
   return {
     guilds: structuredClone(GUILDS),
@@ -293,6 +324,7 @@ export function defaultData(): AppData {
     relays: [],
     events: [],
     dwellings: [],
+    youngdan: defaultYoungdan(),
     craftings: [],
     villageMap: "",
     amulet: defaultAmulet(),
@@ -452,6 +484,16 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     })),
     events: input.events ?? [],
     dwellings: (input.dwellings ?? []).map((c) => toBoardPost(c as Record<string, unknown>)),
+    youngdan: input.youngdan === undefined
+      ? defaultYoungdan()
+      : input.youngdan.map((y) => ({
+          id: y.id || uid(),
+          name: y.name ?? "",
+          color: y.color || "bg-white/30",
+          effect: y.effect ?? "",
+          source: y.source ?? "",
+          icon: y.icon ?? "",
+        })),
     craftings: (input.craftings ?? []).map((c) => ({
       id: c.id || uid(),
       title: c.title ?? "",
