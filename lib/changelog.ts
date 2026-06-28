@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.44.0",
+    date: "2026-06-28",
+    changes: [
+      "'📖 서버 가이드' 탭 추가 — 서버 시작 전 체크리스트 + 스텟·내공·잠재·주문서·부적·보스·광산·양조장 슬라이드(이미지+요약)",
+    ],
+  },
+  {
     version: "1.43.0",
     date: "2026-06-28",
     changes: [
