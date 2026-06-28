@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.42.0",
+    date: "2026-06-28",
+    changes: [
+      "영단 탭: 효과·획득처를 칸에서 직접 수정 가능하게(공유) + 영단별 아이콘 이미지 슬롯(붙여넣기) 추가, 추가/삭제 가능",
+    ],
+  },
+  {
     version: "1.41.0",
     date: "2026-06-28",
     changes: [
