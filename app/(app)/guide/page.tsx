@@ -97,9 +97,17 @@ const TOPICS: Topic[] = [
   },
 ];
 
+const SUMMARY = [
+  { emoji: "📊🧬", title: "스텟·내공", sub: "40캡 / 내공" },
+  { emoji: "🎲📜", title: "잠재·주문서", sub: "리롤·내공작" },
+  { emoji: "🪬💠", title: "부적·영단", sub: "매일·테크" },
+  { emoji: "👑⚠️", title: "보스", sub: "접속순·인벤" },
+  { emoji: "⛏️🍶", title: "광산·양조장", sub: "전초·항아리" },
+];
+
 export default function GuidePage() {
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <PageHelp>
         서버 들어가기 전에 <b>가볍게 한 번 훑어보면 좋은 자료</b>예요. 외울 필요는 없고 “이런 게 있구나” 정도면 충분해요. (총겜동 내수서버)
       </PageHelp>
@@ -110,7 +118,7 @@ export default function GuidePage() {
         <p className="mt-1 text-sm text-white/55">지난 코창서버 내용과 질추님 오피셜들을 통해 미리 익혀두면 첫날이 훨씬 수월해요.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {TOPICS.map((t) => (
           <section key={t.title} className={`rounded-xl border border-white/10 ${t.accent} border-l-4 bg-[#15171c] p-4`}>
             <h2 className="flex items-center gap-2 text-base font-bold text-white/90">
@@ -127,6 +135,20 @@ export default function GuidePage() {
           </section>
         ))}
       </div>
+
+      {/* 핵심 체크포인트 요약 */}
+      <section className="mt-6 rounded-xl border border-white/10 bg-[#15171c] p-4">
+        <h2 className="mb-3 text-base font-bold text-fuchsia-300">✦ 핵심 체크포인트</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {SUMMARY.map((s) => (
+            <div key={s.title} className="rounded-lg border border-white/10 bg-black/20 p-3 text-center">
+              <div className="text-xl">{s.emoji}</div>
+              <div className="mt-1 text-sm font-bold text-white/85">{s.title}</div>
+              <div className="text-xs text-white/45">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <p className="mt-6 text-center text-xs text-white/30">더 자세한 건 부적·영단·광산&채집 타이머 탭에서 볼 수 있어요. (자료: 총겜동 내수서버)</p>
     </div>
