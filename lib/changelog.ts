@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.46.0",
+    date: "2026-06-28",
+    changes: [
+      "서버 가이드 탭 → '📖 공부할것'으로 이름 변경, 맨 앞으로 이동",
+    ],
+  },
+  {
     version: "1.45.0",
     date: "2026-06-28",
     changes: [
