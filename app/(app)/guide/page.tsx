@@ -101,13 +101,13 @@ export default function GuidePage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        서버 들어가기 전에 <b>가볍게 한 번 훑어보면 좋은 자료</b>예요. 외울 필요는 없고 “이런 게 있구나” 정도면 충분해요. (총겜동 내수서버 · feat. 라로시)
+        서버 들어가기 전에 <b>가볍게 한 번 훑어보면 좋은 자료</b>예요. 외울 필요는 없고 “이런 게 있구나” 정도면 충분해요. (총겜동 내수서버)
       </PageHelp>
 
       <div className="mb-6 rounded-xl border border-white/10 bg-gradient-to-b from-emerald-400/[0.06] to-transparent p-5 text-center">
-        <div className="text-2xl">🍵</div>
-        <h1 className="mt-1 text-lg font-bold text-white/90">처음 오셨나요?</h1>
-        <p className="mt-1 text-sm text-white/55">아래 내용만 알고 들어가도 첫날이 훨씬 수월해요.</p>
+        <div className="text-2xl">⚔️</div>
+        <h1 className="mt-1 text-lg font-bold text-white/90">들어가기 전에 미리 공부하고 가자</h1>
+        <p className="mt-1 text-sm text-white/55">지난 코창서버 내용과 질추님 오피셜들을 통해 미리 익혀두면 첫날이 훨씬 수월해요.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -128,7 +128,7 @@ export default function GuidePage() {
         ))}
       </div>
 
-      <p className="mt-6 text-center text-xs text-white/30">더 자세한 건 부적·영단·광산&채집 타이머 탭에서 볼 수 있어요. (자료: 라로시 · 총겜동 내수서버)</p>
+      <p className="mt-6 text-center text-xs text-white/30">더 자세한 건 부적·영단·광산&채집 타이머 탭에서 볼 수 있어요. (자료: 총겜동 내수서버)</p>
     </div>
   );
 }
