@@ -13,6 +13,7 @@ import { confirmDelete } from "@/lib/confirmDelete";
 export default function DwellingPage() {
   const { data, update } = useStore();
   const [zoom, setZoom] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   if (!data) return <Loading />;
 
   const list = data.youngdan;
@@ -39,19 +40,50 @@ export default function DwellingPage() {
         </ul>
       </section>
 
-      {/* 영단 효과·획득처 (수정 가능) */}
-      <div className="mb-2 flex items-center justify-between">
+      {/* 영단 효과·획득처 */}
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-base font-bold text-white/80">🧩 영단 효과 &amp; 획득처 <span className="text-xs font-normal text-white/40">({list.length}종)</span></h2>
-        <Btn variant="primary" onClick={() => update((d) => { d.youngdan.push({ id: uid(), name: "", color: "bg-white/30", effect: "", source: "", icon: "" }); })}>
-          + 영단 추가
-        </Btn>
+        <div className="flex items-center gap-2">
+          {editing && (
+            <Btn variant="primary" onClick={() => update((d) => { d.youngdan.push({ id: uid(), name: "", color: "bg-white/30", effect: "", source: "", icon: "" }); })}>
+              + 영단 추가
+            </Btn>
+          )}
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className={`rounded-md border px-3 py-1.5 text-sm transition ${editing ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
+          >
+            {editing ? "완료" : "✏️ 편집"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((y) => {
           const i = list.findIndex((x) => x.id === y.id);
+          // 보기 모드 — 깔끔한 읽기 전용 카드
+          if (!editing) {
+            return (
+              <div key={y.id} className="flex gap-3 rounded-lg border border-white/10 bg-[#15171c] p-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-black/30">
+                  {y.icon ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={y.icon} alt="" onClick={() => setZoom(y.icon)} className="h-full w-full cursor-zoom-in object-contain" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center"><span className={`h-5 w-5 rounded-full ${y.color} ring-1 ring-white/25`} /></span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-white/90">{y.name || "(이름 없음)"}</div>
+                  {y.effect && <div className="mt-0.5 text-xs leading-relaxed text-emerald-200/90"><b className="text-white/40">효과 </b>{y.effect}</div>}
+                  {y.source && <div className="mt-0.5 text-xs leading-relaxed text-white/55"><b className="text-white/40">획득 </b>{y.source}</div>}
+                </div>
+              </div>
+            );
+          }
+          // 편집 모드 — 입력칸 + 아이콘 슬롯
           return (
-            <div key={y.id} className="flex gap-3 rounded-lg border border-white/10 bg-[#15171c] p-3">
+            <div key={y.id} className="flex gap-3 rounded-lg border border-emerald-400/20 bg-[#15171c] p-3">
               <IconSlot
                 icon={y.icon}
                 color={y.color}

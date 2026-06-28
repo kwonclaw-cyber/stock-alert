@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.43.0",
+    date: "2026-06-28",
+    changes: [
+      "영단 탭: 기본은 보기 모드(깔끔한 카드), '✏️ 편집' 버튼을 눌렀을 때만 수정칸·아이콘 슬롯 표시",
+    ],
+  },
+  {
     version: "1.42.0",
     date: "2026-06-28",
     changes: [
