@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.41.0",
+    date: "2026-06-28",
+    changes: [
+      "영단 탭: 영단별 효과·획득처 19종 카드 정리(색상 아이콘) + 효과 미확인 목록",
+    ],
+  },
+  {
     version: "1.40.0",
     date: "2026-06-28",
     changes: [
