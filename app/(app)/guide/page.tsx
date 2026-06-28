@@ -105,9 +105,26 @@ const SUMMARY = [
   { emoji: "⛏️🍶", title: "광산·양조장", sub: "전초·항아리" },
 ];
 
+// 한 장 요약 포스터(밝은 인포그래픽). border엔 테두리+배경, num/callout은 배경색을 담는다.
+type PCard = { title: string; emojis: string; hl: string; points: string[]; point: string; border: string; num: string; callout: string };
+const POSTER: PCard[] = [
+  { title: "스텟", emojis: "📊⚔️🛡️", hl: "회피·공속은 최대 40까지만 적용", points: ["잠재·재련·주문서·부적·영단으로 올림", "40 넘겨도 40까지만 → 딱 맞추기"], point: "회피·공속 40 맞추기", border: "border-amber-300 bg-amber-50", num: "bg-amber-500", callout: "bg-amber-100" },
+  { title: "내공", emojis: "🧬💪", hl: "PVE 요구치보다 5↓이면 데미지 0", points: ["PVP: 내공 높으면 받는 데미지 ↓", "장비·재련·주문서·부적·반지·영단"], point: "내공 먼저 확보", border: "border-emerald-300 bg-emerald-50", num: "bg-emerald-500", callout: "bg-emerald-100" },
+  { title: "잠재능력", emojis: "🎲🔁", hl: "리롤은 ‘우클릭’", points: ["부위별 최대 3줄 (회피4·공속4·운6)", "장비 이전해도 유지됨"], point: "상옵 뜨면 킵!", border: "border-sky-300 bg-sky-50", num: "bg-sky-500", callout: "bg-sky-100" },
+  { title: "주문서", emojis: "📜✨", hl: "장비 이전하면 사라짐", points: ["초반 체력 100%작 → 중후반 내공 머리·벨트 10%작", "신발은 40캡 맞춰 60·100% 혼합"], point: "머리·벨트 내공작", border: "border-purple-300 bg-purple-50", num: "bg-purple-500", callout: "bg-purple-100" },
+  { title: "부적", emojis: "🪬📅", hl: "하루 6개 한도 — 놓치면 못 따라감", points: ["3개 장착(옵션 겹침 X)", "조합: 10레벨 2개 + 부적석 → 상위"], point: "매일 6개 챙기기", border: "border-rose-300 bg-rose-50", num: "bg-rose-500", callout: "bg-rose-100" },
+  { title: "영단", emojis: "💠🌿", hl: "무인의 거처 대신 생긴 추가 내실", points: ["레이드·사냥·제작·탐험·퀘로 획득", "테크 선택 가능 (0~10레벨)"], point: "‘영단’ 탭 참고", border: "border-teal-300 bg-teal-50", num: "bg-teal-500", callout: "bg-teal-100" },
+  { title: "보스 루팅", emojis: "👑🥇", hl: "접속 후 바로 이동하지 말기", points: ["딜 1등 우선 → 10초 후 누구나", "그다음 ‘채널 접속 순서’로 먹힘"], point: "접속 순서 = 루팅", border: "border-yellow-300 bg-yellow-50", num: "bg-yellow-500", callout: "bg-yellow-100" },
+  { title: "보스 주의", emojis: "⚠️🎒", hl: "인벤·퀵슬롯 비우고 /스폰 복붙", points: ["사망 시 귀속 빼고 다 떨어짐", "먹은 템은 퀵슬롯에 먼저 들어옴"], point: "인벤 비우고 입장", border: "border-red-300 bg-red-50", num: "bg-red-500", callout: "bg-red-100" },
+  { title: "광산", emojis: "⛏️🏯", hl: "전초기지 세우면 동선 편함", points: ["활성석 쿨타임 → 여러 광산 순회", "전초기지 이동 500원"], point: "전초 짓고 순회", border: "border-orange-300 bg-orange-50", num: "bg-orange-500", callout: "bg-orange-100" },
+  { title: "양조장", emojis: "🍶🏺", hl: "항아리 든 채로는 스킬 사용 불가", points: ["농장 항아리 → 양조장에서 포션 재료", "약탈 가능 · 내려놓고 다시 들 수 있음"], point: "항아리 운반 주의", border: "border-lime-300 bg-lime-50", num: "bg-lime-500", callout: "bg-lime-100" },
+];
+
 export default function GuidePage() {
   return (
     <div className="mx-auto max-w-6xl">
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" />
       <PageHelp>
         서버 들어가기 전에 <b>가볍게 한 번 훑어보면 좋은 자료</b>예요. 외울 필요는 없고 “이런 게 있구나” 정도면 충분해요. (총겜동 내수서버)
       </PageHelp>
@@ -136,18 +153,52 @@ export default function GuidePage() {
         ))}
       </div>
 
-      {/* 핵심 체크포인트 요약 */}
-      <section className="mt-6 rounded-xl border border-white/10 bg-[#15171c] p-4">
-        <h2 className="mb-3 text-base font-bold text-fuchsia-300">✦ 핵심 체크포인트</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {SUMMARY.map((s) => (
-            <div key={s.title} className="rounded-lg border border-white/10 bg-black/20 p-3 text-center">
-              <div className="text-xl">{s.emoji}</div>
-              <div className="mt-1 text-sm font-bold text-white/85">{s.title}</div>
-              <div className="text-xs text-white/45">{s.sub}</div>
+      {/* 한 장 요약 포스터 (밝은 인포그래픽) */}
+      <section className="mt-8 rounded-2xl bg-[#fdfbf5] p-5 text-gray-800 sm:p-7" style={{ fontFamily: "'Gaegu', system-ui, sans-serif" }}>
+        <h2
+          className="flex items-center justify-center gap-3 whitespace-nowrap text-center leading-none text-gray-800"
+          style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: "clamp(26px, 6vw, 50px)" }}
+        >
+          <span className="text-amber-400">✦</span> 들어가기 전에 공부하고 가자 <span className="text-amber-400">✦</span>
+        </h2>
+        <p className="mt-1 text-center text-sm text-gray-500 sm:text-lg">총겜동 내수서버 · 한 장 요약 ⚔️</p>
+        <div className="mx-auto mt-3 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50/70 px-4 py-2.5 text-center text-sm font-bold sm:text-lg">
+          핵심은 <span className="text-rose-500">스텟·내공</span>, <span className="text-blue-500">잠재·주문서</span>, <span className="text-emerald-600">부적·영단</span>, <span className="text-amber-600">보스(루팅·주의)</span>, <span className="text-violet-600">광산·양조장</span> 체크!
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {POSTER.map((c, i) => (
+            <div key={c.title} className={`rounded-2xl border-[3px] ${c.border} p-4`}>
+              <div className="flex items-center gap-2">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-bold text-white ${c.num}`}>{i + 1}</span>
+                <span className="text-lg font-extrabold text-gray-800">{c.title}</span>
+                <span className="ml-auto text-lg">{c.emojis}</span>
+              </div>
+              <p className="mt-2 inline-block rounded-md bg-yellow-200/80 px-2 py-1 text-sm font-bold text-gray-800">💡 {c.hl}</p>
+              <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                {c.points.map((p, j) => (
+                  <li key={j} className="flex gap-1.5"><span className="font-bold text-green-600">✓</span><span>{p}</span></li>
+                ))}
+              </ul>
+              <div className={`mt-2 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-800 ${c.callout}`}>→ 포인트 · {c.point}</div>
             </div>
           ))}
         </div>
+
+        <div className="mt-5 rounded-2xl border-2 border-gray-200 bg-white p-4">
+          <h3 className="mb-2 text-2xl text-fuchsia-500" style={{ fontFamily: "'Nanum Pen Script', cursive" }}>✦ 핵심 체크포인트</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {SUMMARY.map((s) => (
+              <div key={s.title} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-center">
+                <div className="text-xl">{s.emoji}</div>
+                <div className="mt-1 text-sm font-bold text-gray-800">{s.title}</div>
+                <div className="text-xs text-gray-500">{s.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-gray-400">⚔️ 총겜동 내수서버 · 서버 시작 전 한 장 요약</p>
       </section>
 
       <p className="mt-6 text-center text-xs text-white/30">더 자세한 건 부적·영단·광산&채집 타이머 탭에서 볼 수 있어요. (자료: 총겜동 내수서버)</p>

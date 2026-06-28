@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.51.0",
+    date: "2026-06-28",
+    changes: [
+      "공부할것: 기존 카드 아래에 '한 장 요약' 인포그래픽 포스터 추가(손글씨 폰트·파스텔 번호 카드·말풍선·핵심 체크포인트)",
+    ],
+  },
+  {
     version: "1.50.0",
     date: "2026-06-28",
     changes: [
