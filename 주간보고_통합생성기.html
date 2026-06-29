@@ -2315,7 +2315,6 @@ function si_renderDash(){
       <div class="kpi card"><div class="kl">쿠팡 매출 성장</div><div class="kv">${si_fm(cp2)}</div><div class="ks">${w1L} ${si_fm(cp1)} · <span style="color:#dc2626;font-weight:700;">${si_fp((cp2-cp1)/(cp1||1))}</span></div></div>
     </div>
     ${upCount===n?`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#166534;">🎉 <strong>${n}개 브랜드 모두 성장</strong> · 합산 배민광고비 ${bmAd2<bmAd1?'절감하며 매출 증가 · 광고 효율 개선':'증가했으나 매출도 성장'}</div>`:''}
-    ${top10IncDec(brands.map((b,i)=>({name:b,w1:W1.total[i],w2:W2.total[i]})),'si')}
     <div class="hl-grid" style="grid-template-columns:repeat(${cols},1fr);">${hlCards()}</div>
     <div class="cg">
       <div class="cc card">
