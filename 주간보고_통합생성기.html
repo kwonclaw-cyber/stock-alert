@@ -410,6 +410,26 @@ textarea:focus{border-color:#4B7BE8;}
 #tool-si .sb-txt{font-size:11.5px;color:#374151;line-height:1.8;border-left:3px solid #e2e8f0;padding-left:12px;}
 #tool-si .sb-txt strong{color:#1a2235;font-weight:700;}
 #tool-si .act{display:inline-block;font-size:10px;padding:2px 8px;border-radius:3px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:600;margin-top:6px;}
+/* ── 매출 증가/감소 Top10 (레퍼런스 스타일 · 자체 네임스페이스) ── */
+.t10-wrap{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:16px 0;}
+.t10-card{background:#fff;border-radius:12px;box-shadow:0 1px 8px rgba(0,0,0,.06);border:1px solid #eef2f7;padding:16px 18px;}
+.t10-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.t10-ttl{font-size:12px;font-weight:700;}
+.t10-btn{padding:4px 12px;font-size:11px;font-weight:600;border:1.5px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1a56db;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.t10-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.t10-tbl th{padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.4px;border-bottom:2px solid #f1f5f9;background:#f8fafc;white-space:nowrap;}
+.t10-tbl td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+.t10-tbl tr:hover td{background:#fbfcfe;}
+.t10-rank{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;}
+.t10-r1{background:#fef3c7;color:#d97706;}
+.t10-r2{background:#f1f5f9;color:#475569;}
+.t10-r3{background:#fef0e7;color:#c2410c;}
+.t10-rn{background:#f1f5f9;color:#94a3b8;}
+.t10-nm{font-weight:600;color:#1e293b;font-size:12px;}
+.t10-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;}
+.t10-ta{width:100%;padding:5px 8px;border-radius:7px;font-size:11px;resize:none;height:38px;font-family:inherit;color:#1e293b;line-height:1.5;outline:none;box-sizing:border-box;transition:border-color .2s;}
+.t10-empty{text-align:center;color:#94a3b8;font-size:12px;padding:18px 0;}
+@media(max-width:760px){.t10-wrap{grid-template-columns:1fr;gap:10px;}.t10-tbl{font-size:11px;}.t10-tbl th,.t10-tbl td{padding:6px 6px;}}
 </style>
 </head>
 <body>
@@ -766,6 +786,76 @@ textarea:focus{border-color:#4B7BE8;}
 function selectTool(n){
   document.querySelectorAll('.tool-wrap').forEach((t,i)=>t.classList.toggle('on',i===n));
   document.querySelectorAll('.ts-btn').forEach((b,i)=>b.classList.toggle('on',i===n));
+}
+
+/* ════════════════════════════════════════════
+   매출 증가/감소 Top10 공용 컴포넌트 (전역)
+   items: [{name, w1, w2}] · sfx: 탭 식별자(bab/zg/si)
+   ════════════════════════════════════════════ */
+window.__t10c = window.__t10c || {};      // 행별 코멘트 저장 {key:value}
+window.__t10open = window.__t10open || {}; // 탭별 코멘트 열림 상태
+function t10Won(n){return Math.round(n).toLocaleString('ko-KR')+'원';}
+function t10Esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function top10IncDec(items, sfx){
+  const rows=(items||[]).filter(s=>s&&s.w1>0&&isFinite(s.w2))
+    .map(s=>({name:s.name,w1:s.w1,w2:s.w2,gr:(s.w2-s.w1)/s.w1,diff:s.w2-s.w1}));
+  const inc=rows.filter(s=>s.gr>0).sort((a,b)=>b.gr-a.gr).slice(0,10);
+  const dec=rows.filter(s=>s.gr<0).sort((a,b)=>a.gr-b.gr).slice(0,10);
+  const open=window.__t10open[sfx]!==false; // 기본 열림
+  function tbl(list,dir){
+    const up=dir==='up';
+    const head=`<thead><tr><th style="width:34px;">순위</th><th>매장명</th><th>전주</th><th>금주</th><th>증감금액</th><th>증감률</th></tr></thead>`;
+    if(!list.length) return `<table class="t10-tbl">${head}<tbody><tr><td colspan="6" class="t10-empty">해당 매장 없음</td></tr></tbody></table>`;
+    const amtColor=up?'#16a34a':'#1a56db';
+    const badgeBg=up?'#dcfce7':'#eff6ff';
+    const arrow=up?'▲':'▼';
+    const taB=up?'#bbf7d0':'#fecaca', taBg=up?'#f0fdf4':'#fef2f2', taF=up?'#16a34a':'#1a56db';
+    const body=list.map((s,i)=>{
+      const rc=i===0?'t10-r1':i===1?'t10-r2':i===2?'t10-r3':'t10-rn';
+      const key=sfx+'|'+dir+'|'+s.name;
+      const cval=t10Esc(window.__t10c[key]||'');
+      const disp=open?'':' style="display:none;"';
+      return `<tr>
+        <td class="t10-rank-cell-${sfx}" rowspan="2" style="vertical-align:middle;"><span class="t10-rank ${rc}">${i+1}</span></td>
+        <td class="t10-nm t10-store-cell-${sfx}" rowspan="2" style="vertical-align:middle;">${t10Esc(s.name)}</td>
+        <td style="color:#94a3b8;white-space:nowrap;">${t10Won(s.w1)}</td>
+        <td style="font-weight:700;white-space:nowrap;">${t10Won(s.w2)}</td>
+        <td style="font-weight:700;color:${amtColor};white-space:nowrap;">${up?'+':'-'}${t10Won(Math.abs(s.diff))}</td>
+        <td><span class="t10-badge" style="background:${badgeBg};color:${amtColor};">${arrow} ${(Math.abs(s.gr)*100).toFixed(1)}%</span></td>
+      </tr>
+      <tr class="t10-crow-${sfx}"${disp}>
+        <td colspan="4" style="padding:2px 8px 8px 0;">
+          <textarea class="t10-ta" placeholder="코멘트..." data-ckey="${t10Esc(key)}"
+            oninput="window.__t10c[this.dataset.ckey]=this.value"
+            onfocus="this.style.borderColor='${taF}'" onblur="this.style.borderColor='${taB}'"
+            style="border:1.5px solid ${taB};background:${taBg};">${cval}</textarea>
+        </td>
+      </tr>`;
+    }).join('');
+    return `<table class="t10-tbl">${head}<tbody>${body}</tbody></table>`;
+  }
+  const btnLabel=open?'💬 코멘트 닫기':'💬 코멘트 열기';
+  return `<div class="t10-wrap">
+    <div class="t10-card">
+      <div class="t10-hd"><span class="t10-ttl" style="color:#16a34a;">📈 매출 증가 Top 10</span></div>
+      <div style="overflow-x:auto;">${tbl(inc,'up')}</div>
+    </div>
+    <div class="t10-card">
+      <div class="t10-hd"><span class="t10-ttl" style="color:#dc2626;">📉 매출 감소 Top 10</span>
+        <button class="t10-btn" id="t10-btn-${sfx}" onclick="toggleTop10Comments('${sfx}')">${btnLabel}</button></div>
+      <div style="overflow-x:auto;">${tbl(dec,'dn')}</div>
+    </div>
+  </div>`;
+}
+function toggleTop10Comments(sfx){
+  const open=!(window.__t10open[sfx]!==false); // 현재 열림이면 닫기
+  window.__t10open[sfx]=open;
+  document.querySelectorAll('.t10-crow-'+sfx).forEach(el=>{el.style.display=open?'':'none';});
+  document.querySelectorAll('.t10-rank-cell-'+sfx+', .t10-store-cell-'+sfx).forEach(el=>{
+    if(open) el.setAttribute('rowspan','2'); else el.removeAttribute('rowspan');
+  });
+  const btn=document.getElementById('t10-btn-'+sfx);
+  if(btn) btn.textContent=open?'💬 코멘트 닫기':'💬 코멘트 열기';
 }
 
 /* ════════════════════════════════════════════
@@ -1646,13 +1736,7 @@ function renderDashboard({r1,r2,w1L,w2L}){
       </div>
     </div>
     <div class="card sec"><div class="sec-tit">금주 매출 TOP 10</div><div class="top10g">${top10Html(st.top10)}</div></div>
-    <div class="card sec" style="margin-top:0;">
-      <div class="sec-tit">급등 매장 (전주대비 +20% 이상 · ${st.gainIdx.length}개)</div>
-      ${st.gainIdx.length>0?`<div class="cgrid">${chgCards(st.gainIdx,'uc')}</div>`:'<div style="color:#94a3b8;font-size:12px;padding:4px 0;">해당 매장 없음</div>'}
-      <div style="height:1px;background:#f1f5f9;margin:16px 0;"></div>
-      <div class="sec-tit" style="margin-top:0;">급락 매장 (전주대비 −20% 이상 · ${st.lossIdx.length}개)</div>
-      ${st.lossIdx.length>0?`<div class="cgrid">${chgCards(st.lossIdx,'dc')}</div>`:'<div style="color:#94a3b8;font-size:12px;padding:4px 0;">해당 매장 없음</div>'}
-    </div>`+
+    ${top10IncDec(st.act.map(s=>({name:s.display,w1:s.w1,w2:s.w2})),'bab')}`+
     timeSec(sfx)+channelSec(sfx)+shareSec(sfx,brand)+
     `<div class="card sec" style="margin-top:0;"><div class="sec-tit">전체 매장 매출 순위 (금주 매출 높은 순)</div><div class="tbl-wrap"><div class="tbl-h"><table class="rank-tbl">${storeTable(st.sortedAll)}</table></div></div></div>`;
   }
@@ -1904,6 +1988,7 @@ function zg_renderDash(){
       <div class="kpi card"><div class="kl">매장 현황</div><div class="kv" style="font-size:13px;">상승 ${upN} / 하락 ${dnN}</div><div class="ks">전체 ${S.length}개 매장</div></div>
     </div>
     <div class="card sec"><div class="sec-tit">① ${w1L} vs ${w2L} 매출 비교</div>${cmpTable()}</div>
+    ${top10IncDec(S.map((nm,i)=>({name:nm,w1:W1[i][0],w2:W2[i][0]})),'zg')}
     <div class="card sec" style="margin-top:8px;">
       <div class="sec-tit">② 배민 / 쿠팡이츠 점유율 비교</div>
       ${shareSection()}
@@ -2163,6 +2248,7 @@ function si_renderDash(){
       <div class="kpi card"><div class="kl">쿠팡 매출 성장</div><div class="kv">${si_fm(cp2)}</div><div class="ks">${w1L} ${si_fm(cp1)} · <span style="color:#dc2626;font-weight:700;">${si_fp((cp2-cp1)/(cp1||1))}</span></div></div>
     </div>
     ${upCount===n?`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#166534;">🎉 <strong>${n}개 브랜드 모두 성장</strong> · 합산 배민광고비 ${bmAd2<bmAd1?'절감하며 매출 증가 · 광고 효율 개선':'증가했으나 매출도 성장'}</div>`:''}
+    ${top10IncDec(brands.map((b,i)=>({name:b,w1:W1.total[i],w2:W2.total[i]})),'si')}
     <div class="hl-grid" style="grid-template-columns:repeat(${cols},1fr);">${hlCards()}</div>
     <div class="cg">
       <div class="cc card">
