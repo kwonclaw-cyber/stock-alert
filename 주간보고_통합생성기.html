@@ -430,6 +430,23 @@ textarea:focus{border-color:#4B7BE8;}
 .t10-ta{width:100%;padding:5px 8px;border-radius:7px;font-size:11px;resize:none;height:38px;font-family:inherit;color:#1e293b;line-height:1.5;outline:none;box-sizing:border-box;transition:border-color .2s;}
 .t10-empty{text-align:center;color:#94a3b8;font-size:12px;padding:18px 0;}
 @media(max-width:760px){.t10-wrap{grid-template-columns:1fr;gap:10px;}.t10-tbl{font-size:11px;}.t10-tbl th,.t10-tbl td{padding:6px 6px;}}
+/* ── 점유율: 검색 드롭다운 + 전체통합/선택매장 2단 ── */
+.ssel{position:relative;max-width:360px;margin:0 0 14px;}
+.ssel-input{width:100%;padding:9px 12px;border:1.5px solid #d7deea;border-radius:9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;background:#fff;color:#1e293b;}
+.ssel-input:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.1);}
+.ssel-list{position:absolute;top:100%;left:0;right:0;z-index:40;max-height:260px;overflow-y:auto;background:#fff;border:1px solid #d7deea;border-radius:9px;box-shadow:0 6px 22px rgba(0,0,0,.13);margin-top:4px;display:none;}
+.ssel-item{padding:8px 12px;font-size:12.5px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ssel-item:hover{background:#eff4ff;}
+.ssel-empty{padding:10px 12px;font-size:12px;color:#94a3b8;}
+.share2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.share-card{background:#fff;border:1px solid #e6ebf3;border-radius:12px;padding:16px 14px;display:flex;flex-direction:column;align-items:center;}
+.share-card-hd{font-size:12.5px;font-weight:700;color:#1e293b;margin-bottom:12px;text-align:center;}
+.donut-pair{display:flex;align-items:center;gap:14px;}
+.donut-legend{display:flex;gap:12px;margin-top:10px;font-size:10.5px;color:#64748b;}
+.donut-legend span{display:inline-flex;align-items:center;gap:4px;}
+.lg-bm,.lg-cp{display:inline-block;width:8px;height:8px;border-radius:2px;}
+.lg-bm{background:#4B7BE8;}.lg-cp{background:#E86035;}
+@media(max-width:760px){.share2{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -857,6 +874,50 @@ function toggleTop10Comments(sfx){
   const btn=document.getElementById('t10-btn-'+sfx);
   if(btn) btn.textContent=open?'💬 코멘트 닫기':'💬 코멘트 열기';
 }
+
+/* ════════════════════════════════════════════
+   배민/쿠팡 점유율 — 검색 드롭다운 + 선택 매장 도넛 (밥구정로데오)
+   ════════════════════════════════════════════ */
+window.__babShare = window.__babShare || {};   // {sfx:{rows:[{nm,bp1,cp1,bp2,cp2}]}}
+window.__babSelIdx = window.__babSelIdx || {}; // {sfx:idx}
+window.__babDonut = window.__babDonut || {};   // {canvasId:ChartInstance}
+function babDrawDonut(id,bm,cp){
+  const el=document.getElementById(id); if(!el||!window.Chart) return;
+  if(window.__babDonut[id]){try{window.__babDonut[id].destroy();}catch(e){}}
+  window.__babDonut[id]=new Chart(el,{type:'doughnut',data:{datasets:[{data:[bm,cp],backgroundColor:['#4B7BE8','#E86035'],borderWidth:0,hoverOffset:0}]},options:{responsive:false,cutout:'52%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:300}}});
+}
+function babSetTxt(id,t){const el=document.getElementById(id); if(el) el.textContent=t;}
+function babSelectStore(sfx,idx){
+  const data=(window.__babShare[sfx]||{}).rows||[];
+  const r=data[idx]; if(!r) return;
+  window.__babSelIdx[sfx]=idx;
+  const nm=document.getElementById('bab-sel-nm-'+sfx); if(nm){nm.textContent=r.nm; nm.style.color='#1e293b';}
+  const inp=document.getElementById('ssel-input-bab-'+sfx); if(inp) inp.value=r.nm;
+  babSetTxt('bab-sel-bm1-'+sfx, r.bp1+'%'); babSetTxt('bab-sel-cp1-'+sfx, r.cp1+'%');
+  babSetTxt('bab-sel-bm2-'+sfx, r.bp2+'%'); babSetTxt('bab-sel-cp2-'+sfx, r.cp2+'%');
+  const dcp=r.cp2-r.cp1, chg=document.getElementById('bab-sel-chg-'+sfx);
+  if(chg){chg.textContent='쿠팡 '+(dcp>=0?'+':'')+dcp+'%p'; chg.style.color=dcp>0?'#dc2626':dcp<0?'#2563eb':'#94a3b8';}
+  babDrawDonut('bab_dt'+sfx+'_sel_1', r.bp1, r.cp1);
+  babDrawDonut('bab_dt'+sfx+'_sel_2', r.bp2, r.cp2);
+}
+function babOpenList(sfx){ babFilterStores(sfx, document.getElementById('ssel-input-bab-'+sfx)?.value||''); }
+function babFilterStores(sfx,q){
+  const box=document.getElementById('ssel-list-bab-'+sfx); if(!box) return;
+  const rows=(window.__babShare[sfx]||{}).rows||[];
+  const ql=(q||'').trim().toLowerCase();
+  const items=rows.map((r,i)=>({r,i})).filter(o=>!ql||o.r.nm.toLowerCase().includes(ql));
+  box.innerHTML = items.length
+    ? items.map(o=>`<div class="ssel-item" onmousedown="babPickStore('${sfx}',${o.i})">${t10Esc(o.r.nm)}</div>`).join('')
+    : '<div class="ssel-empty">검색 결과 없음</div>';
+  box.style.display='block';
+}
+function babPickStore(sfx,idx){
+  const box=document.getElementById('ssel-list-bab-'+sfx); if(box) box.style.display='none';
+  babSelectStore(sfx,idx);
+}
+document.addEventListener('click',function(e){
+  document.querySelectorAll('.ssel-list').forEach(b=>{ if(b.parentNode && !b.parentNode.contains(e.target)) b.style.display='none'; });
+});
 
 /* ════════════════════════════════════════════
    밥구정로데오 JS
@@ -1619,46 +1680,46 @@ function renderDashboard({r1,r2,w1L,w2L}){
     const T1=TB1+TC1,T2=TB2+TC2;
     const gb1=T1>0?Math.round(TB1/T1*100):0,gc1=100-gb1;
     const gb2=T2>0?Math.round(TB2/T2*100):0,gc2=100-gb2;
-    let h=`<div class="card sec" style="margin-top:0;"><div class="sec-tit">배민 / 쿠팡이츠 점유율 비교</div>
-    <div class="donut-summary">
-      <div class="donut-wrap"><div class="donut-lbl">${w1L} 전체</div>
-        <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_total_1" width="72" height="72"></canvas>
-        <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div></div>
-      </div>
-      <div class="donut-arrow">→</div>
-      <div class="donut-wrap"><div class="donut-lbl">${w2L} 전체</div>
-        <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_total_2" width="72" height="72"></canvas>
-        <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div></div>
-      </div>
-      <div style="font-size:11px;color:#64748b;line-height:1.7;margin-left:8px;">
-        <div><span style="color:#4B7BE8;font-weight:700;">■</span> 배민</div>
-        <div><span style="color:#E86035;font-weight:700;">■</span> 쿠팡이츠</div>
-        <div style="margin-top:5px;font-size:10px;">쿠팡 비중 변화</div>
-        <div style="font-weight:800;font-size:13px;color:${gc2>gc1?'#dc2626':gc2<gc1?'#2563eb':'#94a3b8'};">${gc2-gc1>=0?'+':''}${gc2-gc1}%p</div>
-      </div>
+    const h=`<div class="card sec" style="margin-top:0;"><div class="sec-tit">배민 / 쿠팡이츠 점유율 비교</div>
+    <div class="ssel">
+      <input id="ssel-input-bab-${sfx}" class="ssel-input" type="text" placeholder="🔍 매장 검색·선택" autocomplete="off"
+        onfocus="babOpenList('${sfx}')" oninput="babFilterStores('${sfx}',this.value)">
+      <div id="ssel-list-bab-${sfx}" class="ssel-list"></div>
     </div>
-    <div class="donut-grid">`;
-    rows.forEach((r,idx)=>{
-      const a=r.a,b=r.b;
-      const bp1=a?Math.round(a.bm/a.tot*100):0,cp1=100-bp1;
-      const bp2=b?Math.round(b.bm/b.tot*100):0,cp2=100-bp2;
-      const dcp=cp2-cp1;
-      h+=`<div class="donut-card"><div class="donut-card-nm" title="${r.nm}">${r.nm}</div>
-        <div class="donut-card-charts">
-          <div class="donut-card-unit"><span class="donut-card-wk tag-prev">${w1L}</span>
-            <div class="donut-canvas-wrap" style="width:54px;height:54px;"><canvas id="bab_dt${sfx}_${idx}_1" width="54" height="54"></canvas>
-            <div class="donut-center" style="gap:0;"><span style="font-size:9px;font-weight:700;color:#4B7BE8;line-height:1.15;">${bp1}%</span><span style="font-size:8px;font-weight:600;color:#E86035;line-height:1.15;">${cp1}%</span></div></div>
+    <div class="share2">
+      <div class="share-card">
+        <div class="share-card-hd">🏬 전체 매장 통합</div>
+        <div class="donut-pair">
+          <div class="donut-wrap"><div class="donut-lbl">${w1L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_total_1" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div></div>
           </div>
-          <div style="font-size:15px;font-weight:900;color:#cbd5e1;align-self:center;margin-top:10px;">›</div>
-          <div class="donut-card-unit"><span class="donut-card-wk tag-curr">${w2L}</span>
-            <div class="donut-canvas-wrap" style="width:54px;height:54px;"><canvas id="bab_dt${sfx}_${idx}_2" width="54" height="54"></canvas>
-            <div class="donut-center" style="gap:0;"><span style="font-size:9px;font-weight:700;color:#4B7BE8;line-height:1.15;">${bp2}%</span><span style="font-size:8px;font-weight:600;color:#E86035;line-height:1.15;">${cp2}%</span></div></div>
+          <div class="donut-arrow">›</div>
+          <div class="donut-wrap"><div class="donut-lbl">${w2L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_total_2" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div></div>
           </div>
         </div>
-        <div class="donut-chg" style="color:${dcp>0?'#dc2626':dcp<0?'#2563eb':'#94a3b8'};">쿠팡 ${dcp>=0?'+':''}${dcp}%p</div>
-      </div>`;
-    });
-    h+='</div></div>';
+        <div class="donut-legend"><span><span class="lg-bm"></span>배민</span><span><span class="lg-cp"></span>쿠팡이츠</span></div>
+        <div class="donut-chg" style="margin-top:6px;color:${gc2>gc1?'#dc2626':gc2<gc1?'#2563eb':'#94a3b8'};">쿠팡 ${gc2-gc1>=0?'+':''}${gc2-gc1}%p</div>
+      </div>
+      <div class="share-card">
+        <div class="share-card-hd" id="bab-sel-nm-${sfx}" style="color:#94a3b8;">⬆ 매장을 선택하세요</div>
+        <div class="donut-pair">
+          <div class="donut-wrap"><div class="donut-lbl">${w1L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_sel_1" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm" id="bab-sel-bm1-${sfx}">–</span><span class="donut-center-cp" id="bab-sel-cp1-${sfx}">–</span></div></div>
+          </div>
+          <div class="donut-arrow">›</div>
+          <div class="donut-wrap"><div class="donut-lbl">${w2L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="bab_dt${sfx}_sel_2" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm" id="bab-sel-bm2-${sfx}">–</span><span class="donut-center-cp" id="bab-sel-cp2-${sfx}">–</span></div></div>
+          </div>
+        </div>
+        <div class="donut-legend"><span><span class="lg-bm"></span>배민</span><span><span class="lg-cp"></span>쿠팡이츠</span></div>
+        <div class="donut-chg" id="bab-sel-chg-${sfx}" style="margin-top:6px;color:#94a3b8;">쿠팡 –</div>
+      </div>
+    </div></div>`;
     return h;
   }
   // 도넛 렌더 데이터 보관 (drawCharts에서 실제 차트 생성)
@@ -1666,7 +1727,7 @@ function renderDashboard({r1,r2,w1L,w2L}){
     if(!hasShare)return null;
     const list=filteredStores(brand);
     const rows=[];let TB1=0,TC1=0,TB2=0,TC2=0;
-    list.forEach(s=>{const a=shareOf(cs1,s.code),b=shareOf(cs2,s.code);if(!a&&!b)return;TB1+=a?a.bm:0;TC1+=a?a.cp:0;TB2+=b?b.bm:0;TC2+=b?b.cp:0;rows.push({a,b,w2:b?b.tot:0});});
+    list.forEach(s=>{const a=shareOf(cs1,s.code),b=shareOf(cs2,s.code);if(!a&&!b)return;TB1+=a?a.bm:0;TC1+=a?a.cp:0;TB2+=b?b.bm:0;TC2+=b?b.cp:0;rows.push({nm:s.display,a,b,w2:b?b.tot:0});});
     rows.sort((x,y)=>y.w2-x.w2);
     return{rows,TB1,TC1,TB2,TC2};
   }
@@ -1756,12 +1817,18 @@ function renderDashboard({r1,r2,w1L,w2L}){
       const T1=sd.TB1+sd.TC1,T2=sd.TB2+sd.TC2;
       mkDonut('bab_dt'+sfx+'_total_1',T1>0?Math.round(sd.TB1/T1*100):0,T1>0?100-Math.round(sd.TB1/T1*100):0);
       mkDonut('bab_dt'+sfx+'_total_2',T2>0?Math.round(sd.TB2/T2*100):0,T2>0?100-Math.round(sd.TB2/T2*100):0);
-      sd.rows.forEach((r,idx)=>{
+      // 선택 매장용 데이터 전역 보관 (드롭다운 검색/선택에서 사용)
+      window.__babShare=window.__babShare||{};
+      window.__babShare[sfx]={rows:sd.rows.map(r=>{
         const bp1=r.a?Math.round(r.a.bm/r.a.tot*100):0;
         const bp2=r.b?Math.round(r.b.bm/r.b.tot*100):0;
-        mkDonut('bab_dt'+sfx+'_'+idx+'_1',bp1,100-bp1);
-        mkDonut('bab_dt'+sfx+'_'+idx+'_2',bp2,100-bp2);
-      });
+        return{nm:r.nm,bp1,cp1:100-bp1,bp2,cp2:100-bp2};
+      })};
+      // 기본 선택(이전 선택 유지, 없으면 매출 1위)
+      window.__babSelIdx=window.__babSelIdx||{};
+      let selIdx=window.__babSelIdx[sfx];
+      if(selIdx==null||selIdx>=sd.rows.length)selIdx=0;
+      babSelectStore(sfx,selIdx);
     }
   }
 
