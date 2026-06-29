@@ -845,15 +845,16 @@ textarea:focus{border-color:#4B7BE8;}
   <div class="inp-title">🍜 황제쌀국수 주간보고 생성기</div>
   <div class="inp-group">
     <label>데이터 붙여넣기 (엑셀에서 전체 복사 → 여기에 붙여넣기)</label>
-    <textarea id="hz_tData" rows="22" placeholder="5월4주차	산들그린_도곡점	5,310,800	3,141,000	2,169,800	810	2,000	15%	2,000
-	위드저니파트너스_대구봉산점	1,088,300	740,600	347,700	510	2,000	19%	1,000
-...
-5월5주차	산들그린_도곡점	3,736,300	2,421,500	1,314,800	450	2,000	12%	1,000
-	위드저니파트너스_대구봉산점	845,800	338,900	506,900	350	2,000	19%	1,000
-..."></textarea>
+    <textarea id="hz_tData" rows="22" placeholder="매출일자	매장명	총매출	배민매출	쿠팡이츠매출	우가클릭비	배민즉시할인	쿠팡광고율	쿠팡즉시할인
+2026. 6. 15	산들그린_도곡점	298,300	176,300	122,000	710	2,000	18%	1,000
+	산들그린_인천간석점	0	0	0	0	0%	0%	0
+2026. 6. 16	산들그린_도곡점	321,000	241,000	80,000	710	2,000	18%	1,000
+	산들그린_인천간석점	0	0	0	0	0%	0%	0
+... (매장별 일자 데이터 계속) ..."></textarea>
     <div class="hint">
-      형식: 전주 블록(첫 행에 주차명+첫 매장, 이후 행에 나머지 매장) → 금주 블록 동일<br>
-      열 순서: <code>주차명(첫 행만)</code> <code>매장명</code> <code>총매출</code> <code>배민매출</code> <code>쿠팡매출</code> <code>우가클릭비</code> <code>배민즉할</code> <code>쿠팡광고율%</code> <code>쿠팡즉할</code>
+      형식: <b>일자별 매출</b> · 날짜는 블록 첫 행에만(이후 같은 날짜 행은 빈칸) · 헤더행 있어도/없어도 OK<br>
+      <b>월~일 기준 자동 주차 묶음</b> → 가장 최근 2주를 전주/금주로 비교<br>
+      열 순서: <code>매출일자</code> <code>매장명</code> <code>총매출</code> <code>배민매출</code> <code>쿠팡이츠매출</code> <code>우가클릭비</code> <code>배민즉시할인</code> <code>쿠팡광고율</code> <code>쿠팡즉시할인</code>
     </div>
   </div>
   <div id="hz_errMsg" class="err"></div>
@@ -1029,6 +1030,35 @@ function babPickStore(sfx,idx){
 document.addEventListener('click',function(e){
   document.querySelectorAll('.ssel-list').forEach(b=>{ if(b.parentNode && !b.parentNode.contains(e.target)) b.style.display='none'; });
 });
+
+/* ── 점유율 검색·선택 (범용: prefix로 탭 구분) ── */
+window.__shareStore = window.__shareStore || {};   // {prefix:{rows:[{nm,bp1,cp1,bp2,cp2}]}}
+window.__shareSel = window.__shareSel || {};
+function shareSelectStore(prefix,idx){
+  const data=(window.__shareStore[prefix]||{}).rows||[];
+  const r=data[idx]; if(!r) return;
+  window.__shareSel[prefix]=idx;
+  const nm=document.getElementById(prefix+'-sel-nm'); if(nm){nm.textContent=r.nm; nm.style.color='#1a2235';}
+  const inp=document.getElementById('ssel-input-'+prefix); if(inp) inp.value=r.nm;
+  babSetTxt(prefix+'-sel-bm1', r.bp1+'%'); babSetTxt(prefix+'-sel-cp1', r.cp1+'%');
+  babSetTxt(prefix+'-sel-bm2', r.bp2+'%'); babSetTxt(prefix+'-sel-cp2', r.cp2+'%');
+  const dcp=r.cp2-r.cp1, chg=document.getElementById(prefix+'-sel-chg');
+  if(chg){chg.textContent='쿠팡 '+(dcp>=0?'+':'')+dcp+'%p'; chg.style.color=dcp>0?'#dc2626':dcp<0?'#2563eb':'#94a3b8';}
+  babDrawDonut(prefix+'_dt_sel_1', r.bp1, r.cp1);
+  babDrawDonut(prefix+'_dt_sel_2', r.bp2, r.cp2);
+}
+function shareOpenList(prefix){ shareFilterStores(prefix, (document.getElementById('ssel-input-'+prefix)||{}).value||''); }
+function shareFilterStores(prefix,q){
+  const box=document.getElementById('ssel-list-'+prefix); if(!box) return;
+  const rows=(window.__shareStore[prefix]||{}).rows||[];
+  const ql=(q||'').trim().toLowerCase();
+  const items=rows.map((r,i)=>({r,i})).filter(o=>!ql||o.r.nm.toLowerCase().includes(ql));
+  box.innerHTML=items.length
+    ? items.map(o=>`<div class="ssel-item" onmousedown="sharePickStore('${prefix}',${o.i})">${t10Esc(o.r.nm)}</div>`).join('')
+    : '<div class="ssel-empty">검색 결과 없음</div>';
+  box.style.display='block';
+}
+function sharePickStore(prefix,idx){ const box=document.getElementById('ssel-list-'+prefix); if(box) box.style.display='none'; shareSelectStore(prefix,idx); }
 
 /* ════════════════════════════════════════════
    밥구정로데오 JS
@@ -2276,39 +2306,52 @@ async function hz_saveImg(){
 function hz_showErr(msg){const el=document.getElementById('hz_errMsg');el.textContent=msg;el.style.display='block';}
 function hz_toNum(v){return parseFloat(String(v).replace(/,/g,'').replace(/%/g,'').trim())||0;}
 
+// 일간 매출 → 주차(월~일) 집계. 헤더행 유무 모두 허용, 날짜는 블록 첫 행에만 있어도 OK.
 function hz_parseData(text){
-  const lines=text.trim().split('\n').map(l=>l.split('\t'));
+  const rows=text.replace(/\r/g,'').split('\n').map(l=>l.split('\t'));
+  const parseDate=s=>{
+    const m=String(s).replace(/\s/g,'').match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})\.?$/);
+    if(!m)return null;
+    const d=new Date(+m[1],+m[2]-1,+m[3]); d.setHours(0,0,0,0);
+    return isNaN(d.getTime())?null:d;
+  };
+  const mondayOf=d=>{const x=new Date(d);const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);x.setHours(0,0,0,0);return x.getTime();};
+  const recs=[]; let curDate=null;
+  for(const line of rows){
+    const c0=(line[0]||'').trim(), c1=(line[1]||'').trim();
+    if(c1==='매장명'||c0==='매출일자') continue;          // 헤더행 스킵
+    if(c0){ const d=parseDate(c0); if(d) curDate=d; }      // 날짜 갱신
+    if(!c1) continue;                                      // 빈/구분 행
+    if(!curDate) continue;                                 // 날짜 이전 데이터 무시
+    const v=line.slice(2);
+    recs.push({date:curDate.getTime(), mon:mondayOf(curDate), name:c1,
+      total:hz_toNum(v[0]), bm:hz_toNum(v[1]), cp:hz_toNum(v[2]),
+      ad:[hz_toNum(v[3]),hz_toNum(v[4]),hz_toNum(v[5]),hz_toNum(v[6])]});
+  }
+  if(!recs.length) return {err:'일자별 매출 데이터를 찾을 수 없습니다. (매출일자·매장명 열을 확인하세요)'};
+  const weeks=[...new Set(recs.map(r=>r.mon))].sort((a,b)=>a-b);
+  if(weeks.length<2) return {err:'서로 다른 2개 주(월~일) 데이터가 필요합니다. 현재 '+weeks.length+'개 주만 감지됨.'};
+  const wPrev=weeks[weeks.length-2], wCur=weeks[weeks.length-1];
+  const order=[]; const seen=new Set();
+  recs.forEach(r=>{ if(!seen.has(r.name)){seen.add(r.name);order.push(r.name);} });
+  const agg={}; // (mon|name) → 주간 집계
+  recs.forEach(r=>{
+    const k=r.mon+'|'+r.name;
+    let a=agg[k]; if(!a){a=agg[k]={total:0,bm:0,cp:0,lastDate:-1,ad:[0,0,0,0]};}
+    a.total+=r.total; a.bm+=r.bm; a.cp+=r.cp;
+    if(r.date>=a.lastDate){a.lastDate=r.date; a.ad=r.ad;} // 광고설정은 그 주 마지막 날 값(대표값)
+  });
   const S=[],W1=[],W2=[],AD1=[],AD2=[];
-  let w1L='',w2L='';
-  let weekBlocks=[];
-  let curBlock=null;
-  for(const line of lines){
-    const col0=(line[0]||'').trim();
-    const col1=(line[1]||'').trim();
-    if(col0){
-      if(curBlock) weekBlocks.push(curBlock);
-      curBlock={label:col0,rows:[]};
-      if(col1) curBlock.rows.push({name:col1,vals:line.slice(2)});
-    } else if(col1&&curBlock){
-      curBlock.rows.push({name:col1,vals:line.slice(2)});
-    }
-  }
-  if(curBlock) weekBlocks.push(curBlock);
-  if(weekBlocks.length<2) return {err:'전주/금주 블록 2개를 찾을 수 없습니다. 주차명이 첫 열에 있는지 확인해주세요.'};
-  w1L=weekBlocks[0].label; w2L=weekBlocks[1].label;
-  const b1=weekBlocks[0].rows, b2=weekBlocks[1].rows;
-  if(b1.length===0) return {err:'전주 매장 데이터가 없습니다.'};
-  if(b2.length===0) return {err:'금주 매장 데이터가 없습니다.'};
-  for(let i=0;i<b1.length;i++){
-    const r1=b1[i], r2=b2[i]||b2.find(r=>r.name===r1.name)||b2[0];
-    S.push(r1.name);
-    W1.push([hz_toNum(r1.vals[0]),hz_toNum(r1.vals[1]),hz_toNum(r1.vals[2])]);
-    W2.push([hz_toNum(r2.vals[0]),hz_toNum(r2.vals[1]),hz_toNum(r2.vals[2])]);
-    AD1.push([hz_toNum(r1.vals[3]),hz_toNum(r1.vals[4]),hz_toNum(r1.vals[5]),hz_toNum(r1.vals[6])]);
-    AD2.push([hz_toNum(r2.vals[3]),hz_toNum(r2.vals[4]),hz_toNum(r2.vals[5]),hz_toNum(r2.vals[6])]);
-  }
-  const hasAd=AD1.some(a=>a.some(v=>v>0));
-  return {S,W1,W2,AD1,AD2,w1L,w2L,hasAd};
+  order.forEach(name=>{
+    const a1=agg[wPrev+'|'+name]||{total:0,bm:0,cp:0,ad:[0,0,0,0]};
+    const a2=agg[wCur+'|'+name]||{total:0,bm:0,cp:0,ad:[0,0,0,0]};
+    S.push(name);
+    W1.push([a1.total,a1.bm,a1.cp]); W2.push([a2.total,a2.bm,a2.cp]);
+    AD1.push(a1.ad.slice()); AD2.push(a2.ad.slice());
+  });
+  const fmtRange=mon=>{const a=new Date(mon),b=new Date(mon+6*864e5);return (a.getMonth()+1)+'/'+a.getDate()+'~'+(b.getMonth()+1)+'/'+b.getDate();};
+  const hasAd=AD1.some(a=>a.some(v=>v>0))||AD2.some(a=>a.some(v=>v>0));
+  return {S,W1,W2,AD1,AD2,w1L:fmtRange(wPrev),w2L:fmtRange(wCur),hasAd};
 }
 
 function hz_runAnalyze(){
@@ -2350,60 +2393,52 @@ function hz_renderDash(){
   }
 
   function shareSection(){
-    const gb1=Math.round(TB1/TW1*100),gc1=100-gb1,gb2=Math.round(TB2/TW2*100),gc2=100-gb2;
-    let h=`<div class="donut-summary">
-      <div class="donut-wrap">
-        <div class="donut-lbl">${w1L} 전체</div>
-        <div class="donut-canvas-wrap" style="width:58px;height:58px;">
-          <canvas id="hz_dt_total_1" width="58" height="58"></canvas>
-          <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div>
+    const gb1=TW1>0?Math.round(TB1/TW1*100):0,gc1=100-gb1,gb2=TW2>0?Math.round(TB2/TW2*100):0,gc2=100-gb2;
+    // 매장별 점유율 데이터 전역 보관(검색·선택용). rows는 금주 매출 내림차순(ord) 순서
+    const rows=ord.map(i=>{
+      const t1=W1[i][0],t2=W2[i][0];
+      const bp1=t1>0?Math.round(W1[i][1]/t1*100):0, bp2=t2>0?Math.round(W2[i][1]/t2*100):0;
+      return {nm:S[i],bp1,cp1:100-bp1,bp2,cp2:100-bp2};
+    });
+    window.__shareStore=window.__shareStore||{}; window.__shareStore['hz']={rows};
+    return `<div class="ssel">
+      <input id="ssel-input-hz" class="ssel-input" type="text" placeholder="🔍 매장 검색·선택" autocomplete="off" onfocus="shareOpenList('hz')" oninput="shareFilterStores('hz',this.value)">
+      <div id="ssel-list-hz" class="ssel-list"></div>
+    </div>
+    <div class="share2">
+      <div class="share-card">
+        <div class="share-card-hd">🏬 전체 매장 통합</div>
+        <div class="donut-pair">
+          <div class="donut-wrap"><div class="donut-lbl">${w1L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="hz_dt_total_1" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm">${gb1}%</span><span class="donut-center-cp">${gc1}%</span></div></div>
+          </div>
+          <div class="donut-arrow">›</div>
+          <div class="donut-wrap"><div class="donut-lbl">${w2L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="hz_dt_total_2" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div></div>
+          </div>
         </div>
+        <div class="donut-legend"><span><span class="lg-bm"></span>배민</span><span><span class="lg-cp"></span>쿠팡이츠</span></div>
+        <div class="donut-chg" style="margin-top:6px;color:${gc2>gc1?'#dc2626':gc2<gc1?'#2563eb':'#94a3b8'};">쿠팡 ${gc2-gc1>=0?'+':''}${gc2-gc1}%p</div>
       </div>
-      <div class="donut-arrow">→</div>
-      <div class="donut-wrap">
-        <div class="donut-lbl">${w2L} 전체</div>
-        <div class="donut-canvas-wrap" style="width:58px;height:58px;">
-          <canvas id="hz_dt_total_2" width="58" height="58"></canvas>
-          <div class="donut-center"><span class="donut-center-bm">${gb2}%</span><span class="donut-center-cp">${gc2}%</span></div>
+      <div class="share-card">
+        <div class="share-card-hd" id="hz-sel-nm" style="color:#94a3b8;">⬆ 매장을 검색·선택하세요</div>
+        <div class="donut-pair">
+          <div class="donut-wrap"><div class="donut-lbl">${w1L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="hz_dt_sel_1" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm" id="hz-sel-bm1">–</span><span class="donut-center-cp" id="hz-sel-cp1">–</span></div></div>
+          </div>
+          <div class="donut-arrow">›</div>
+          <div class="donut-wrap"><div class="donut-lbl">${w2L}</div>
+            <div class="donut-canvas-wrap" style="width:72px;height:72px;"><canvas id="hz_dt_sel_2" width="72" height="72"></canvas>
+            <div class="donut-center"><span class="donut-center-bm" id="hz-sel-bm2">–</span><span class="donut-center-cp" id="hz-sel-cp2">–</span></div></div>
+          </div>
         </div>
-      </div>
-      <div style="font-size:9px;color:#8896b0;line-height:1.6;margin-left:6px;">
-        <div><span style="color:#4B7BE8;font-weight:600;">■</span> 배민</div>
-        <div><span style="color:#E86035;font-weight:600;">■</span> 쿠팡이츠</div>
-        <div style="margin-top:4px;font-size:8.5px;">쿠팡 비중 변화</div>
-        <div style="font-weight:700;font-size:10px;color:${gc2>gc1?'#dc2626':'#2563eb'};">${gc2>gc1?'+':''}${gc2-gc1}%p</div>
+        <div class="donut-legend"><span><span class="lg-bm"></span>배민</span><span><span class="lg-cp"></span>쿠팡이츠</span></div>
+        <div class="donut-chg" id="hz-sel-chg" style="margin-top:6px;color:#94a3b8;">쿠팡 –</div>
       </div>
     </div>`;
-    h+='<div class="donut-grid">';
-    ord.forEach(i=>{
-      const t1=W1[i][0],t2=W2[i][0];
-      const bp1=t1>0?Math.round(W1[i][1]/t1*100):0,cp1=100-bp1;
-      const bp2=t2>0?Math.round(W2[i][1]/t2*100):0,cp2=100-bp2;
-      const dcp=cp2-cp1;
-      h+=`<div class="donut-card">
-        <div class="donut-card-nm">${S[i]}</div>
-        <div class="donut-card-charts">
-          <div class="donut-card-unit">
-            <span class="donut-card-wk tag-prev">${w1L}</span>
-            <div class="donut-canvas-wrap" style="width:50px;height:50px;">
-              <canvas id="hz_dt_${i}_1" width="50" height="50"></canvas>
-              <div class="donut-center" style="gap:0;"><span style="font-size:7.5px;font-weight:700;color:#4B7BE8;line-height:1.15;">${bp1}%</span><span style="font-size:6.5px;font-weight:600;color:#E86035;line-height:1.15;">${cp1}%</span></div>
-            </div>
-          </div>
-          <div style="font-size:13px;font-weight:900;color:#4B7BE8;align-self:center;margin-top:8px;">›</div>
-          <div class="donut-card-unit">
-            <span class="donut-card-wk tag-curr">${w2L}</span>
-            <div class="donut-canvas-wrap" style="width:50px;height:50px;">
-              <canvas id="hz_dt_${i}_2" width="50" height="50"></canvas>
-              <div class="donut-center" style="gap:0;"><span style="font-size:7.5px;font-weight:700;color:#4B7BE8;line-height:1.15;">${bp2}%</span><span style="font-size:6.5px;font-weight:600;color:#E86035;line-height:1.15;">${cp2}%</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="donut-chg" style="color:${dcp>0?'#dc2626':'#2563eb'};">쿠팡 ${dcp>=0?'+':''}${dcp}%p</div>
-      </div>`;
-    });
-    h+='</div>';
-    return h;
   }
 
   function adTable(){
@@ -2492,18 +2527,12 @@ function hz_initDonuts(){
   const {S,W1,W2}=hz_D;
   const TW1=W1.reduce((s,d)=>s+d[0],0),TW2=W2.reduce((s,d)=>s+d[0],0);
   const TB1=W1.reduce((s,d)=>s+d[1],0),TB2=W2.reduce((s,d)=>s+d[1],0);
-  const ord=[...S.keys()].sort((a,b)=>W2[b][0]-W2[a][0]);
   setTimeout(()=>{
-    const gb1=Math.round(TB1/TW1*100),gc1=100-gb1,gb2=Math.round(TB2/TW2*100),gc2=100-gb2;
-    hz_mkDonut('hz_dt_total_1',gb1,gc1);
-    hz_mkDonut('hz_dt_total_2',gb2,gc2);
-    ord.forEach(i=>{
-      const t1=W1[i][0],t2=W2[i][0];
-      const bp1=t1>0?Math.round(W1[i][1]/t1*100):0,cp1=100-bp1;
-      const bp2=t2>0?Math.round(W2[i][1]/t2*100):0,cp2=100-bp2;
-      hz_mkDonut(`hz_dt_${i}_1`,bp1,cp1);
-      hz_mkDonut(`hz_dt_${i}_2`,bp2,cp2);
-    });
+    const gb1=TW1>0?Math.round(TB1/TW1*100):0,gc1=100-gb1,gb2=TW2>0?Math.round(TB2/TW2*100):0,gc2=100-gb2;
+    babDrawDonut('hz_dt_total_1',gb1,gc1);
+    babDrawDonut('hz_dt_total_2',gb2,gc2);
+    const rows=(window.__shareStore['hz']||{}).rows||[];
+    if(rows.length) shareSelectStore('hz',0); // 기본: 금주 매출 1위
   },100);
 }
 
