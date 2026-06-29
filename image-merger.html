@@ -83,7 +83,7 @@
   <h1>🧩 이미지 합치기 생성기</h1>
   <div class="hint">
     <span>💡</span>
-    <p>여러 이미지를 <b>가로</b> 또는 <b>세로</b>로 이어붙여 한 장으로 만들어요. 파일 선택·드래그·<b>Ctrl+V</b>(캡처 붙여넣기)로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. 정렬·간격·여백·배경색을 조절할 수 있어요.</p>
+    <p>여러 이미지를 <b>가로</b> 또는 <b>세로</b>로 이어붙여 한 장으로 만들어요. 파일 선택·드래그·<b>Ctrl+V</b>(캡처 붙여넣기)로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. <b>크기 맞춤</b>을 켜면 이미지들의 폭(세로 합칠 때)이나 높이(가로 합칠 때)를 비율 그대로 같게 맞춰 깔끔하게 붙어요. 정렬·간격·여백·배경색도 조절할 수 있어요.</p>
   </div>
 
   <div class="drop" id="drop">
@@ -103,6 +103,13 @@
         <button data-v="start" id="alignStart">위</button>
         <button data-v="center" class="active">가운데</button>
         <button data-v="end" id="alignEnd">아래</button>
+      </span>
+    </label>
+    <label><span class="muted" id="fitLabel">높이 맞춤</span>
+      <span class="seg" id="fit">
+        <button data-v="none" class="active">끄기</button>
+        <button data-v="min">작은쪽</button>
+        <button data-v="max">큰쪽</button>
       </span>
     </label>
     <label><span class="muted">간격</span><input type="number" id="gap" min="0" value="0"><span class="muted">px</span></label>
@@ -132,6 +139,7 @@
   let items = []; // { id, name, url, img, w, h }
   let dir = "horizontal";
   let align = "center";
+  let fit = "none"; // none | min | max — 합치는 축의 반대쪽 크기 맞춤
   let resultUrl = null;
   let dragIndex = null;
   let seq = 0;
@@ -207,8 +215,21 @@
     const transparent = $("transparent").checked;
     const bg = $("bg").value;
 
-    const crosses = items.map((it) => (horiz ? it.h : it.w));
-    const mains = items.map((it) => (horiz ? it.w : it.h));
+    // 크기 맞춤: 합치는 축의 반대쪽(가로합치기→높이, 세로합치기→폭)을 기준에 맞춰 비율 그대로 스케일
+    const crossesRaw = items.map((it) => (horiz ? it.h : it.w));
+    let target = null;
+    if (fit === "min") target = Math.min.apply(null, crossesRaw);
+    else if (fit === "max") target = Math.max.apply(null, crossesRaw);
+
+    // 각 이미지의 실제 그려질 크기
+    const draw = items.map((it) => {
+      const cross = horiz ? it.h : it.w;
+      const scale = target ? target / cross : 1;
+      return { w: Math.round(it.w * scale), h: Math.round(it.h * scale) };
+    });
+
+    const crosses = draw.map((d) => (horiz ? d.h : d.w));
+    const mains = draw.map((d) => (horiz ? d.w : d.h));
     const crossMax = Math.max.apply(null, crosses);
     const mainTotal = mains.reduce((a, b) => a + b, 0) + gap * (items.length - 1);
 
@@ -221,15 +242,16 @@
     if (!transparent) { ctx.fillStyle = bg; ctx.fillRect(0, 0, totalW, totalH); }
 
     let cursor = pad;
-    items.forEach((it) => {
-      const crossSize = horiz ? it.h : it.w;
+    items.forEach((it, i) => {
+      const dw = draw[i].w, dh = draw[i].h;
+      const crossSize = horiz ? dh : dw;
       let crossOff = pad;
       if (align === "center") crossOff = pad + (crossMax - crossSize) / 2;
       else if (align === "end") crossOff = pad + (crossMax - crossSize);
       const x = horiz ? cursor : crossOff;
       const y = horiz ? crossOff : cursor;
-      ctx.drawImage(it.img, x, y, it.w, it.h);
-      cursor += (horiz ? it.w : it.h) + gap;
+      ctx.drawImage(it.img, x, y, dw, dh);
+      cursor += (horiz ? dw : dh) + gap;
     });
 
     resultUrl = canvas.toDataURL("image/png");
@@ -243,6 +265,7 @@
     $("alignLabel").textContent = h ? "세로 정렬" : "가로 정렬";
     $("alignStart").textContent = h ? "위" : "왼쪽";
     $("alignEnd").textContent = h ? "아래" : "오른쪽";
+    $("fitLabel").textContent = h ? "높이 맞춤" : "가로폭 맞춤";
   }
 
   // 이벤트 바인딩
@@ -272,6 +295,12 @@
     const b = e.target.closest("button"); if (!b) return;
     align = b.dataset.v; resultUrl = null;
     $("align").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    render();
+  });
+  $("fit").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    fit = b.dataset.v; resultUrl = null;
+    $("fit").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
     render();
   });
   ["gap", "pad", "bg"].forEach((id) => $(id).addEventListener("input", () => { resultUrl = null; render(); }));

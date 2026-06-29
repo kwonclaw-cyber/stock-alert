@@ -6,6 +6,7 @@ import PageHelp from "../../components/PageHelp";
 
 type Dir = "horizontal" | "vertical";
 type Align = "start" | "center" | "end";
+type Fit = "none" | "min" | "max";
 
 type Item = {
   id: string;
@@ -34,6 +35,7 @@ export default function MergePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [dir, setDir] = useState<Dir>("horizontal");
   const [align, setAlign] = useState<Align>("center");
+  const [fit, setFit] = useState<Fit>("none");
   const [gap, setGap] = useState(0);
   const [pad, setPad] = useState(0);
   const [bg, setBg] = useState("#0b0f14");
@@ -103,9 +105,21 @@ export default function MergePage() {
     setBusy(true);
     try {
       const horiz = dir === "horizontal";
+      // 크기 맞춤: 합치는 축의 반대쪽(가로합치기→높이, 세로합치기→폭)을 기준에 맞춰 비율 그대로 스케일
+      const crossesRaw = items.map((it) => (horiz ? it.h : it.w));
+      let target: number | null = null;
+      if (fit === "min") target = Math.min(...crossesRaw);
+      else if (fit === "max") target = Math.max(...crossesRaw);
+
+      const draw = items.map((it) => {
+        const cross = horiz ? it.h : it.w;
+        const scale = target ? target / cross : 1;
+        return { w: Math.round(it.w * scale), h: Math.round(it.h * scale) };
+      });
+
       // 합치는 축(main)과 교차축(cross) 크기 계산
-      const mains = items.map((it) => (horiz ? it.w : it.h));
-      const crosses = items.map((it) => (horiz ? it.h : it.w));
+      const mains = draw.map((d) => (horiz ? d.w : d.h));
+      const crosses = draw.map((d) => (horiz ? d.h : d.w));
       const crossMax = Math.max(...crosses);
       const mainTotal = mains.reduce((a, b) => a + b, 0) + gap * (items.length - 1);
 
@@ -122,14 +136,15 @@ export default function MergePage() {
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         const img = await loadImage(it.url);
-        const crossSize = horiz ? it.h : it.w;
+        const dw = draw[i].w, dh = draw[i].h;
+        const crossSize = horiz ? dh : dw;
         let crossOff = pad;
         if (align === "center") crossOff = pad + (crossMax - crossSize) / 2;
         else if (align === "end") crossOff = pad + (crossMax - crossSize);
         const x = horiz ? cursor : crossOff;
         const y = horiz ? crossOff : cursor;
-        ctx.drawImage(img, x, y, it.w, it.h);
-        cursor += (horiz ? it.w : it.h) + gap;
+        ctx.drawImage(img, x, y, dw, dh);
+        cursor += (horiz ? dw : dh) + gap;
       }
       setResult(canvas.toDataURL(transparent ? "image/png" : "image/png"));
     } finally {
@@ -161,11 +176,19 @@ export default function MergePage() {
       {label}
     </button>
   );
+  const fitBtn = (f: Fit, label: string) => (
+    <button
+      onClick={() => { setFit(f); setResult(null); }}
+      className={`rounded-md border px-3 py-1.5 text-sm transition ${fit === f ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/50 hover:text-white"}`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        여러 이미지를 <b>가로</b> 또는 <b>세로</b>로 이어붙여 하나의 이미지로 만들어요. 파일 선택·드래그·<b>Ctrl+V</b>(캡처 붙여넣기)로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. 정렬·간격·여백·배경색을 조절할 수 있어요.
+        여러 이미지를 <b>가로</b> 또는 <b>세로</b>로 이어붙여 하나의 이미지로 만들어요. 파일 선택·드래그·<b>Ctrl+V</b>(캡처 붙여넣기)로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. <b>크기 맞춤</b>을 켜면 이미지들의 폭(세로 합칠 때)이나 높이(가로 합칠 때)를 비율 그대로 같게 맞춰요. 정렬·간격·여백·배경색도 조절할 수 있어요.
       </PageHelp>
 
       {/* 추가 영역 */}
@@ -199,6 +222,10 @@ export default function MergePage() {
             {alignBtn("center", "가운데")}
             {alignBtn("end", dir === "horizontal" ? "아래" : "오른쪽")}
           </span>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="text-white/45">{dir === "horizontal" ? "높이 맞춤" : "가로폭 맞춤"}</span>
+          <span className="flex gap-1">{fitBtn("none", "끄기")}{fitBtn("min", "작은쪽")}{fitBtn("max", "큰쪽")}</span>
         </label>
         <label className="flex items-center gap-2">
           <span className="text-white/45">간격</span>
