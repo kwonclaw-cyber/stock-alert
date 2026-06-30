@@ -14,7 +14,7 @@ export default function RelayPage() {
   const [draft, setDraft] = useState<Record<string, { author: string; text: string }>>({});
   if (!data) return <Loading />;
 
-  // 박사장 문파원 이름(중복 제거, 빈 값 제외)
+  // 천박 문파원 이름(중복 제거, 빈 값 제외)
   const guild = data.guilds.find((g) => g.id === MAIN_GUILD_ID) ?? data.guilds[0];
   const members = Array.from(
     new Set((guild?.members ?? []).map((m) => m.name.trim()).filter(Boolean)),
@@ -38,7 +38,7 @@ export default function RelayPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHelp>
-        <b>작성자(글쓴이)</b>가 할 말·공지를 남기면, <b>작성자를 제외한 박사장 문파원 전원</b>이 그 글에 <b>댓글</b>로 등록하는 곳이에요. 누가 아직 안 남겼는지 <b>남은 인원</b>으로 한눈에 볼 수 있어요. (이름은 박사장 멤버현황 기준)
+        <b>작성자(글쓴이)</b>가 할 말·공지를 남기면, <b>작성자를 제외한 천박 문파원 전원</b>이 그 글에 <b>댓글</b>로 등록하는 곳이에요. 누가 아직 안 남겼는지 <b>남은 인원</b>으로 한눈에 볼 수 있어요. (이름은 천박 멤버현황 기준)
       </PageHelp>
 
       <div className="mb-4 flex items-center justify-between">

@@ -9,7 +9,7 @@ type Tab = { href: string; label: string; timer?: boolean };
 const TABS: Tab[] = [
   { href: "/guide", label: "📖 공부할것" },
   { href: "/", label: "길드별 멤버현황" },
-  { href: "/baksajang", label: "박사장길드 내실현황판" },
+  { href: "/baksajang", label: "천박 내실현황판" },
   { href: "/boss", label: "보스타이머", timer: true },
   { href: "/mine", label: "광산&채집 타이머", timer: true },
   { href: "/iron", label: "철타이머", timer: true },

@@ -131,11 +131,11 @@ function emptyRoster(leaderName: string, slots = 10): MemberStats[] {
 }
 
 /**
- * 길드 목록. 박사장이 메인 길드.
+ * 길드 목록. 천박이 메인 길드. (id는 호환 위해 baksajang 유지)
  * 값은 운영진이 채워 넣으면 된다.
  */
 export const GUILDS: Guild[] = [
-  { id: "baksajang", name: "박사장", members: emptyRoster("박사장"), pickaxes: [0, 0, 0, 0, 0] },
+  { id: "baksajang", name: "천박", members: emptyRoster("천박"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "kimseongtae", name: "킴성태", members: emptyRoster("킴성태"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "kangmansik", name: "강만식", members: emptyRoster("강만식"), pickaxes: [0, 0, 0, 0, 0] },
   { id: "oya", name: "오아", members: emptyRoster("오아"), pickaxes: [0, 0, 0, 0, 0] },

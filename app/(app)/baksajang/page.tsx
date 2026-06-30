@@ -55,7 +55,7 @@ export default function BaksajangPage() {
   return (
     <div className="w-full">
       <PageHelp>
-        메인 길드(<b>박사장</b>)의 <b>내실 현황판</b>이에요. 각 칸을 클릭해 직접 입력하고, 맨 아래에서 곡괭이 1★~5★를 체크하세요. 위의 <b>검색/정렬</b>로 멤버를 찾거나 스텟순으로 줄세울 수 있어요. (이름·직업은 멤버현황 연동)
+        메인 문파(<b>천박</b>)의 <b>내실 현황판</b>이에요. 각 칸을 클릭해 직접 입력하고, 맨 아래에서 곡괭이 1★~5★를 체크하세요. 위의 <b>검색/정렬</b>로 멤버를 찾거나 스텟순으로 줄세울 수 있어요. (이름·직업은 멤버현황 연동)
       </PageHelp>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
