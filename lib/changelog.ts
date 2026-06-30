@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.54.0",
+    date: "2026-06-28",
+    changes: [
+      "헤더 제작자 표기(by 킹카콜라) 제거",
+      "길드명 변경: 킴성태→태산, 강만식→만월, 오아→아랑, 도현→도황, 수피→하북펭가 (자동 반영)",
+    ],
+  },
+  {
     version: "1.53.0",
     date: "2026-06-28",
     changes: [

@@ -369,12 +369,19 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     const pickaxes = Array.isArray(lg.pickaxes)
       ? [0, 0, 0, 0, 0].map((_, i) => Number(lg.pickaxes![i]) || 0)
       : [0, 0, 0, 0, Number(lg.pickaxe5) || 0]; // 구버전 5성곡괭이 → 5성칸으로
-    // 이름 마이그레이션: 오야→오아, 박사장→천박(문파명 변경, id는 유지)
-    const name = g.id === "oya" && g.name === "오야"
-      ? "오아"
-      : g.id === "baksajang" && g.name === "박사장"
-        ? "천박"
-        : g.name;
+    // 문파명 변경 마이그레이션(id는 유지 → 기존 데이터 보존). 옛 이름이 들어있으면 새 이름으로.
+    const RENAME: Record<string, string[]> = {
+      baksajang: ["박사장"],     // → 천박
+      kimseongtae: ["킴성태"],   // → 태산
+      kangmansik: ["강만식"],    // → 만월
+      oya: ["오야", "오아"],     // → 아랑
+      dohyeon: ["도현"],        // → 도황
+      supi: ["수피"],           // → 하북펭가
+    };
+    const NEW_NAME: Record<string, string> = {
+      baksajang: "천박", kimseongtae: "태산", kangmansik: "만월", oya: "아랑", dohyeon: "도황", supi: "하북펭가",
+    };
+    const name = RENAME[g.id]?.includes(g.name) ? NEW_NAME[g.id] : g.name;
     // 멤버 필드 보정/마이그레이션 (구버전 택1 → 반지, attack/택2는 제거)
     const members = (g.members ?? []).map((m) => {
       const lm = m as MemberStats & { acc1?: string };
