@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "mcp__github__create_pull_request",
+      "mcp__github__merge_pull_request",
+      "mcp__github__create_or_update_file",
+      "mcp__github__get_commit",
+      "mcp__github__list_commits",
+      "mcp__github__push_files",
+      "mcp__github__update_pull_request",
+      "mcp__Vercel__list_teams",
+      "mcp__Vercel__list_projects",
+      "mcp__Vercel__list_deployments",
+      "mcp__Vercel__get_deployment",
+      "mcp__Vercel__get_deployment_build_logs",
+      "mcp__Vercel__get_runtime_errors",
+      "mcp__Vercel__get_project",
+      "Bash(git *)",
+      "Bash(npm run build)",
+      "Bash(npm run *)",
+      "Bash(npm ci)",
+      "Bash(npm install)"
+    ]
+  }
+}
