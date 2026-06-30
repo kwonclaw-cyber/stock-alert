@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.52.0",
+    date: "2026-06-28",
+    changes: [
+      "광산&채집 타이머: 행마다 ⏱ '남은시간 프리셋'(방금·5·10·15·30분·지금 가능) 추가 — 게임에 보이는 쿨타임을 1탭으로 동기화",
+    ],
+  },
+  {
     version: "1.51.0",
     date: "2026-06-28",
     changes: [

@@ -112,6 +112,7 @@ export default function MinePage() {
   const [tripKind, setTripKind] = useState<"" | "mine" | "gather">("");
   const [navMap, setNavMap] = useState<Record<string, number>>({}); // 파티 공유 네비(/api/nav)
   const [party, setParty] = useState("1"); // 내가 속한 파티(로컬 선택)
+  const [presetFor, setPresetFor] = useState<string | null>(null); // 남은시간 프리셋 펼친 행
   const navEditedAt = useRef(0); // 최근 네비 편집 시각(편집 직후 폴링 덮어쓰기 방지)
 
   useEffect(() => {
@@ -261,6 +262,15 @@ export default function MinePage() {
     });
   }
   const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
+  // 남은시간(분)을 직접 맞춘다. 게임에서 "N분 남음"을 보고 1탭으로 동기화. 0이하=지금 가능.
+  const setRemain = (id: string, minutes: number) => update((d) => {
+    const m = d.mine.mines.find((x) => x.id === id);
+    if (!m) return;
+    const cd = m.cooldownMin || 0;
+    if (minutes <= 0 || cd <= 0) { m.lastDoneAt = null; return; }
+    const left = Math.min(minutes, cd); // 남은시간은 쿨타임을 넘을 수 없음
+    m.lastDoneAt = new Date(Date.now() - (cd - left) * 60_000).toISOString();
+  });
   // 네비는 별도 키(/api/nav?party=)로 파티별 공유 저장 — 쿨타임 저장과 충돌하지 않음
   const saveNav = (next: Record<string, number>) => {
     navEditedAt.current = Date.now();
@@ -319,8 +329,24 @@ export default function MinePage() {
           ))}
         </div>
         <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
+        <button
+          onClick={() => setPresetFor((p) => (p === m.id ? null : m.id))}
+          className={`text-sm transition ${presetFor === m.id ? "text-amber-300" : "text-white/40 hover:text-white"}`}
+          title="게임에 보이는 남은시간으로 맞추기"
+        >⏱</button>
         <button onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="text-sm text-white/40 hover:text-white" title="리셋(쿨타임 초기화)">↩️</button>
         <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
+
+        {presetFor === m.id && (
+          <div className="flex w-full items-center gap-1.5 border-t border-white/10 pt-2 text-xs">
+            <span className="text-white/45">남은시간 →</span>
+            <button onClick={() => { complete(m.id); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">방금</button>
+            {[5, 10, 15, 30].map((min) => (
+              <button key={min} onClick={() => { setRemain(m.id, min); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">{min}분</button>
+            ))}
+            <button onClick={() => { update((d) => { d.mine.mines[gi].lastDoneAt = null; }); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">지금 가능</button>
+          </div>
+        )}
       </div>
     );
   }
