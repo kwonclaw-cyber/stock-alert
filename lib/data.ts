@@ -369,8 +369,12 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     const pickaxes = Array.isArray(lg.pickaxes)
       ? [0, 0, 0, 0, 0].map((_, i) => Number(lg.pickaxes![i]) || 0)
       : [0, 0, 0, 0, Number(lg.pickaxe5) || 0]; // 구버전 5성곡괭이 → 5성칸으로
-    // 오타 수정: 오야 → 오아
-    const name = g.id === "oya" && g.name === "오야" ? "오아" : g.name;
+    // 이름 마이그레이션: 오야→오아, 박사장→천박(문파명 변경, id는 유지)
+    const name = g.id === "oya" && g.name === "오야"
+      ? "오아"
+      : g.id === "baksajang" && g.name === "박사장"
+        ? "천박"
+        : g.name;
     // 멤버 필드 보정/마이그레이션 (구버전 택1 → 반지, attack/택2는 제거)
     const members = (g.members ?? []).map((m) => {
       const lm = m as MemberStats & { acc1?: string };

@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.53.0",
+    date: "2026-06-28",
+    changes: [
+      "문파명 '박사장' → '천박'으로 변경 (헤더 '천박 도우미', 내실현황판·전달 문구, 길드명 자동 반영)",
+    ],
+  },
+  {
     version: "1.52.0",
     date: "2026-06-28",
     changes: [
