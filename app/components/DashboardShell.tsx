@@ -14,7 +14,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div>
           <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
-            <span>천박 도우미 <span className="text-white/50">by 킹카콜라</span></span>
+            <span>천박 도우미</span>
             <a
               href="https://open.kakao.com/o/sT8dlFzi"
               target="_blank"
