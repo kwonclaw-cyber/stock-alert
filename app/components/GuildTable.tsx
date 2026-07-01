@@ -55,7 +55,7 @@ const STAR_COLOR = [
 ];
 
 /**
- * 길드 1개의 내실 현황 표. 깔끔한 다크 테이블 스타일.
+ * 문파 1개의 내실 현황 표. 깔끔한 다크 테이블 스타일.
  * editable=true 면 stat 셀과 곡괭이 개수를 직접 수정할 수 있다.
  */
 export default function GuildTable({ guild, large = false, editable = false, order, onCell, onPickaxe }: Props) {

@@ -21,7 +21,7 @@ export default function GuildSelect({
       >
         {guilds.map((g) => (
           <option key={g.id} value={g.id} className="bg-[#23262e]">
-            {g.name} 길드
+            {g.name} 문파
           </option>
         ))}
       </select>

@@ -61,7 +61,7 @@ export default function CalendarPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHelp>
-        길드 <b>일정/이벤트</b>를 공유하는 캘린더예요. 날짜 칸을 누르면 그 날짜로 입력되고, 아래에서 제목·시간·색을 넣어 추가하세요. 모두에게 실시간 공유됩니다.
+        문파 <b>일정/이벤트</b>를 공유하는 캘린더예요. 날짜 칸을 누르면 그 날짜로 입력되고, 아래에서 제목·시간·색을 넣어 추가하세요. 모두에게 실시간 공유됩니다.
       </PageHelp>
 
       <div className="mb-3 flex items-center justify-center gap-4">

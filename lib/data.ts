@@ -36,13 +36,13 @@ export type BoardPost = {
 };
 export type InfoPost = BoardPost; // 호환용 별칭
 
-/** 전달: 길드원 1명을 지정하고 공지를 남기면, 지정 인원 제외 모두가 댓글로 응답 */
+/** 전달: 문파원 1명을 지정하고 공지를 남기면, 지정 인원 제외 모두가 댓글로 응답 */
 export type RelayComment = { id: string; author: string; text: string; at: string };
 export type RelayPost = {
   id: string;
   title: string;
   body: string;
-  target: string; // 지정 길드원(이 사람은 댓글 제외)
+  target: string; // 지정 문파원(이 사람은 댓글 제외)
   author: string;
   comments: RelayComment[];
   createdAt: string;

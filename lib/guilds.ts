@@ -1,14 +1,14 @@
 /**
- * 총겜동 내수서버 길드 내실 현황 데이터 모델.
+ * 총겜동 내수서버 문파 내실 현황 데이터 모델.
  *
  * 스프레드시트 레이아웃을 그대로 옮긴 구조다.
- * - 길드마다 길드장 1명 + 최대 10슬롯(길드장 포함)
+ * - 문파마다 문주 1명 + 최대 10슬롯(문주 포함)
  * - 각 슬롯(멤버)은 직업/스텟/잠재/방어구/장신구/탈것 값을 가진다.
  * - 값은 현재 비어 있으며 운영진이 채워 넣는다.
  */
 
 export type MemberStats = {
-  name: string; // 이름 (1번은 길드장)
+  name: string; // 이름 (1번은 문주)
   job: string; // 직업
   weapon: string; // 무기
   internal: string; // 내공
@@ -30,9 +30,9 @@ export type MemberStats = {
 
 export type Guild = {
   id: string;
-  name: string; // 길드장(길드) 이름
+  name: string; // 문주(문파) 이름
   logo?: string; // 로고 이미지 경로 (선택)
-  members: MemberStats[]; // 길드장 포함 최대 10명
+  members: MemberStats[]; // 문주 포함 최대 10명
   pickaxes: number[]; // 곡괭이 개수 [1성, 2성, 3성, 4성, 5성]
 };
 
@@ -121,7 +121,7 @@ function emptyMember(name: string): MemberStats {
   };
 }
 
-/** 길드장 이름 + 슬롯 수(기본 10)로 빈 멤버 배열 생성 */
+/** 문주 이름 + 슬롯 수(기본 10)로 빈 멤버 배열 생성 */
 function emptyRoster(leaderName: string, slots = 10): MemberStats[] {
   const members = [emptyMember(leaderName)];
   for (let i = 2; i <= slots; i++) {
@@ -131,7 +131,7 @@ function emptyRoster(leaderName: string, slots = 10): MemberStats[] {
 }
 
 /**
- * 길드 목록. 천박이 메인 길드. (id는 호환 위해 baksajang 유지)
+ * 문파 목록. 천박이 메인 문파. (id는 호환 위해 baksajang 유지)
  * 값은 운영진이 채워 넣으면 된다.
  */
 export const GUILDS: Guild[] = [
@@ -143,7 +143,7 @@ export const GUILDS: Guild[] = [
   { id: "supi", name: "하북펭가", members: emptyRoster("하북펭가"), pickaxes: [0, 0, 0, 0, 0] },
 ];
 
-/** 메인 길드 id */
+/** 메인 문파 id */
 export const MAIN_GUILD_ID = "baksajang";
 
 export function getGuild(id: string): Guild | undefined {

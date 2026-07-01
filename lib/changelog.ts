@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.55.0",
+    date: "2026-06-28",
+    changes: [
+      "'길드' 표현을 '문파'로 통일 (길드장 → 문주). 탭 '문파별 멤버현황' 등 문구 정리",
+    ],
+  },
+  {
     version: "1.54.0",
     date: "2026-06-28",
     changes: [
