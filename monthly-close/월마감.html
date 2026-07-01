@@ -941,13 +941,17 @@ function mcell(cur,prev){ return `<td class="num">${won(cur)}<br><span class="su
 function amtCell(s, field){
   const cur=s.cur[field], prev=(s.prev&&s.prev[field])||0;
   if(EDIT_MODE){
-    let fit="";
+    let fit="", extraAttr="";
+    // 전용물류매출(ex) 칸: 수정 시 전용이익이 같은 전용이익률로 자동 조정되도록 현재 이익률을 전달
+    const prate = s.cur.ex>0 ? (s.cur.profit/s.cur.ex) : 0;
+    const pprate = (s.prev&&s.prev.ex>0) ? (s.prev.profit/s.prev.ex) : prate;
+    if(field==="ex"){ extraAttr=` data-prate="${prate}"`; }
     if(field==="ex" && !s.isRef && s.gap!=null){   // 전용물류매출을 기준매장 발주율 수준으로 맞춤
       const refRate=s.rate+s.gap; const target=Math.round((s.cur.sales||0)*refRate);
-      fit=` <button class="fitref" data-logi="${s.logi}" data-target="${target}" title="기준매장 발주율(${pct(refRate)}) 수준으로 맞춤" style="padding:2px 7px;font-size:11px">기준맞춤</button>`;
+      fit=` <button class="fitref" data-logi="${s.logi}" data-target="${target}" data-prate="${prate}" title="기준매장 발주율(${pct(refRate)}) 수준으로 맞춤 (전용이익도 비율로 조정)" style="padding:2px 7px;font-size:11px">기준맞춤</button>`;
     }
-    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}" type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">${fit}`
-      +`<div class="sub" style="margin-top:3px">전월 <input class="box ov-in" data-logi="${s.logi}" data-field="p_${field}" type="number" value="${Math.round(prev)}" style="width:96px;text-align:right;padding:2px 5px"></div></td>`;
+    return `<td class="num"><input class="box ov-in" data-logi="${s.logi}" data-field="${field}"${extraAttr} type="number" value="${Math.round(cur)}" style="width:112px;text-align:right">${fit}`
+      +`<div class="sub" style="margin-top:3px">전월 <input class="box ov-in" data-logi="${s.logi}" data-field="p_${field}"${field==="ex"?` data-prate="${pprate}"`:""} type="number" value="${Math.round(prev)}" style="width:96px;text-align:right;padding:2px 5px"></div></td>`;
   }
   return `<td class="num">${won(cur)}<br><span class="sub">전월 ${won(prev)}</span><br>${deltaPct(cur,prev)}</td>`;
 }
@@ -1252,13 +1256,17 @@ function render(res){
     const k=ovKey(e.target.dataset.logi), field=e.target.dataset.field, raw=e.target.value.trim();
     if(!USER_OV[k])USER_OV[k]={};
     if(raw==="") delete USER_OV[k][field]; else USER_OV[k][field]=toNum(raw);
+    // 전용물류매출 수정 시 전용이익을 같은 전용이익률로 자동 조정
+    const prate=parseFloat(e.target.dataset.prate);
+    if(field==="ex"){ if(raw==="") delete USER_OV[k].profit; else if(!isNaN(prate)) USER_OV[k].profit=Math.round(toNum(raw)*prate); }
+    if(field==="p_ex"){ if(raw==="") delete USER_OV[k].p_profit; else if(!isNaN(prate)) USER_OV[k].p_profit=Math.round(toNum(raw)*prate); }
     if(!Object.keys(USER_OV[k]).length) delete USER_OV[k];
     saveOV(); rerun();
   }));
-  // 전용물류매출 '기준맞춤' (기준매장 발주율 수준으로)
+  // 전용물류매출 '기준맞춤' (기준매장 발주율 수준으로) — 전용이익도 같은 이익률로 조정
   root.querySelectorAll(".fitref").forEach(b=>b.addEventListener("click",e=>{
-    const k=ovKey(e.target.dataset.logi), target=toNum(e.target.dataset.target);
-    if(!USER_OV[k])USER_OV[k]={}; USER_OV[k].ex=target; saveOV(); rerun();
+    const k=ovKey(e.target.dataset.logi), target=toNum(e.target.dataset.target), prate=parseFloat(e.target.dataset.prate);
+    if(!USER_OV[k])USER_OV[k]={}; USER_OV[k].ex=target; if(!isNaN(prate)) USER_OV[k].profit=Math.round(target*prate); saveOV(); rerun();
   }));
 
   // 발주 품목 비교 (표준매장 대비)
