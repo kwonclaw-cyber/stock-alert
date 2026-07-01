@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 /**
  * 공용 비밀번호 기반 인증 유틸리티.
  *
- * - SITE_PASSWORD: 길드원에게 공유할 공용 비밀번호
+ * - SITE_PASSWORD: 문파원에게 공유할 공용 비밀번호
  * - AUTH_SECRET: 세션 쿠키 서명에 쓰이는 비밀 키 (길고 랜덤하게)
  *
  * 두 값 모두 환경변수로 주입한다. (.env.local / Vercel 환경변수)

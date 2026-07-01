@@ -13,14 +13,14 @@ export default function MembersPage() {
   return (
     <div>
       <PageHelp>
-        길드별 <b>멤버 명단</b>을 관리하는 곳이에요. 이름·직업을 입력하면 내실현황판·철타이머·일숙 등 다른 페이지에 <b>자동으로 연동</b>됩니다. “+ 멤버 추가”로 인원을 늘릴 수 있어요.
+        문파별 <b>멤버 명단</b>을 관리하는 곳이에요. 이름·직업을 입력하면 내실현황판·철타이머·일숙 등 다른 페이지에 <b>자동으로 연동</b>됩니다. “+ 멤버 추가”로 인원을 늘릴 수 있어요.
       </PageHelp>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data.guilds.map((guild, gi) => (
           <section key={guild.id} className="rounded-xl border border-white/10 bg-[#15171c] p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold">{guild.name} 길드</h2>
+              <h2 className="text-base font-bold">{guild.name} 문파</h2>
               <span className="text-xs text-white/40">{guild.members.length}명</span>
             </div>
 
@@ -42,7 +42,7 @@ export default function MembersPage() {
                     <td className="px-1 py-0.5">
                       <CellInput
                         value={m.name}
-                        placeholder={mi === 0 ? "길드장" : "이름"}
+                        placeholder={mi === 0 ? "문주" : "이름"}
                         className="!text-left"
                         onChange={(v) =>
                           update((d) => {

@@ -354,7 +354,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 길드/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 문파/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

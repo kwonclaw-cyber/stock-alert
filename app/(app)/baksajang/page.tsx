@@ -59,7 +59,7 @@ export default function BaksajangPage() {
       </PageHelp>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="mr-2 text-lg font-bold">{guild.name} 길드 <span className="text-xs font-medium text-white/40">메인</span></h2>
+        <h2 className="mr-2 text-lg font-bold">{guild.name} 문파 <span className="text-xs font-medium text-white/40">메인</span></h2>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}

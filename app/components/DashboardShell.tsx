@@ -26,7 +26,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </a>
           </h1>
           <p className="mt-0.5 text-xs text-white/45">
-            숲(SOOP) 방송인 마인크래프트 내수서버 길드 운영
+            숲(SOOP) 방송인 마인크래프트 내수서버 문파 운영
           </p>
         </div>
         <div className="flex items-center gap-3">
