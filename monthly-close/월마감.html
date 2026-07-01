@@ -1129,15 +1129,16 @@ function render(res){
     const edir=b.cur.ex>=b.prev.ex?"up":"down";
     const orC=orderRate(b.cur), orP=b.prev.sales?orderRate(b.prev):null;
     const rw=Math.min(orC*250,100), rwP=orP!=null?Math.min(orP*250,100):null;  // 0~40% 스케일
-    cards+=`<div class="card bcard"><div class="bn">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
-      <div style="margin-top:6px"><span class="big">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
+    const th=brandTheme(b.brand);
+    cards+=`<div class="card bcard" style="border-top:3px solid ${th.bd};background:${th.bg}"><div class="bn" style="color:${th.main}">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
+      <div style="margin-top:6px"><span class="big" style="color:${th.main}">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
       <div class="sub">점당 평균매출 <b style="color:#212529;font-size:13px">${won(avg)}원</b> ${pavg==null?"":pillPct(avg,pavg)}</div>
       <div class="bar2"><div class="lbl"><span>매출 · 당월 vs 전월</span><span>${pillPct(b.cur.sales,b.prev.sales)}</span></div>
-        <div class="tr"><i class="${dir}" style="width:${cw.toFixed(1)}%"></i></div>
+        <div class="tr"><i style="width:${cw.toFixed(1)}%;background:${th.grad}"></i></div>
         <div class="tr"><i class="prev" style="width:${pw.toFixed(1)}%"></i></div>
         <div class="leg">위: 당월 ${won(b.cur.sales)} · 아래: 전월 ${won(b.prev.sales)}</div></div>
       <div class="bar2"><div class="lbl"><span>전용물류매출 · 당월 vs 전월</span><span>${deltaPct(b.cur.ex,b.prev.ex)}</span></div>
-        <div class="tr"><i class="${edir}" style="width:${ecw.toFixed(1)}%"></i></div>
+        <div class="tr"><i style="width:${ecw.toFixed(1)}%;background:${th.grad}"></i></div>
         <div class="tr"><i class="prev" style="width:${epw.toFixed(1)}%"></i></div>
         <div class="leg">위: 당월 ${won(b.cur.ex)} · 아래: 전월 ${won(b.prev.ex)}</div></div>
       <div class="kgrid">
@@ -2324,6 +2325,12 @@ function shortStoreName(name){ let s=String(name||""); TARGET_BRANDS.forEach(b=>
 // 브랜드 색: 육식사관학교=진한녹색, 밥구정로데오=연노랑
 const BRAND_COLOR={ "육식사관학교":{bg:"#d3f9d8",bd:"#1b5e20",fg:"#1b5e20"}, "밥구정로데오":{bg:"#fff3bf",bd:"#f59f00",fg:"#8a6d00"} };
 function brandColor(b){ return BRAND_COLOR[b]||{bg:"#f1f3f5",bd:"#adb5bd",fg:"#495057"}; }
+// 브랜드 요약 카드 테마 (육식=진녹색 / 밥구정=짙은 겨자색)
+function brandTheme(b){
+  if(b==="육식사관학교") return {main:"#1b5e20", bd:"#1b5e20", bg:"#eaf5ec", grad:"linear-gradient(90deg,#43a047,#1b5e20)"};
+  if(b==="밥구정로데오") return {main:"#8a6a06", bd:"#b8860b", bg:"#faf3da", grad:"linear-gradient(90deg,#d4a72c,#a9810f)"};
+  return {main:"#343a40", bd:"#adb5bd", bg:"#f8f9fa", grad:"linear-gradient(90deg,#adb5bd,#868e96)"};
+}
 let CAL_Y, CAL_M;   // 표시 중인 연/월(0-based month)
 function calPad(n){ return (n<10?"0":"")+n; }
 function calMemoStores(){
