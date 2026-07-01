@@ -1125,6 +1125,8 @@ function render(res){
     <div class="legend">증감 <span class="up">▲</span>/<span class="down">▼</span> · 비율 %p · <span class="badge ref" style="margin:0">기준</span> <span class="badge" style="margin:0 0 0 4px">사입</span> <span class="badge openb" style="margin:0 0 0 4px">당월오픈</span>(전월 데이터 없음)</div>`;
   root.appendChild(sum);
 
+  // 메모·수기 지정 관리(이번 달 새로 시작용 초기화)
+  safePanel("메모·수기 지정 관리", ()=>renderManageReset(res, root));
   // 매장별 총 물류매출 (전·범용 전체)
   safePanel("매장별 총 물류매출", ()=>renderTotalLogi(res, root));
 
@@ -1386,6 +1388,25 @@ const REGION_RULES=[
 ];
 function regionOf(name){ const c=regionCore(name); for(let i=0;i<REGION_RULES.length;i++){ if(c.indexOf(REGION_RULES[i][0])>=0) return REGION_RULES[i][1]; } return "기타"; }
 const REGION_ORDER=["서울","경기","인천","부산","대구","광주","대전","울산","세종","강원","충북","충남","전북","전남","경북","경남","제주","기타"];
+
+// 메모·수기 지정 초기화 (이번 달 마감 새로 시작용)
+function renderManageReset(res, root){
+  const memoN=Object.keys(USER_MEMO).length;
+  const saipN=Object.keys(USER_OV).filter(k=>USER_OV[k]&&USER_OV[k].saipOverride!=null).length;
+  const clearSaip=()=>{ for(const k in USER_OV){ if(USER_OV[k]){ delete USER_OV[k].saipOverride; if(!Object.keys(USER_OV[k]).length)delete USER_OV[k]; } } saveOV(); };
+  const sec=document.createElement("section");
+  sec.innerHTML=`<h2>메모·수기 지정 관리 <span class="muted" style="font-weight:400">· 특이사항 ${memoN}건 · 수기 사입지정 ${saipN}건</span></h2>
+    <div class="note">매장 <b>특이사항(메모)</b>와 <b>수기 사입지정</b>은 매장코드 기준으로 저장돼 <b>달이 바뀌어도 그대로 유지</b>됩니다. 전월 수정 내용은 저장된 전월 마감에 남아있으니, <b>이번 달 마감을 새로 시작</b>할 때 아래로 초기화하세요. (매장 매칭·매입가·저장된 마감은 유지됩니다.)</div>
+    <div class="btnrow">
+      <button id="resetMonthBtn">🗓️ 이번 달 새로 시작 (메모+수기 사입지정 모두 초기화)</button>
+      <button class="ghost" id="resetMemoBtn">특이사항(메모)만 초기화 (${memoN})</button>
+      <button class="ghost" id="resetSaipBtn">수기 사입지정만 초기화 (${saipN})</button>
+    </div>`;
+  root.appendChild(sec);
+  sec.querySelector("#resetMemoBtn").addEventListener("click",()=>{ if(!memoN){ alert("삭제할 메모가 없습니다."); return; } if(confirm("모든 매장 특이사항(메모)를 삭제할까요?")){ USER_MEMO={}; saveMemo(); rerun(); } });
+  sec.querySelector("#resetSaipBtn").addEventListener("click",()=>{ if(!saipN){ alert("수기 사입지정이 없습니다."); return; } if(confirm("수기로 지정/해제한 사입 표시를 모두 초기화할까요? (자동 사입판정은 유지)")){ clearSaip(); rerun(); } });
+  sec.querySelector("#resetMonthBtn").addEventListener("click",()=>{ if(confirm("이번 달 마감을 새로 시작합니다.\n\n· 매장 특이사항(메모) 전체 삭제\n· 수기 사입지정 전체 초기화\n\n(매장 매칭·매입가·수기수정 금액·저장된 마감은 유지)\n진행할까요?")){ USER_MEMO={}; saveMemo(); clearSaip(); rerun(); } });
+}
 
 // 매장별 총 물류매출 섹션 (전·범용 전체 발주 총합계) — 광역시/도 구분 + 매장명 검색
 let TOTLOGI_Q="";
