@@ -443,6 +443,29 @@ function mateToLogi(){
   for(const mate in USER_POSMAP){ if(USER_POSMAP[mate]) r[mate]=USER_POSMAP[mate]; }  // 미매칭 POS 직접연결이 최우선
   return r;
 }
+// 매칭표에 없는 신규 매장 자동 매칭: 물류매장(미매칭) ↔ POS(미매칭)를 매장명 유사도로 연결
+function autoMatchNew(cur, m2l){
+  if(!POS || !LOGI_TOTAL[cur]) return [];
+  const matchedLogis=new Set(Object.values(m2l).map(String));
+  const curT=LOGI_TOTAL[cur]; const unLogi=[]; const seen=new Set();
+  for(const code in curT){ const c=String(canon(code)); if(seen.has(c))continue; seen.add(c);
+    if(matchedLogis.has(c)) continue;                       // 이미 POS가 연결된 물류매장은 제외
+    const o=curT[code]; if(TARGET_BRANDS.indexOf(o.brand)<0) continue;
+    unLogi.push({logi:c, name:o.name, brand:o.brand}); }
+  const unPos=[];
+  for(const mate in POS){ if(m2l[mate]) continue; unPos.push({mate, name:POS[mate].name||mate}); }   // logi 없는 POS
+  if(!unLogi.length || !unPos.length) return [];
+  const out=[]; const usedPos=new Set();
+  // 유사도 높은 순으로 그리디 매칭(같은 브랜드·상호 최고 우선)
+  const pairs=[];
+  unLogi.forEach(L=>unPos.forEach(P=>{ const sim=nameSim(L.name, P.name); if(sim>=75) pairs.push({L,P,sim}); }));
+  pairs.sort((a,b)=>b.sim-a.sim);
+  const usedLogi=new Set();
+  pairs.forEach(pr=>{ if(usedPos.has(pr.P.mate)||usedLogi.has(pr.L.logi))return;
+    usedPos.add(pr.P.mate); usedLogi.add(pr.L.logi);
+    out.push({mate:pr.P.mate, logi:pr.L.logi, name:pr.L.name, posName:pr.P.name, sim:Math.round(pr.sim)}); });
+  return out;
+}
 
 // 양도양수 매장 통합: 그룹키별 사용자 결정(병합여부·대표)만 저장. 높은 신뢰 그룹은 저장 없이 자동 적용.
 const GDEC_KEY = "monthlyClose.gdec.v2";
@@ -737,6 +760,8 @@ function compute(){
   const curAgg=consolidate(LOGI_AGG[cur]||{}), prevAgg=consolidate(prev?(LOGI_AGG[prev]||{}):{});
   // 당월 POS 매출을 대표코드(canon)별로 합산 — 한 매장의 여러 메이트코드(양도양수 구·신코드 등)를 모두 더함
   const m2l=mateToLogi();
+  const autoMatched=autoMatchNew(cur, m2l);        // 매칭표에 없는 신규 매장: 매출·물류 매장명으로 자동 매칭
+  autoMatched.forEach(a=>{ m2l[a.mate]=a.logi; });
   const posByCanon={}, posMatched={}, posMatesByCanon={}; let posOrphan=0, posOrphanN=0; const posOrphanList=[];
   if(POS) for(const mate in POS){
     const v=POS[mate][salesField]||0; const logi=m2l[mate];
@@ -813,7 +838,7 @@ function compute(){
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
   CUR_STORES=curAgg;   // 발주 품목 비교용 (당월 통합 매장 items)
-  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev, posOrphan, posOrphanN, posOrphanList};
+  return {list, missingGlobal, unmatched, excludedZero, cur, prev, usedSavedPrev, posOrphan, posOrphanN, posOrphanList, autoMatched};
 }
 
 function pickRef(b){
@@ -1671,6 +1696,7 @@ function showWarnings(res){
   }
   if(noSales.length) w+=`<div class="msg warn">매출 미매칭 ${noSales.length}개 매장은 리스트·합계에서 <b>제외</b>했습니다(아래 "매장 매칭 관리"에서 연결): ${noSales.slice(0,8).join(", ")}${noSales.length>8?" 외":""}</div>`;
   if(res.excludedZero) w+=`<div class="msg warn">매출 0원 매장 ${res.excludedZero}개도 리스트에서 제외했습니다.</div>`;
+  if(res.autoMatched && res.autoMatched.length) w+=`<div class="msg ok">신규 매장 <b>${res.autoMatched.length}개</b>를 매장명으로 <b>자동 매칭</b>했습니다(매칭표에 없던 매장): ${res.autoMatched.slice(0,8).map(a=>esc((a.name||"").replace(/_/g," "))+`(${a.sim}%)`).join(", ")}${res.autoMatched.length>8?" 외":""}. 잘못됐으면 "반영되지 않은 매출/매장 매칭 관리"에서 조정하세요.</div>`;
   if(res.posOrphanN) w+=`<div class="msg err">반영되지 않은 매출(미매칭 POS) <b>${res.posOrphanN}개 · 합계 ${won(res.posOrphan)}원</b>이 있습니다. 아래 <b>"⚠️ 반영되지 않은 매출"</b> 칸에서 해당 매장에 연결하세요.</div>`;
   const openN=res.list.reduce((a,b)=>a+b.stores.filter(s=>s.isNew).length,0);
   if(res.usedSavedPrev) w+=`<div class="msg ok">저장된 <b>${res.prev} 마감</b>을 전월자료로 자동 사용 중 · 당월오픈(전월 없음) ${openN}개.</div>`;
