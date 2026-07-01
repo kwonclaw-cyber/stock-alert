@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "총겜동 내수서버 내실 현황",
+  title: "천박 운영사이트",
   description: "숲(SOOP) 방송인 마인크래프트 내수서버 문파 운영 페이지",
 };
 
