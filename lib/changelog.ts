@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.56.0",
+    date: "2026-06-28",
+    changes: [
+      "이미지 합치기: '높이/폭 맞춤'(원본·최소·최대·직접) 추가 — 합칠 때 크기를 비례로 통일",
+      "브라우저 탭 제목을 '천박 운영사이트'로 변경",
+    ],
+  },
+  {
     version: "1.55.0",
     date: "2026-06-28",
     changes: [

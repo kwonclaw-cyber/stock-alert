@@ -16,6 +16,8 @@ export default function ImageMergePage() {
   const [align, setAlign] = useState<Align>("center");
   const [gap, setGap] = useState(0);
   const [pad, setPad] = useState(0);
+  const [fit, setFit] = useState<"none" | "min" | "max" | "custom">("none"); // 크기 맞춤(교차축)
+  const [fitValue, setFitValue] = useState(300); // 직접 입력 px
   const [bg, setBg] = useState("#0b0f14");
   const [transparent, setTransparent] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -86,8 +88,19 @@ export default function ImageMergePage() {
     const g = Math.max(0, gap || 0);
     const p = Math.max(0, pad || 0);
 
-    const crosses = items.map((it) => (horiz ? it.h : it.w));
-    const mains = items.map((it) => (horiz ? it.w : it.h));
+    // 교차축(가로=높이, 세로=폭) 크기 맞춤 → 각 이미지를 비례 축소/확대
+    const cross0 = items.map((it) => (horiz ? it.h : it.w));
+    const target = fit === "none" ? null
+      : fit === "min" ? Math.min(...cross0)
+      : fit === "max" ? Math.max(...cross0)
+      : Math.max(1, fitValue || 0);
+    const scaled = items.map((it, i) => {
+      const s = target ? target / cross0[i] : 1;
+      return { img: it.img, w: Math.max(1, Math.round(it.w * s)), h: Math.max(1, Math.round(it.h * s)) };
+    });
+
+    const crosses = scaled.map((s) => (horiz ? s.h : s.w));
+    const mains = scaled.map((s) => (horiz ? s.w : s.h));
     const crossMax = Math.max(...crosses);
     const mainTotal = mains.reduce((a, b) => a + b, 0) + g * (items.length - 1);
 
@@ -101,15 +114,15 @@ export default function ImageMergePage() {
     if (!transparent) { ctx.fillStyle = bg; ctx.fillRect(0, 0, totalW, totalH); }
 
     let cursor = p;
-    items.forEach((it) => {
-      const crossSize = horiz ? it.h : it.w;
+    scaled.forEach((s) => {
+      const crossSize = horiz ? s.h : s.w;
       let crossOff = p;
       if (align === "center") crossOff = p + (crossMax - crossSize) / 2;
       else if (align === "end") crossOff = p + (crossMax - crossSize);
       const x = horiz ? cursor : crossOff;
       const y = horiz ? crossOff : cursor;
-      ctx.drawImage(it.img, x, y, it.w, it.h);
-      cursor += (horiz ? it.w : it.h) + g;
+      ctx.drawImage(s.img, x, y, s.w, s.h);
+      cursor += (horiz ? s.w : s.h) + g;
     });
 
     setResultUrl(canvas.toDataURL("image/png"));
@@ -136,7 +149,7 @@ export default function ImageMergePage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHelp>
-        여러 이미지를 <b>가로</b>·<b>세로</b>로 이어붙여 한 장으로 만들어요. 파일선택·드래그·<b>Ctrl+V</b>로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. 정렬·간격·여백·배경색을 조절할 수 있어요. (결과는 내 브라우저에서만 처리되고 저장은 다운로드로)
+        여러 이미지를 <b>가로</b>·<b>세로</b>로 이어붙여 한 장으로 만들어요. 파일선택·드래그·<b>Ctrl+V</b>로 추가하고, 카드를 <b>드래그</b>하거나 ◀▶로 순서를 바꾼 뒤 <b>합치기</b>를 누르세요. 정렬·간격·여백·배경색과 <b>높이/폭 맞춤</b>(최소·최대·직접)을 조절할 수 있어요. (결과는 내 브라우저에서만 처리되고 저장은 다운로드로)
       </PageHelp>
 
       {/* 드롭존 */}
@@ -167,6 +180,19 @@ export default function ImageMergePage() {
               <button key={o.v} className={`${seg} ${align === o.v ? segOn : segOff}`} onClick={() => { setAlign(o.v); setResultUrl(null); }}>{o.label}</button>
             ))}
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-white/45">{horiz ? "높이 맞춤" : "폭 맞춤"}</span>
+          <div className="flex gap-1">
+            {([["none", "원본"], ["min", "최소"], ["max", "최대"], ["custom", "직접"]] as const).map(([v, label]) => (
+              <button key={v} className={`${seg} ${fit === v ? segOn : segOff}`} onClick={() => { setFit(v); setResultUrl(null); }}>{label}</button>
+            ))}
+          </div>
+          {fit === "custom" && (
+            <span className="flex items-center gap-1 text-white/45">
+              <input type="number" min={1} value={fitValue} onChange={(e) => { setFitValue(Math.max(1, Number(e.target.value) || 1)); setResultUrl(null); }} className="w-20 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center text-white outline-none focus:border-emerald-400/60" />px
+            </span>
+          )}
         </div>
         <label className="flex items-center gap-2 text-white/45">간격
           <input type="number" min={0} value={gap} onChange={(e) => { setGap(Math.max(0, Number(e.target.value) || 0)); setResultUrl(null); }} className="w-16 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center text-white outline-none focus:border-emerald-400/60" />px
