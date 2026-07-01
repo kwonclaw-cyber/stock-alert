@@ -176,8 +176,15 @@
     <button class="vtab" data-v="match">매장 매칭표</button>
     <button class="vtab" data-v="cal">스케줄 달력</button>
     <button class="vtab" data-v="hist">업로드 기록</button>
+    <button class="vtab" data-v="saved">마감 저장 현황</button>
     <button class="vtab" data-v="log">공문 발송 기록</button>
   </div>
+
+  <section id="savedView" style="display:none">
+    <h2>마감 저장 현황 <span class="muted" id="savedCount" style="font-weight:400"></span></h2>
+    <div class="note">"이번 달 마감 저장"으로 저장한 월별 마감입니다. 다음 달 전월대비에 자동 사용됩니다. 월을 눌러 매장별 상세를 보고, 필요 없으면 삭제하세요.</div>
+    <div id="savedBody"></div>
+  </section>
 
   <section id="histView" style="display:none">
     <h2>업로드 기록 <span class="muted" id="histCount" style="font-weight:400"></span></h2>
@@ -1564,7 +1571,7 @@ function initCollapsibles(){
   document.querySelectorAll("main section > h2").forEach(h2=>{
     if(h2.dataset.collap) return;                 // 이미 처리됨
     const sec=h2.parentElement;
-    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView"||sec.id==="histView") return;   // 탭 전용 뷰는 제외
+    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView"||sec.id==="histView"||sec.id==="savedView") return;   // 탭 전용 뷰는 제외
     const key=collapKey(h2); if(!key) return;
     h2.dataset.collap=key; h2.classList.add("collap");
     const ind=document.createElement("span"); ind.className="cind";
@@ -2084,12 +2091,35 @@ function showView(v){
   document.getElementById("matchView").style.display = v==="match"?"":"none";
   document.getElementById("calView").style.display = v==="cal"?"":"none";
   document.getElementById("histView").style.display = v==="hist"?"":"none";
+  document.getElementById("savedView").style.display = v==="saved"?"":"none";
   document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
   if(v==="match") renderMatchTable();
   if(v==="cal") renderCalendar();
   if(v==="hist") renderHist();
+  if(v==="saved") renderSavedView();
   if(v==="log") renderGongmunLog();
+}
+function renderSavedView(){
+  const box=document.getElementById("savedBody"); if(!box)return;
+  const ms=savedMonths();
+  document.getElementById("savedCount").textContent=ms.length?`· ${ms.length}개월 저장됨`:"";
+  if(!ms.length){ box.innerHTML='<div class="msg warn">저장된 마감이 없습니다. 월마감 정산 후 "이번 달 마감 저장"을 누르면 여기에 표시됩니다.</div>'; return; }
+  box.innerHTML=ms.slice().reverse().map(ym=>{
+    const d=SAVED_CLOSE[ym]||{}; const codes=Object.keys(d);
+    let ts=0,te=0,tp=0; codes.forEach(c=>{ ts+=d[c].sales||0; te+=d[c].ex||0; tp+=d[c].profit||0; });
+    const rows=codes.map(c=>({...d[c],logi:c})).sort((a,b)=>(b.sales||0)-(a.sales||0))
+      .map(s=>`<tr><td class="l">${esc((s.name||s.logi).replace(/_/g," "))}</td><td class="num">${won(s.sales)}</td><td class="num">${won(s.ex)}</td><td class="num">${won(s.profit)}</td></tr>`).join("");
+    return `<section style="margin-bottom:14px">
+      <h3 data-bk="saved_${ym}">${ym} 마감 <span class="muted" style="font-weight:400">· ${codes.length}개 매장 · 총매출 ${won(ts)}원 · 전용물류매출 ${won(te)}원 · 전용이익 ${won(tp)}원</span>
+        <button class="ghost saved-del" data-ym="${ym}" style="margin-left:10px;padding:3px 10px;font-size:12px;color:#c92a2a;border-color:#ffc9c9">삭제</button></h3>
+      <div class="tablewrap storewrap"><table><thead><tr><th class="l">매장명</th><th>매출</th><th>전용물류매출</th><th>전용이익</th></tr></thead>
+        <tbody><tr class="brandtot"><td class="l">합계 (${codes.length})</td><td class="num">${won(ts)}</td><td class="num">${won(te)}</td><td class="num">${won(tp)}</td></tr>${rows}</tbody></table></div>
+    </section>`;
+  }).join("");
+  box.querySelectorAll(".saved-del").forEach(b=>b.addEventListener("click",e=>{ const ym=e.target.dataset.ym;
+    if(confirm(`${ym} 마감 저장을 삭제할까요? (다음 달 전월대비에서 사용되지 않게 됩니다)`)){ delete SAVED_CLOSE[ym]; saveSavedClose(); updateSavedMsg(); renderSavedView(); if(LAST)rerun(); } }));
+  initCollapsibles();
 }
 document.querySelectorAll("#topTabs .vtab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.v)));
 
