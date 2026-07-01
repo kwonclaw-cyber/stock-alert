@@ -950,8 +950,11 @@ function renderMatchPanel(res, root){
 function renderOrphanPanel(res, root){
   const list=res.posOrphanList||[];
   if(!list.length) return;
-  const stores=[];
-  res.list.forEach(b=>b.stores.forEach(s=>stores.push({logi:s.logi, name:s.name, brand:b.brand})));
+  const stores=[]; const seenLogi=new Set();
+  res.list.forEach(b=>b.stores.forEach(s=>{ if(!seenLogi.has(s.logi)){ seenLogi.add(s.logi); stores.push({logi:s.logi, name:s.name, brand:b.brand}); } }));
+  // 결과 리스트에 없는 물류 매장(전용발주 없거나 미매칭 신규 매장 등)도 연결 대상에 포함
+  const curT=LOGI_TOTAL[res.cur]||{};
+  for(const code in curT){ const c=canon(code); if(!seenLogi.has(c)){ seenLogi.add(c); const o=curT[code]; if(TARGET_BRANDS.indexOf(o.brand)>=0) stores.push({logi:c, name:o.name, brand:o.brand}); } }
   const tot=list.reduce((a,x)=>a+x.sales,0);
   // 검색형 선택(datalist): 매장명으로 타이핑하면 걸러짐. 값 형식 "매장명 · 브랜드 (물류코드)"
   const dispOf=s=>`${shortStoreName(s.name)} · ${s.brand} (${s.logi})`;
