@@ -953,30 +953,35 @@ function renderOrphanPanel(res, root){
   const stores=[];
   res.list.forEach(b=>b.stores.forEach(s=>stores.push({logi:s.logi, name:s.name, brand:b.brand})));
   const tot=list.reduce((a,x)=>a+x.sales,0);
+  // 검색형 선택(datalist): 매장명으로 타이핑하면 걸러짐. 값 형식 "매장명 · 브랜드 (물류코드)"
+  const dispOf=s=>`${shortStoreName(s.name)} · ${s.brand} (${s.logi})`;
+  const validLogi=new Set(stores.map(s=>String(s.logi)));
+  const dlOpts=stores.slice().sort((a,b)=>shortStoreName(a.name).localeCompare(shortStoreName(b.name),"ko"))
+    .map(s=>`<option value="${esc(dispOf(s)).replace(/"/g,'&quot;')}">`).join("");
   let rows="";
   list.forEach(o=>{
     const cands=stores.map(s=>({...s, sim:nameSim(o.name,s.name)})).sort((x,y)=>y.sim-x.sim);
-    const opts=['<option value="">(연결 안 함 · 매출 제외)</option>'].concat(
-      cands.map((s,i)=>`<option value="${s.logi}" ${i===0&&s.sim>=60?"selected":""}>${s.brand} · ${s.name} (${s.logi})${s.sim>=60?" — 추천":""}</option>`)
-    ).join("");
+    const rec=(cands[0]&&cands[0].sim>=60)?dispOf(cands[0]):"";
     rows+=`<tr><td class="l" style="padding:5px 8px">${o.name} <span class="sub">(${o.mate})</span></td>
       <td class="num" style="padding:5px 8px">${won(o.sales)}원</td>
-      <td style="padding:5px 8px"><select class="box orphan-sel" data-mate="${o.mate}" style="min-width:300px">${opts}</select></td></tr>`;
+      <td style="padding:5px 8px"><input class="box orphan-in" list="orphanDL" data-mate="${o.mate}" value="${esc(rec).replace(/"/g,'&quot;')}" placeholder="매장명 검색 후 선택 (빈칸=연결 안 함)" style="min-width:320px"></td></tr>`;
   });
   const sec=document.createElement("section");
   sec.innerHTML=`<h2>⚠️ 반영되지 않은 매출 (미매칭 POS) <span class="muted" style="font-weight:400">· ${list.length}개 · 합계 ${won(tot)}원</span></h2>
-    <div class="msg warn">매칭표에 없는 POS 매장코드라 <b>어느 매장에도 합산되지 않은 매출</b>입니다. 같은 매장(예: 양도양수로 새 코드 발급)을 골라 <b>연결 저장</b>을 누르면 그 매장 매출에 합산되고, 한 번 지정하면 브라우저에 저장되어 <b>다음 달부터 자동 적용</b>됩니다. 신규 매장이라 연결할 매장이 없으면 그대로 두세요(매출 제외 유지).</div>
+    <div class="msg warn">매칭표에 없는 POS 매장코드라 <b>어느 매장에도 합산되지 않은 매출</b>입니다. 연결할 매장을 <b>칸에 타이핑하면 검색·선택</b>됩니다. <b>연결 저장</b>을 누르면 그 매장 매출에 합산되고, 한 번 지정하면 브라우저에 저장되어 <b>다음 달부터 자동 적용</b>됩니다. 신규 매장이라 연결할 매장이 없으면 빈칸으로 두세요(매출 제외 유지).</div>
+    <datalist id="orphanDL">${dlOpts}</datalist>
     <div class="tablewrap" style="margin-top:8px"><table>
-      <thead><tr><th class="l">미매칭 POS 매장 (코드)</th><th>당월 매출</th><th class="l">연결할 매장</th></tr></thead>
+      <thead><tr><th class="l">미매칭 POS 매장 (코드)</th><th>당월 매출</th><th class="l">연결할 매장 (검색)</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="btnrow"><button id="saveOrphan">연결 저장</button>
       <button class="ghost" id="resetOrphan">POS 연결 초기화</button>
       <span class="muted">${Object.keys(USER_POSMAP).length?`POS 직접연결 ${Object.keys(USER_POSMAP).length}건 적용 중`:""}</span></div>`;
   root.appendChild(sec);
   document.getElementById("saveOrphan").addEventListener("click",()=>{
-    document.querySelectorAll(".orphan-sel").forEach(sel=>{
-      const mate=sel.dataset.mate, logi=sel.value;
-      if(logi) USER_POSMAP[mate]=logi; else delete USER_POSMAP[mate];
+    document.querySelectorAll(".orphan-in").forEach(inp=>{
+      const mate=inp.dataset.mate, val=(inp.value||"").trim();
+      const m=val.match(/\((\d+)\)\s*$/); const logi=m?m[1]:"";
+      if(logi && validLogi.has(logi)) USER_POSMAP[mate]=logi; else delete USER_POSMAP[mate];
     });
     saveUserPosmap(); rerun();
   });
