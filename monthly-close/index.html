@@ -286,18 +286,21 @@
         <div class="label">POS 매출 (브랜드별)</div>
         <div class="hint">기간별 매출분석 매장별분리 · 여러 개 선택 가능</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <button type="button" class="drop-clear" data-kind="pos" style="margin-top:6px;font-size:11px;padding:2px 8px;background:#fff;color:#c92a2a;border:1px solid #ffc9c9;border-radius:6px;cursor:pointer">✕ 지우기(기억 삭제)</button>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="pos" multiple>
       </label>
       <label class="drop req" id="drop-logi">
         <div class="label">물류 발주원장 (누적)</div>
         <div class="hint">푸드가이드 상품별 실적 · 전/범용 · 공급가</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <button type="button" class="drop-clear" data-kind="logi" style="margin-top:6px;font-size:11px;padding:2px 8px;background:#fff;color:#c92a2a;border:1px solid #ffc9c9;border-radius:6px;cursor:pointer">✕ 지우기(기억 삭제)</button>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="logi">
       </label>
       <label class="drop" id="drop-prev">
         <div class="label">전월 데이터 (선택)</div>
         <div class="hint">지난달 결과 내보내기 또는 전월 월마감(브랜드관리) 파일</div>
         <div class="file" data-file>파일 선택 / 끌어다 놓기</div>
+        <button type="button" class="drop-clear" data-kind="prev" style="margin-top:6px;font-size:11px;padding:2px 8px;background:#fff;color:#c92a2a;border:1px solid #ffc9c9;border-radius:6px;cursor:pointer">✕ 지우기(기억 삭제)</button>
         <input type="file" accept=".xlsx,.xls,.csv" data-kind="prev">
       </label>
     </div>
@@ -1833,6 +1836,21 @@ async function autoRestoreUploads(){
   }catch(e){ console.error("autoRestore",e); }
 }
 autoRestoreUploads();
+
+// 업로드 칸의 '지우기(기억 삭제)' — 저장된 파일과 현재 상태 제거 후 재계산
+async function clearUpload(kind){
+  try{ const recs=await histAll(); for(const r of recs){ if(r.kind===kind) await histDel(r.id); } }catch(e){}
+  const l=document.querySelector("#drop-"+kind+" [data-file]"); if(l)l.textContent="파일 선택 / 끌어다 놓기";
+  if(kind==="pos"){ FILES.pos=[]; POS=null; }
+  else if(kind==="prev"){ FILES.prev=null; PREVRES=null; }
+  else if(kind==="logi"){ FILES.logi=null; LOGI_AGG=null; LOGI_TOTAL={}; MONTHS=[]; }
+  else if(kind==="buy"){ FILES.buy=null; }
+  if(document.getElementById("histView") && document.getElementById("histView").style.display!=="none") renderHist();
+  if(LOGI_AGG && FILES.pos && FILES.pos.length){ rerun(); }
+  else if(kind==="logi"){ document.getElementById("results").innerHTML=""; setMsg('<div class="msg warn">물류 원장을 지웠습니다. 다시 업로드하세요.</div>'); tryEnable(); }
+  else setMsg(`<div class="msg ok">${({pos:"POS 매출",logi:"물류 원장",prev:"전월 데이터",buy:"매입가"})[kind]||kind} 기억을 지웠습니다.</div>`);
+}
+document.querySelectorAll(".drop-clear").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); if(confirm("이 칸에 기억된 파일을 지울까요?")) clearUpload(b.dataset.kind); }));
 
 document.getElementById("calcBtn").addEventListener("click",rerun);
 ["curMonth","salesCol","feeRate"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(id==="curMonth")renderExtra(); if(LAST)rerun(); }));
