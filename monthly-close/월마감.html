@@ -909,6 +909,31 @@ function compute(){
     b.cur.sales+=sales; b.cur.ex+=ex; b.cur.profit+=profit;
     if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
   }
+  // POS 매출은 있는데 물류 발주가 전혀 없는 매장(전용발주 0)도 리스트에 포함
+  for(const c in posByCanon){
+    if(curAgg[c]) continue;                          // 이미 위 루프에서 처리됨
+    let s2=posByCanon[c]; if(s2<=0) continue;
+    const mate=(posMatesByCanon[c]||[])[0];
+    const info=mate?MATCH[mate]:null;
+    const brand=info?info.brand:((STORE_DIR[c]&&STORE_DIR[c].brand)||"");
+    if(TARGET_BRANDS.indexOf(brand)<0) continue;
+    const name=info?info.name:((STORE_DIR[c]&&STORE_DIR[c].name)||(mate&&POS[mate]&&POS[mate].name)||c);
+    let ex2=0, profit2=0, isNew2, prevObj2=null;
+    const pf=prevByCanon[c];
+    if(prevSrc){ if(pf){ prevObj2={sales:pf.sales,ex:pf.ex,profit:pf.profit}; isNew2=false; } else isNew2=true; }
+    else isNew2=true;
+    const ov2=USER_OV[cur+"|"+c]||null;
+    if(ov2){ if(ov2.sales!=null)s2=ov2.sales; if(ov2.ex!=null)ex2=ov2.ex; if(ov2.profit!=null)profit2=ov2.profit;
+      if(ov2.p_sales!=null||ov2.p_ex!=null||ov2.p_profit!=null){ prevObj2=prevObj2||{sales:0,ex:0,profit:0}; if(ov2.p_sales!=null)prevObj2.sales=ov2.p_sales; if(ov2.p_ex!=null)prevObj2.ex=ov2.p_ex; if(ov2.p_profit!=null)prevObj2.profit=ov2.p_profit; isNew2=false; } }
+    if(s2<=0) continue;
+    const b=getBrand(brand);
+    const st={ logi:c, mate:mate||"", mates:posMatesByCanon[c]||[], name, brand, members:[c],
+      cur:{sales:s2, ex:ex2, profit:profit2}, prev:prevObj2, isNew:isNew2, ov:ov2,
+      matched:{logi:false, sales:true}, missing:false, noLogi:true };
+    b.stores.push(st);
+    b.cur.sales+=s2; b.cur.ex+=ex2; b.cur.profit+=profit2;
+    if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
+  }
   const list=Object.values(brands).filter(b=>b.stores.length).sort((a,b)=>b.cur.ex-a.cur.ex);
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
   classify(list);
@@ -929,6 +954,7 @@ function classify(list){
     b.stores.forEach(s=>{ s.rate=orderRate(s.cur); s.isRef=!!ref&&s.logi===ref.logi;
       s.gap=ref?(b.refRate-s.rate):null;
       s.saip=!!ref&&!s.isRef&&b.refRate>0&&s.gap>=THRESHOLD;
+      if(s.noLogi) s.saip=false;   // 물류발주 0(전용발주 없음) 매장은 자동 사입판정 제외(발주율 무의미)
       // 수기 수정모드에서 구분을 사입으로 강제(또는 해제)한 경우 우선 적용
       if(!s.isRef && s.ov && s.ov.saipOverride!=null) s.saip=!!s.ov.saipOverride;
       if(s.saip)b.saipCount++; });
@@ -1189,6 +1215,7 @@ function render(res){
       if(s.isRef)badges+='<span class="badge ref">기준매장</span>'; else if(s.saip)badges+='<span class="badge">사입</span>';
       if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
       if(s.missing)badges+='<span class="badge warnb" title="일부 전용상품 매입가 미보유 → 이익 과대">매입가?</span>';
+      if(s.noLogi)badges+='<span class="badge warnb" title="POS 매출은 있으나 이번 달 물류 발주가 없음(전용발주 0)">물류無</span>';
       const gubun = EDIT_MODE
         ? (s.isRef
             ? '<span class="badge ref">기준</span>'
