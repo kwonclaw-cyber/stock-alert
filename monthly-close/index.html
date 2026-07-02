@@ -476,6 +476,10 @@ function autoMatchNew(cur, m2l){
 const GDEC_KEY = "monthlyClose.gdec.v2";
 let USER_GDEC = (()=>{ try{return JSON.parse(localStorage.getItem(GDEC_KEY)||"{}");}catch(e){return {};} })();
 function saveUserGdec(){ localStorage.setItem(GDEC_KEY, JSON.stringify(USER_GDEC)); }
+// 수동 통합(이름이 달라 자동 감지 안 되는 매장을 직접 합침): 합칠물류코드 -> 대표물류코드
+const MERGE_KEY = "monthlyClose.merge.v1";
+let USER_MERGE = (()=>{ try{return JSON.parse(localStorage.getItem(MERGE_KEY)||"{}");}catch(e){return {};} })();
+function saveUserMerge(){ localStorage.setItem(MERGE_KEY, JSON.stringify(USER_MERGE)); }
 let STORE_DIR = {};   // {logi: {name, brand, months:Set}} — 전체 기간 매장 디렉터리(통합 추천용)
 let GMAP = {};        // member 물류코드 -> 대표 물류코드 (자동+사용자결정 반영, compute마다 갱신)
 function canon(logi){ return GMAP[logi] || logi; }
@@ -488,6 +492,8 @@ function buildGroupMap(){
     const canonical = (dec&&dec.canonical&&g.codes.indexOf(dec.canonical)>=0) ? dec.canonical : g.canonical;
     if(merge) g.codes.forEach(c=>{ if(c!==canonical)GMAP[c]=canonical; });
   });
+  // 수동 통합 적용(대표코드 체인 따라감)
+  for(const m in USER_MERGE){ let rep=USER_MERGE[m], guard=0; while(GMAP[rep]&&rep!==GMAP[rep]&&guard++<20) rep=GMAP[rep]; if(m!==rep) GMAP[m]=rep; }
   return GMAP;
 }
 
@@ -917,7 +923,6 @@ function monthsLabel(code){ const d=STORE_DIR[code]; if(!d||!d.months.size)retur
 
 function renderGroupPanel(root){
   const groups=detectGroups();
-  if(!groups.length) return;
   const sec=document.createElement("section"); sec.className="setup-sec";
   let html=""; let autoN=0;
   groups.sort((a,b)=>(b.high?1:0)-(a.high?1:0));
@@ -935,15 +940,46 @@ function renderGroupPanel(root){
       <label style="font-weight:700"><input type="checkbox" class="grp-chk" ${merge?"checked":""}> 통합 ${tag}</label>
       <div style="margin-top:4px">${memberRows}</div></div>`;
   });
-  sec.innerHTML=`<h2>양도양수 매장 통합 <span class="muted" style="font-weight:400">· 후보 ${groups.length}그룹 · 적용 ${autoN}</span></h2>
-    <div class="note"><b>높은 신뢰(자동) 그룹은 저장 없이 바로 적용</b>됩니다. 잘못 묶였으면 체크 해제, 낮은신뢰(확인) 그룹을 묶으려면 체크, 대표(최신 코드)는 라디오로 바꾼 뒤 <b>통합 저장</b>을 누르면 그 결정이 영구 저장됩니다.</div>
+  // 수동 통합 대상 후보(물류 매장 전체) datalist
+  const dstores=[]; const dseen=new Set();
+  for(const c in STORE_DIR){ const d=STORE_DIR[c]; if(TARGET_BRANDS.indexOf(d.brand)<0)continue; if(dseen.has(c))continue; dseen.add(c);
+    dstores.push({logi:c, name:d.name}); }
+  dstores.sort((a,b)=>String(a.name).localeCompare(String(b.name),"ko"));
+  const dl=dstores.map(s=>`<option value="${esc((s.name||"").replace(/_/g," "))} (${s.logi})">`).join("");
+  const nameOfLogi=l=>{ const d=STORE_DIR[l]; return d?(d.name||l).replace(/_/g," "):l; };
+  const mergeRows=Object.keys(USER_MERGE).map(m=>`<div style="padding:2px 0;font-size:13px">${esc(nameOfLogi(m))} <span class="sub">(${m})</span> → <b>${esc(nameOfLogi(USER_MERGE[m]))}</b> <span class="sub">(${USER_MERGE[m]})</span> <a href="#" class="merge-del" data-m="${m}" style="font-size:11px">해제</a></div>`).join("") || '<span class="muted">수동 통합 없음</span>';
+  const autoHtml = groups.length ? `<div class="note"><b>높은 신뢰(자동) 그룹은 저장 없이 바로 적용</b>됩니다. 잘못 묶였으면 체크 해제, 낮은신뢰(확인) 그룹을 묶으려면 체크, 대표는 라디오로 바꾼 뒤 <b>통합 저장</b>.</div>
     <div class="cfg" style="margin-top:8px">${html}</div>
-    <div class="btnrow"><button id="saveGroup">통합 저장</button>
+    <div class="btnrow" style="margin-top:8px"><button id="saveGroup">통합 저장</button>
       <button class="ghost" id="resetGroup">결정 초기화(자동만)</button>
-      <span class="muted">${Object.keys(USER_GDEC).length?`사용자 결정 ${Object.keys(USER_GDEC).length}건 저장됨`:"사용자 결정 없음 (자동만 적용)"}</span></div>`;
+      <span class="muted">${Object.keys(USER_GDEC).length?`사용자 결정 ${Object.keys(USER_GDEC).length}건 저장됨`:""}</span></div>` : `<div class="note muted">자동 감지된 통합 후보가 없습니다. 이름이 달라 자동으로 안 묶이는 매장은 아래 <b>수동 통합</b>으로 합치세요.</div>`;
+  sec.innerHTML=`<h2>양도양수·매장 통합 <span class="muted" style="font-weight:400">· 자동후보 ${groups.length} · 적용 ${autoN} · 수동 ${Object.keys(USER_MERGE).length}</span></h2>
+    ${autoHtml}
+    <datalist id="mergeDL">${dl}</datalist>
+    <h3>수동 통합 (이름이 달라도 직접 합치기)</h3>
+    <div class="note">매장명이 바뀌어 물류코드가 둘로 갈린 경우(예: 마산경남대점 ↔ 마산문화점) 두 매장을 골라 하나로 합칩니다. <b>대표(유지)</b>에 남길 매장을, <b>합칠 매장</b>에 흡수될 매장을 검색해 넣고 <b>수동 통합</b>을 누르세요.</div>
+    <div class="opts" style="margin:8px 0">
+      <label>대표(유지) <input class="box" id="mergeA" list="mergeDL" placeholder="매장명 검색" style="min-width:230px"></label>
+      <label>합칠 매장 <input class="box" id="mergeB" list="mergeDL" placeholder="매장명 검색" style="min-width:230px"></label>
+      <button id="mergeAdd">수동 통합</button>
+    </div>
+    <div style="margin:4px 0 2px;font-weight:700;font-size:13px">현재 수동 통합</div>
+    <div id="mergeList">${mergeRows}</div>`;
   root.appendChild(sec);
 
-  document.getElementById("saveGroup").addEventListener("click",()=>{
+  const mergeAddBtn=document.getElementById("mergeAdd");
+  if(mergeAddBtn) mergeAddBtn.addEventListener("click",()=>{
+    const pa=(document.getElementById("mergeA").value||"").match(/\((\d+)\)\s*$/);
+    const pb=(document.getElementById("mergeB").value||"").match(/\((\d+)\)\s*$/);
+    if(!pa||!pb){ alert("대표·합칠 매장을 목록에서 선택하세요."); return; }
+    const a=pa[1], b=pb[1];
+    if(a===b){ alert("서로 다른 매장을 선택하세요."); return; }
+    USER_MERGE[b]=a; saveUserMerge(); rerun();
+  });
+  sec.querySelectorAll(".merge-del").forEach(x=>x.addEventListener("click",e=>{ e.preventDefault(); delete USER_MERGE[e.target.dataset.m]; saveUserMerge(); rerun(); }));
+
+  const sg=document.getElementById("saveGroup");
+  if(sg) sg.addEventListener("click",()=>{
     document.querySelectorAll('#results .item[data-key]').forEach(div=>{
       const key=decodeURIComponent(div.dataset.key);
       const codes=div.dataset.codes.split(',');
@@ -953,7 +989,8 @@ function renderGroupPanel(root){
     });
     saveUserGdec(); rerun();
   });
-  document.getElementById("resetGroup").addEventListener("click",()=>{
+  const rg=document.getElementById("resetGroup");
+  if(rg) rg.addEventListener("click",()=>{
     if(confirm("저장된 통합 결정을 모두 삭제할까요? (높은 신뢰 그룹은 자동 적용으로 되돌아갑니다)")){ USER_GDEC={}; saveUserGdec(); rerun(); }
   });
 }
