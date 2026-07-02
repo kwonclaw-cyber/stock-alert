@@ -546,6 +546,12 @@ def send_email(subject, html_body):
 
 
 if __name__ == "__main__":
+    # 일시 정지 가드: matetech API 전환 작업 진행 중이라 자동/수동 실행 모두 스킵.
+    # 다시 켜려면 아래 3줄을 제거하세요.
+    if os.environ.get("FORCE_RUN_SALES_REPORT", "").strip().lower() not in ("1", "true", "yes"):
+        print("[sales_report] 일시 정지 상태입니다. FORCE_RUN_SALES_REPORT=true 로 강제 실행 가능.")
+        raise SystemExit(0)
+
     report_type = os.environ.get("REPORT_TYPE", "daily").strip().lower()
     if report_type not in ("daily", "weekly"):
         print(f"Unknown REPORT_TYPE: {report_type}, fallback to 'daily'")
