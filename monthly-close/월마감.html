@@ -1256,7 +1256,8 @@ function render(res){
   // 브랜드 상세
   list.forEach(b=>{
     const sec=document.createElement("section"); let rows="";
-    const shown=applyFilterSort(b.stores, b.brand);
+    let shown=applyFilterSort(b.stores, b.brand);
+    if(!EDIT_MODE) shown=shown.filter(s=>!s.excluded);   // 수기수정 해제 시 제외 매장은 리스트에서 숨김
     shown.forEach(s=>{
       const o=s.rate,p=profitRate(s.cur), po=s.prev?orderRate(s.prev):null, pp=s.prev?profitRate(s.prev):null;
       let badges=""; if(s.isNew)badges+='<span class="badge openb">당월오픈</span>';
@@ -1279,7 +1280,8 @@ function render(res){
         <td class="l"><textarea class="box memo-in" data-logi="${s.logi}" rows="2" placeholder="" style="width:180px;font-size:11px;line-height:1.35;resize:vertical;min-height:0;height:40px;padding:3px 6px">${memo}</textarea></td></tr>`;
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
-    const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
+    const baseCount = EDIT_MODE ? b.stores.length : b.stores.filter(s=>!s.excluded).length;
+    const shownNote = shown.length!==baseCount?` · 표시 ${shown.length}`:"";
     const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.filter(s=>!s.excluded).length}개 · 사입 ${b.saipCount}${b.exclCount?` · 제외 ${b.exclCount}`:""}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
     const bv=bview(b.brand);
