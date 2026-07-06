@@ -62,6 +62,8 @@
   td.num{text-align:right;font-variant-numeric:tabular-nums;}
   tr.brandtot td{background:#fff9db;font-weight:700;border-top:2px solid #ffe066;border-bottom:2px solid #ffe066;}
   tr.saip-row td{background:var(--sa-bg);}
+  tr.excl-row td{background:#f1f3f5;color:#adb5bd;text-decoration:line-through;}
+  tr.excl-row td input,tr.excl-row td textarea,tr.excl-row td .badge{text-decoration:none;}
   tr.ref-row td{background:#e7f5ff;}
   tr.open-row td{background:#ebfbee;}
   .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;}
@@ -841,9 +843,12 @@ function compute(){
     // 매출 미매칭 → 매칭 관리 패널로(리스트·합계 제외). 매출 0 → 제외.
     if(!anyMatch){ unmatched.push(st); continue; }
     if(sales<=0){ excludedZero++; continue; }
+    st.excluded = !!(ov && ov.exclude);
     b.stores.push(st);
-    b.cur.sales+=sales; b.cur.ex+=ex; b.cur.profit+=profit;
-    if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
+    if(!st.excluded){
+      b.cur.sales+=sales; b.cur.ex+=ex; b.cur.profit+=profit;
+      if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
+    }
   }
   // POS 매출은 있는데 물류 발주가 전혀 없는 매장(전용발주 0)도 리스트에 포함
   for(const c in posByCanon){
@@ -865,10 +870,12 @@ function compute(){
     const b=getBrand(brand);
     const st={ logi:c, mate:mate||"", mates:posMatesByCanon[c]||[], name, brand, members:[c],
       cur:{sales:s2, ex:ex2, profit:profit2}, prev:prevObj2, isNew:isNew2, ov:ov2,
-      matched:{logi:false, sales:true}, missing:false, noLogi:true };
+      matched:{logi:false, sales:true}, missing:false, noLogi:true, excluded:!!(ov2&&ov2.exclude) };
     b.stores.push(st);
-    b.cur.sales+=s2; b.cur.ex+=ex2; b.cur.profit+=profit2;
-    if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
+    if(!st.excluded){
+      b.cur.sales+=s2; b.cur.ex+=ex2; b.cur.profit+=profit2;
+      if(st.prev){ b.prev.sales+=st.prev.sales; b.prev.ex+=st.prev.ex; b.prev.profit+=st.prev.profit; }
+    }
   }
   const list=Object.values(brands).filter(b=>b.stores.length).sort((a,b)=>b.cur.ex-a.cur.ex);
   list.forEach(b=>b.stores.sort((x,y)=>y.cur.sales-x.cur.sales));
@@ -878,16 +885,17 @@ function compute(){
 }
 
 function pickRef(b){
-  if(REF[b.brand]){ const f=b.stores.find(s=>s.logi===REF[b.brand]); if(f)return f; }
+  if(REF[b.brand]){ const f=b.stores.find(s=>s.logi===REF[b.brand]&&!s.excluded); if(f)return f; }
   const tok=REF_TOKEN[b.brand];
-  if(tok){ let f; if(tok.endsWith("$")){const re=new RegExp(tok);f=b.stores.find(s=>re.test(s.name.replace(/\s/g,"")));}
-    else f=b.stores.find(s=>s.name.replace(/\s/g,"").includes(tok)); if(f)return f; }
+  if(tok){ let f; if(tok.endsWith("$")){const re=new RegExp(tok);f=b.stores.find(s=>!s.excluded&&re.test(s.name.replace(/\s/g,"")));}
+    else f=b.stores.find(s=>!s.excluded&&s.name.replace(/\s/g,"").includes(tok)); if(f)return f; }
   return null;
 }
 function classify(list){
   list.forEach(b=>{
     const ref=pickRef(b); b.ref=ref||null; b.refRate=ref?orderRate(ref.cur):0; b.saipCount=0;
     b.stores.forEach(s=>{ s.rate=orderRate(s.cur); s.isRef=!!ref&&s.logi===ref.logi;
+      if(s.excluded){ s.gap=null; s.saip=false; return; }   // 합산 제외 매장은 사입판정·집계 제외
       s.gap=ref?(b.refRate-s.rate):null;
       s.saip=!!ref&&!s.isRef&&b.refRate>0&&s.gap>=THRESHOLD;
       if(s.noLogi) s.saip=false;   // 물류발주 0(전용발주 없음) 매장은 자동 사입판정 제외(발주율 무의미)
@@ -1115,9 +1123,9 @@ function render(res){
   // 요약
   const sum=document.createElement("section"); let cards="";
   let g={sales:0,ex:0,profit:0}, gp={sales:0,ex:0,profit:0}, gS=0, gO=0, gN=0, gPN=0;
-  list.forEach(b=>{ b.openCount=b.stores.filter(s=>s.isNew).length;
+  list.forEach(b=>{ const act=b.stores.filter(s=>!s.excluded); b.openCount=act.filter(s=>s.isNew).length; b.exclCount=b.stores.length-act.length;
     g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit; gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit; gS+=b.saipCount; gO+=b.openCount;
-    const n=b.stores.length, pn=b.stores.filter(s=>!s.isNew).length; gN+=n; gPN+=pn;
+    const n=act.length, pn=act.filter(s=>!s.isNew).length; gN+=n; gPN+=pn;
     const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
     const por=b.prev.sales?orderRate(b.prev):null, ppr=b.prev.ex?profitRate(b.prev):null;
     const mx=Math.max(b.cur.sales,b.prev.sales,1), cw=b.cur.sales/mx*100, pw=b.prev.sales/mx*100;
@@ -1127,7 +1135,7 @@ function render(res){
     const orC=orderRate(b.cur), orP=b.prev.sales?orderRate(b.prev):null;
     const rw=Math.min(orC*250,100), rwP=orP!=null?Math.min(orP*250,100):null;  // 0~40% 스케일
     const th=brandTheme(b.brand);
-    cards+=`<div class="card bcard" style="border-top:3px solid ${th.bd};background:${th.bg}"><div class="bn" style="color:${th.main}">${b.brand} <span class="muted">(${b.stores.length}개 매장)</span></div>
+    cards+=`<div class="card bcard" style="border-top:3px solid ${th.bd};background:${th.bg}"><div class="bn" style="color:${th.main}">${b.brand} <span class="muted">(${n}개 매장${b.exclCount?` · 제외 ${b.exclCount}`:""})</span></div>
       <div style="margin-top:6px"><span class="big" style="color:${th.main}">${won(b.cur.sales)}원</span> ${pillPct(b.cur.sales,b.prev.sales)}</div>
       <div class="sub">점당 평균매출 <b style="color:#212529;font-size:13px">${won(avg)}원</b> ${pavg==null?"":pillPct(avg,pavg)}</div>
       <div class="bar2"><div class="lbl"><span>매출 · 당월 vs 전월</span><span>${pillPct(b.cur.sales,b.prev.sales)}</span></div>
@@ -1183,13 +1191,14 @@ function render(res){
       if(!s.matched.sales)badges+='<span class="badge warnb" title="POS 매출 미매칭">매출X</span>';
       if(s.missing)badges+='<span class="badge warnb" title="일부 전용상품 매입가 미보유 → 이익 과대">매입가?</span>';
       if(s.noLogi)badges+='<span class="badge warnb" title="POS 매출은 있으나 이번 달 물류 발주가 없음(전용발주 0)">물류無</span>';
+      if(s.excluded)badges+='<span class="badge warnb" title="합산 제외됨(KPI·합계 미포함)">제외</span>';
       const gubun = EDIT_MODE
         ? (s.isRef
-            ? '<span class="badge ref">기준</span>'
-            : `<label style="white-space:nowrap;font-size:12px;cursor:pointer"><input type="checkbox" class="saip-chk" data-logi="${s.logi}" ${s.saip?"checked":""}> 사입</label>`)
+            ? `<span class="badge ref">기준</span><label style="white-space:nowrap;font-size:11px;cursor:pointer;margin-left:6px"><input type="checkbox" class="excl-chk" data-logi="${s.logi}" ${s.excluded?"checked":""}> 제외</label>`
+            : `<label style="white-space:nowrap;font-size:12px;cursor:pointer"><input type="checkbox" class="saip-chk" data-logi="${s.logi}" ${s.saip?"checked":""}> 사입</label> <label style="white-space:nowrap;font-size:11px;cursor:pointer"><input type="checkbox" class="excl-chk" data-logi="${s.logi}" ${s.excluded?"checked":""}> 제외</label>`)
         : (s.isNew?'<span class="badge openb">오픈</span>':(s.isRef?'<span class="badge ref">기준</span>':(s.saip?'<span class="badge">사입</span>':'<span class="muted">일반</span>')));
       const memo=(USER_MEMO[s.logi]||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');
-      rows+=`<tr class="bstore-row ${s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":""))}" data-name="${esc(s.name).replace(/"/g,'&quot;')}">
+      rows+=`<tr class="bstore-row ${s.excluded?"excl-row":(s.isNew?"open-row":(s.isRef?"ref-row":(s.saip?"saip-row":"")))}" data-name="${esc(s.name).replace(/"/g,'&quot;')}">
         <td class="l">${s.name}${badges}</td>
         ${amtCell(s,'sales')}${amtCell(s,'ex')}
         ${rcell(o,po)}${amtCell(s,'profit')}${rcell(p,pp)}
@@ -1198,7 +1207,7 @@ function render(res){
     });
     const o=orderRate(b.cur),p=profitRate(b.cur),po=orderRate(b.prev),pp=profitRate(b.prev);
     const shownNote = shown.length!==b.stores.length?` · 표시 ${shown.length}`:"";
-    const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.length}개 · 사입 ${b.saipCount}${shownNote})</td>
+    const tot=`<tr class="brandtot"><td class="l">합계 (${b.stores.filter(s=>!s.excluded).length}개 · 사입 ${b.saipCount}${b.exclCount?` · 제외 ${b.exclCount}`:""}${shownNote})</td>
       ${mcell(b.cur.sales,b.prev.sales)}${mcell(b.cur.ex,b.prev.ex)}${rcell(o,po)}${mcell(b.cur.profit,b.prev.profit)}${rcell(p,pp)}<td></td><td></td></tr>`;
     const bv=bview(b.brand);
     const sortOpts=SORT_OPTS.map(([v,t])=>`<option value="${v}" ${bv.sort===v?"selected":""}>${t}</option>`).join("");
@@ -1237,6 +1246,14 @@ function render(res){
     const k=ovKey(e.target.dataset.logi);
     if(!USER_OV[k])USER_OV[k]={};
     USER_OV[k].saipOverride=e.target.checked;
+    if(!Object.keys(USER_OV[k]).length) delete USER_OV[k];
+    saveOV(); rerun();
+  }));
+  // 합산 제외 토글 (KPI·합계에서 제외)
+  root.querySelectorAll(".excl-chk").forEach(el=>el.addEventListener("change",e=>{
+    const k=ovKey(e.target.dataset.logi);
+    if(!USER_OV[k])USER_OV[k]={};
+    if(e.target.checked) USER_OV[k].exclude=true; else delete USER_OV[k].exclude;
     if(!Object.keys(USER_OV[k]).length) delete USER_OV[k];
     saveOV(); rerun();
   }));
@@ -1620,7 +1637,8 @@ const JEJU_KEY="monthlyClose.jeju.v1";
 let JEJU_PS=(()=>{ const v=parseFloat(localStorage.getItem(JEJU_KEY)); return isNaN(v)?0:v; })();
 function brandStat(name){
   if(!LAST)return null; const b=LAST.list.find(x=>x.brand===name); if(!b)return null;
-  const n=b.stores.length, pn=b.stores.filter(s=>!s.isNew).length;
+  const act=b.stores.filter(s=>!s.excluded);
+  const n=act.length, pn=act.filter(s=>!s.isNew).length;
   const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:null;
   return {avg, pavg, mom: (pavg? (avg-pavg)/pavg : null)};
 }
@@ -2129,7 +2147,7 @@ function buildPPT(){
   const cur=LAST.cur||"", ym=cur?`${cur.slice(0,4)}년 ${+cur.slice(4,6)}월`:"";
   // 전체 합계
   let g={sales:0,ex:0,profit:0},gp={sales:0,ex:0,profit:0},gS=0,gO=0,gN=0;
-  LAST.list.forEach(b=>{g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit;gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit;gS+=b.saipCount;gO+=(b.stores.filter(s=>s.isNew).length);gN+=b.stores.length;});
+  LAST.list.forEach(b=>{const act=b.stores.filter(s=>!s.excluded);g.sales+=b.cur.sales;g.ex+=b.cur.ex;g.profit+=b.cur.profit;gp.sales+=b.prev.sales;gp.ex+=b.prev.ex;gp.profit+=b.prev.profit;gS+=b.saipCount;gO+=act.filter(s=>s.isNew).length;gN+=act.length;});
 
   // ── 슬라이드 1: 표지
   let s=p.addSlide(); s.background={color:"F4F6F8"};
@@ -2153,8 +2171,8 @@ function buildPPT(){
   // 브랜드 비교 표
   const head=["브랜드","매장","총매출","전월대비","전용물류매출","전용이익","발주율","이익률","사입","오픈"];
   const rows=[head.map(t=>({text:t,options:{bold:true,color:"FFFFFF",fill:{color:NAVY},fontFace:F,fontSize:11,align:"center"}}))];
-  LAST.list.forEach(b=>{ const op=b.stores.filter(x=>x.isNew).length;
-    rows.push([b.brand,String(b.stores.length),won(b.cur.sales),pctTxt(b.cur.sales,b.prev.sales),won(b.cur.ex),won(b.cur.profit),
+  LAST.list.forEach(b=>{ const act=b.stores.filter(s=>!s.excluded); const op=act.filter(x=>x.isNew).length;
+    rows.push([b.brand,String(act.length),won(b.cur.sales),pctTxt(b.cur.sales,b.prev.sales),won(b.cur.ex),won(b.cur.profit),
       pct(orderRate(b.cur)),pct(profitRate(b.cur)),String(b.saipCount),String(op)].map((t,i)=>({text:t,options:{fontFace:F,fontSize:11,align:i==0?"left":"right",color:INK}})));
   });
   rows.push(["전체",String(gN),won(g.sales),pctTxt(g.sales,gp.sales),won(g.ex),won(g.profit),pct(g.sales?g.ex/g.sales:0),pct(g.ex?g.profit/g.ex:0),String(gS),String(gO)]
@@ -2164,7 +2182,8 @@ function buildPPT(){
   // ── 브랜드별 슬라이드
   LAST.list.forEach(b=>{
     const sb=p.addSlide(); slideHead(sb,b.brand+" 요약",ym);
-    const n=b.stores.length, pn=b.stores.filter(x=>!x.isNew).length;
+    const act=b.stores.filter(s=>!s.excluded);
+    const n=act.length, pn=act.filter(x=>!x.isNew).length;
     const avg=n?b.cur.sales/n:0, pavg=pn?b.prev.sales/pn:0;
     const items=[["총매출",won(b.cur.sales)+"원",pctTxt(b.cur.sales,b.prev.sales)],
       ["점당 평균매출",won(avg)+"원",pctTxt(avg,pavg)],
