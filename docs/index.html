@@ -250,6 +250,7 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
     <button class="vtab active" data-v="main">월마감 정산</button>
     <button class="vtab" data-v="buy">매입가 관리</button>
     <button class="vtab" data-v="match">매장 매칭표</button>
+    <button class="vtab" data-v="sv">SV 보고</button>
     <button class="vtab" data-v="cal">스케줄 달력</button>
     <button class="vtab" data-v="hist">업로드 기록</button>
     <button class="vtab" data-v="saved">마감 저장 현황</button>
@@ -338,6 +339,19 @@ window.STORE_MATCH = {"1014173": {"logi": "219634", "name": "밥구정로데오_
       <div id="calGrid"></div>
       <div id="calSide"></div>
     </div>
+  </section>
+
+  <section id="svView" style="display:none">
+    <h2>SV 월마감 보고 <span class="muted" id="svTitle" style="font-weight:400"></span></h2>
+    <div class="note">담당 SV별로 매장 관리 성과를 집계하는 보고입니다. <b>매출 증감률·사입률은 자동 산출</b>되며, SV는 <b>증감 요인 분석</b>과 <b>부진 매장 액션플랜</b>만 입력하면 됩니다. 부진 매장(증감률 기준 이하 또는 사입)은 자동 선별됩니다. 입력은 월별로 저장되며, SV별 <b>📷 보고 이미지</b>로 표준 양식을 출력합니다.</div>
+    <details id="svAssignWrap" style="margin:10px 0">
+      <summary style="font-weight:700">담당 매장 배정 (매장 ↔ SV) <span class="muted" id="svAssignCount" style="font-weight:400"></span></summary>
+      <div class="opts" style="margin:8px 0"><label>검색 <input class="box" id="svAssignQ" placeholder="매장명" style="width:180px"></label>
+        <span class="muted">한 번 배정하면 계속 유지됩니다. (브라우저 저장 · 설정 내보내기에 포함)</span></div>
+      <div id="svAssignBox" class="tablewrap" style="max-height:50vh"></div>
+    </details>
+    <div class="opts" style="margin:6px 0"><label>부진 매장 기준: 전월대비 <input class="box" id="svPoorTh" type="number" step="1" style="width:70px;text-align:right"> % 이하 <span class="muted">(사입 분류 매장은 자동 포함)</span></label></div>
+    <div id="svReportBox"></div>
   </section>
 
   <div id="mainView">
@@ -1800,7 +1814,7 @@ function initCollapsibles(){
   document.querySelectorAll("main section > h2").forEach(h2=>{
     if(h2.dataset.collap) return;                 // 이미 처리됨
     const sec=h2.parentElement;
-    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView"||sec.id==="histView"||sec.id==="savedView") return;   // 탭 전용 뷰는 제외
+    if(sec.id==="logView"||sec.id==="buyView"||sec.id==="matchView"||sec.id==="calView"||sec.id==="histView"||sec.id==="savedView"||sec.id==="svView") return;   // 탭 전용 뷰는 제외
     const key=collapKey(h2); if(!key) return;
     h2.dataset.collap=key; h2.classList.add("collap");
     const ind=document.createElement("span"); ind.className="cind";
@@ -2321,12 +2335,14 @@ function showView(v){
   document.getElementById("buyView").style.display = v==="buy"?"":"none";
   document.getElementById("matchView").style.display = v==="match"?"":"none";
   document.getElementById("calView").style.display = v==="cal"?"":"none";
+  document.getElementById("svView").style.display = v==="sv"?"":"none";
   document.getElementById("histView").style.display = v==="hist"?"":"none";
   document.getElementById("savedView").style.display = v==="saved"?"":"none";
   document.getElementById("logView").style.display = v==="log"?"":"none";
   if(v==="buy") renderBuyList();
   if(v==="match") renderMatchTable();
   if(v==="cal") renderCalendar();
+  if(v==="sv") renderSVReport();
   if(v==="hist") renderHist();
   if(v==="saved") renderSavedView();
   if(v==="log") renderGongmunLog();
@@ -2545,6 +2561,136 @@ document.getElementById("calAdd").addEventListener("click",()=>{
   const [y,m]=date.split("-").map(Number); CAL_Y=y; CAL_M=m-1;
   renderCalendar();
 });
+// ===== SV 월마감 보고 =====
+const SVASSIGN_KEY="monthlyClose.svAssign.v1";
+let SV_ASSIGN=(()=>{ try{return JSON.parse(localStorage.getItem(SVASSIGN_KEY)||"{}");}catch(e){return {};} })();   // logi -> SV명
+function saveSvAssign(){ localStorage.setItem(SVASSIGN_KEY, JSON.stringify(SV_ASSIGN)); }
+const SVREPORT_KEY="monthlyClose.svReport.v1";
+let SV_REPORT=(()=>{ try{return JSON.parse(localStorage.getItem(SVREPORT_KEY)||"{}");}catch(e){return {};} })();   // {ym:{sv:{up,down,plans:{logi:txt}}}}
+function saveSvReport(){ localStorage.setItem(SVREPORT_KEY, JSON.stringify(SV_REPORT)); }
+function svRep(ym,sv){ if(!SV_REPORT[ym])SV_REPORT[ym]={}; if(!SV_REPORT[ym][sv])SV_REPORT[ym][sv]={up:"",down:"",plans:{}}; return SV_REPORT[ym][sv]; }
+const SVTH_KEY="monthlyClose.svPoorTh.v1";
+let SV_POOR_TH=(()=>{ const v=parseFloat(localStorage.getItem(SVTH_KEY)); return isNaN(v)?-10:v; })();
+function svMoM(c,p){ return p>0?(c-p)/p*100:null; }
+function renderSVReport(){
+  const box=document.getElementById("svReportBox"); if(!box)return;
+  const thIn=document.getElementById("svPoorTh"); if(thIn && !thIn.dataset.bound){ thIn.dataset.bound="1"; thIn.value=SV_POOR_TH;
+    thIn.addEventListener("change",e=>{ const v=parseFloat(e.target.value); SV_POOR_TH=isNaN(v)?-10:v; localStorage.setItem(SVTH_KEY,String(SV_POOR_TH)); renderSVReport(); }); }
+  if(!LAST){ box.innerHTML='<div class="msg warn">월마감 정산 탭에서 먼저 계산하세요. (계산 후 이 탭에서 SV별 보고가 자동 집계됩니다)</div>'; document.getElementById("svAssignBox").innerHTML=""; return; }
+  const ym=LAST.cur||""; document.getElementById("svTitle").textContent=ym?`· ${ym} 기준`:"";
+  // 활성 매장 목록 (제외 매장 제외)
+  const stores=[]; LAST.list.forEach(b=>b.stores.forEach(s=>{ if(!s.excluded) stores.push(s); }));
+  // ── 배정 UI
+  const q=(document.getElementById("svAssignQ").value||"").trim().toLowerCase();
+  const asRows=stores.slice().sort((a,b)=>String(a.brand).localeCompare(b.brand,"ko")||String(a.name).localeCompare(b.name,"ko"))
+    .filter(s=>!q||(s.name||"").toLowerCase().indexOf(q)>=0)
+    .map(s=>{ const cur=SV_ASSIGN[s.logi]||"";
+      const opts=['<option value="">(미지정)</option>'].concat(PERSONS.map(p=>`<option value="${p}" ${cur===p?"selected":""}>${p}</option>`)).join("");
+      return `<tr><td class="l">${esc(s.brand)}</td><td class="l">${esc((s.name||"").replace(/_/g," "))}</td>
+        <td class="l"><select class="box sv-as" data-logi="${s.logi}">${opts}</select></td></tr>`; }).join("");
+  const asgN=stores.filter(s=>SV_ASSIGN[s.logi]).length;
+  document.getElementById("svAssignCount").textContent=`· 배정 ${asgN}/${stores.length}`;
+  document.getElementById("svAssignBox").innerHTML=`<table><thead><tr><th class="l">브랜드</th><th class="l">매장명</th><th class="l">담당 SV</th></tr></thead><tbody>${asRows}</tbody></table>`;
+  document.querySelectorAll(".sv-as").forEach(sel=>sel.addEventListener("change",e=>{
+    const lg=e.target.dataset.logi, v=e.target.value;
+    if(v) SV_ASSIGN[lg]=v; else delete SV_ASSIGN[lg];
+    saveSvAssign(); renderSVReport();
+  }));
+  const qi=document.getElementById("svAssignQ"); if(qi && !qi.dataset.bound){ qi.dataset.bound="1"; qi.addEventListener("input",()=>renderSVReport()); }
+  // ── SV별 집계
+  const bySv={};
+  stores.forEach(s=>{ const sv=SV_ASSIGN[s.logi]; if(!sv)return; (bySv[sv]=bySv[sv]||[]).push(s); });
+  const svs=PERSONS.filter(p=>bySv[p]&&bySv[p].length);
+  if(!svs.length){ box.innerHTML='<div class="msg warn">배정된 매장이 없습니다. 위 <b>담당 매장 배정</b>을 열어 매장마다 SV를 지정하세요.</div>'; return; }
+  const agg={};
+  svs.forEach(sv=>{
+    const arr=bySv[sv]; let cs=0,ps=0,saip=0;
+    arr.forEach(s=>{ cs+=s.cur.sales; ps+=s.prev?s.prev.sales:0; if(s.saip)saip++; });
+    const poor=arr.filter(s=>{ const m=svMoM(s.cur.sales, s.prev?s.prev.sales:0); return (m!=null&&m<=SV_POOR_TH)||s.saip; })
+      .sort((a,b)=>(svMoM(a.cur.sales,a.prev?a.prev.sales:0)??0)-(svMoM(b.cur.sales,b.prev?b.prev.sales:0)??0));
+    agg[sv]={arr, cs, ps, mom:svMoM(cs,ps), saip, saipRate:arr.length?saip/arr.length*100:0, poor};
+  });
+  // 요약표
+  let sumRows=svs.map(sv=>{ const a=agg[sv]; const r=svRep(ym,sv);
+    const planDone=a.poor.length?a.poor.every(s=>(r.plans[s.logi]||"").trim()):true;
+    const done=(r.up.trim()||r.down.trim())&&planDone;
+    const c=PERSON_COLOR[sv]||"#868e96";
+    return `<tr><td class="l"><span class="pchip" style="background:${c}">${sv}</span></td>
+      <td class="num">${a.arr.length}</td><td class="num">${won(a.cs)}</td><td class="num sub">${won(a.ps)}</td>
+      <td class="num">${a.mom==null?"-":deltaPct(a.cs,a.ps)}</td>
+      <td class="num">${a.saip}개 (${a.saipRate.toFixed(0)}%)</td><td class="num">${a.poor.length}</td>
+      <td class="l">${done?'<span class="badge openb">작성완료</span>':'<span class="badge warnb">미완성</span>'}</td></tr>`; }).join("");
+  const unassigned=stores.filter(s=>!SV_ASSIGN[s.logi]).length;
+  let html=`<h3>SV별 요약 <span class="muted" style="font-weight:400">· ${svs.length}명${unassigned?` · 미배정 매장 ${unassigned}개`:""}</span></h3>
+    <div class="tablewrap"><table><thead><tr><th class="l">SV</th><th>담당매장</th><th>당월매출</th><th>전월</th><th>증감률</th><th>사입매장(률)</th><th>부진매장</th><th class="l">작성</th></tr></thead><tbody>${sumRows}</tbody></table></div>`;
+  // SV별 상세 카드
+  svs.forEach(sv=>{
+    const a=agg[sv], r=svRep(ym,sv), c=PERSON_COLOR[sv]||"#868e96";
+    const poorRows=a.poor.length? a.poor.map(s=>{ const m=svMoM(s.cur.sales, s.prev?s.prev.sales:0);
+      return `<tr><td class="l">${esc((s.name||"").replace(/_/g," "))}${s.saip?' <span class="badge">사입</span>':''}</td>
+        <td class="num">${won(s.cur.sales)}<br><span class="sub">전월 ${won(s.prev?s.prev.sales:0)}</span></td>
+        <td class="num">${m==null?"신규":deltaPct(s.cur.sales, s.prev?s.prev.sales:0)}</td>
+        <td class="l"><textarea class="box sv-plan" data-sv="${sv}" data-logi="${s.logi}" rows="2" placeholder="다음 달 액션플랜 (구체적 실행 계획)" style="width:340px;font-size:12px;min-height:0;height:44px;padding:4px 7px">${esc(r.plans[s.logi]||"")}</textarea></td></tr>`; }).join("")
+      : `<tr><td colspan="4" class="muted">부진 매장이 없습니다 🎉</td></tr>`;
+    html+=`<section style="border-left:5px solid ${c};margin-top:14px">
+      <h3 style="display:flex;align-items:center;gap:10px"><span class="pchip" style="background:${c};font-size:13px">${sv}</span>
+        <span class="muted" style="font-weight:400;font-size:13px">담당 ${a.arr.length}개 · 매출 ${won(a.cs)}원 ${a.mom==null?"":deltaPct(a.cs,a.ps)} · 사입률 ${a.saipRate.toFixed(0)}%</span>
+        <button class="sv-img" data-sv="${sv}" style="margin-left:auto;padding:5px 12px;font-size:12px">📷 보고 이미지</button></h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0">
+        <div><div style="font-weight:700;font-size:13px;margin-bottom:4px">📈 매출 증가 요인</div>
+          <textarea class="box sv-up" data-sv="${sv}" rows="3" placeholder="예: 객단가 +5% (신메뉴), 배달 채널 내점수 증가 등 — 구체적 근거 기반" style="font-size:12px">${esc(r.up||"")}</textarea></div>
+        <div><div style="font-weight:700;font-size:13px;margin-bottom:4px">📉 매출 하락 요인</div>
+          <textarea class="box sv-down" data-sv="${sv}" rows="3" placeholder="예: 홀 내점수 -8% (인근 경쟁점 오픈), 배달 리뷰 하락 등" style="font-size:12px">${esc(r.down||"")}</textarea></div>
+      </div>
+      <div style="font-weight:700;font-size:13px;margin:6px 0 4px">🚨 부진 매장 관리 계획 <span class="muted" style="font-weight:400">(핵심 — 매장별 다음 달 실행 계획 필수)</span></div>
+      <div class="tablewrap"><table><thead><tr><th class="l">매장</th><th>매출</th><th>증감률</th><th class="l">다음 달 액션플랜</th></tr></thead><tbody>${poorRows}</tbody></table></div>
+    </section>`;
+  });
+  box.innerHTML=html;
+  box.querySelectorAll(".sv-up").forEach(el=>el.addEventListener("input",e=>{ svRep(ym,e.target.dataset.sv).up=e.target.value; saveSvReport(); }));
+  box.querySelectorAll(".sv-down").forEach(el=>el.addEventListener("input",e=>{ svRep(ym,e.target.dataset.sv).down=e.target.value; saveSvReport(); }));
+  box.querySelectorAll(".sv-plan").forEach(el=>el.addEventListener("input",e=>{ svRep(ym,e.target.dataset.sv).plans[e.target.dataset.logi]=e.target.value; saveSvReport(); }));
+  box.querySelectorAll(".sv-img").forEach(b=>b.addEventListener("click",()=>makeSVImage(b.dataset.sv, agg[b.dataset.sv], ym)));
+}
+// SV 보고 표준 양식 이미지
+async function makeSVImage(sv, a, ym){
+  if(typeof html2canvas==="undefined"){ alert("이미지 라이브러리 로드 실패 — 새로고침 후 다시 시도하세요."); return; }
+  const r=svRep(ym,sv), c=PERSON_COLOR[sv]||"#495057";
+  const momTxt=a.mom==null?"-":(a.mom>=0?"▲ ":"▼ ")+Math.abs(a.mom).toFixed(1)+"%";
+  const momCol=a.mom==null?"#495057":(a.mom>=0?"#c92a2a":"#1971c2");
+  const poorRows=a.poor.length? a.poor.map(s=>{ const m=svMoM(s.cur.sales, s.prev?s.prev.sales:0);
+    return `<tr><td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e9ecef">${esc((s.name||"").replace(/_/g," "))}${s.saip?' <span style="background:#d6336c;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px">사입</span>':''}</td>
+      <td style="text-align:right;padding:7px 10px;border-bottom:1px solid #e9ecef">${won(s.cur.sales)}</td>
+      <td style="text-align:right;padding:7px 10px;border-bottom:1px solid #e9ecef;color:${m!=null&&m<0?"#1971c2":"#c92a2a"}">${m==null?"신규":(m>=0?"▲":"▼")+" "+Math.abs(m).toFixed(1)+"%"}</td>
+      <td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e9ecef;white-space:pre-wrap;max-width:300px">${esc(r.plans[s.logi]||"(미작성)")}</td></tr>`; }).join("")
+    : `<tr><td colspan="4" style="padding:10px;color:#868e96">부진 매장 없음</td></tr>`;
+  const TH='padding:8px 10px;background:#1e3a8a;color:#fff;font-weight:700;font-size:12px';
+  const html=`<div style="width:760px;box-sizing:border-box;background:#fff;padding:26px 28px;font-family:'맑은 고딕','Malgun Gothic',sans-serif;color:#212529">
+    <div style="font-size:13px;color:#868e96">SV 월마감 보고 · ${ym}</div>
+    <div style="font-size:22px;font-weight:800;margin:4px 0 12px"><span style="background:${c};color:#fff;padding:2px 12px;border-radius:14px">${esc(sv)}</span> SV 담당매장 월마감 보고</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;background:#f1f3f5;border-radius:10px;padding:10px 14px">담당 매장<div style="font-size:20px;font-weight:800">${a.arr.length}개</div></div>
+      <div style="flex:1.4;background:#f1f3f5;border-radius:10px;padding:10px 14px">담당매장 총매출 (전월대비)<div style="font-size:20px;font-weight:800">${won(a.cs)}원 <span style="color:${momCol};font-size:15px">${momTxt}</span></div><div style="font-size:11px;color:#868e96">전월 ${won(a.ps)}원</div></div>
+      <div style="flex:1;background:#fff4e6;border-radius:10px;padding:10px 14px">사입률<div style="font-size:20px;font-weight:800;color:#e8590c">${a.saipRate.toFixed(0)}% <span style="font-size:13px">(${a.saip}개)</span></div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;border:1px solid #b2f2bb;background:#f4fdf6;border-radius:10px;padding:10px 14px"><b style="color:#2b8a3e">📈 매출 증가 요인</b><div style="white-space:pre-wrap;font-size:12.5px;margin-top:4px">${esc(r.up||"(미작성)")}</div></div>
+      <div style="flex:1;border:1px solid #ffc9c9;background:#fff5f5;border-radius:10px;padding:10px 14px"><b style="color:#c92a2a">📉 매출 하락 요인</b><div style="white-space:pre-wrap;font-size:12.5px;margin-top:4px">${esc(r.down||"(미작성)")}</div></div>
+    </div>
+    <div style="font-weight:800;margin:0 0 6px">🚨 부진 매장 관리 계획 (다음 달 액션플랜)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr><th style="text-align:left;${TH}">매장</th><th style="text-align:right;${TH}">당월 매출</th><th style="text-align:right;${TH}">증감률</th><th style="text-align:left;${TH}">다음 달 액션플랜</th></tr></thead>
+      <tbody>${poorRows}</tbody></table>
+    <div style="margin-top:10px;font-size:11px;color:#adb5bd;text-align:right">발행일 ${new Date().toLocaleDateString("ko-KR")} · 브랜드관리팀</div>
+  </div>`;
+  const wrap=document.createElement("div"); wrap.style.cssText="position:fixed;left:-10000px;top:0;z-index:-1";
+  wrap.innerHTML=html; document.body.appendChild(wrap);
+  try{ const canvas=await html2canvas(wrap.firstElementChild,{scale:2,backgroundColor:"#ffffff"});
+    const aEl=document.createElement("a"); aEl.href=canvas.toDataURL("image/png"); aEl.download=`SV보고_${sv}_${ym}.png`; aEl.click();
+  }catch(e){ alert("이미지 생성 오류: "+e.message); }
+  finally{ document.body.removeChild(wrap); }
+}
+
 document.getElementById("logClear").addEventListener("click",()=>{ if(confirm("공문 발송 기록을 모두 삭제할까요?")){ GONGMUN_LOG={}; saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); } });
 document.getElementById("logExport").addEventListener("click",()=>{ const b=new Blob([JSON.stringify(GONGMUN_LOG,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="공문발송기록.json"; a.click(); });
 document.getElementById("logImport").addEventListener("change",e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ Object.assign(GONGMUN_LOG, JSON.parse(r.result)); saveGmLog(); renderGongmunLog(); if(LAST)render(LAST); alert("가져오기 완료"); }catch(x){ alert("JSON 오류"); } }; r.readAsText(f); });
