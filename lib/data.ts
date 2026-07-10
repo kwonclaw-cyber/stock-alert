@@ -424,12 +424,13 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
   }));
 
   const mine: MineState = {
-    mines: (input.mine?.mines ?? []).map((m) => ({
+    // 항구(port) 기능 제거 → 기존 항구 데이터는 로드 시 걸러낸다.
+    mines: (input.mine?.mines ?? []).filter((m) => (m as { kind?: unknown }).kind !== "port").map((m) => ({
       id: m.id || uid(),
       name: m.name ?? "",
       kind: ((): "mine" | "gather" | "brew" | "outpost" | "port" => {
         const k = (m as { kind?: unknown }).kind;
-        return k === "gather" || k === "brew" || k === "outpost" || k === "port" ? k : "mine";
+        return k === "gather" || k === "brew" || k === "outpost" ? k : "mine";
       })(),
       cooldownMin: Number(m.cooldownMin) || 0,
       lastDoneAt: m.lastDoneAt ?? null,

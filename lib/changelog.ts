@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.57.0",
+    date: "2026-06-28",
+    changes: [
+      "광산&채집: '출발 항구(🚢)' 기능 제거 — 출발지는 전초/내 위치만 사용",
+    ],
+  },
+  {
     version: "1.56.0",
     date: "2026-06-28",
     changes: [
