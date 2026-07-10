@@ -1,27 +1,47 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>📊 육식사관학교 매출 분석 대시보드</title>
 <style>
-:root{--b:#1971c2;--b2:#e7f5ff;--g:#2f9e44;--r:#e03131;--o:#e8590c;--line:#dee2e6;--ink:#212529;--mut:#868e96;}
-*{box-sizing:border-box;} body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#f8f9fa;}
-.wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;} h1{font-size:28px;margin:0 0 4px;} .sub{color:var(--mut);margin:0 0 28px;}
-h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);} h3{font-size:16px;margin:18px 0 8px;color:var(--b);}
-.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-code{background:#f1f3f5;padding:2px 7px;border-radius:5px;font-family:Consolas,monospace;font-size:13px;color:#c92a2a;}
-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px;} th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;} th{background:#f1f3f5;}
-.ok{color:var(--g);font-weight:700;} .no{color:var(--r);font-weight:700;} .num{text-align:right;font-variant-numeric:tabular-nums;}
-.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;margin-right:6px;} .t-try{background:#fff3bf;color:#e8590c;} .t-win{background:#ebfbee;color:#2f9e44;}
-.tip{background:var(--b2);border-left:4px solid var(--b);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
-.warn{background:#fff9db;border-left:4px solid var(--o);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
-.win{background:#ebfbee;border-left:4px solid var(--g);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px;}
-ol,ul{margin:8px 0;padding-left:22px;} li{margin:4px 0;font-size:14.3px;}
-.timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:3px solid var(--line);} .ev{position:relative;margin:0 0 18px;}
-.ev::before{content:'';position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--b);} .ev.good::before{border-color:var(--g);} .ev.fail::before{border-color:var(--r);}
-.ev h4{margin:0 0 4px;font-size:15px;} .ev p{margin:3px 0;font-size:14px;}
-.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;font-size:13.5px;} .pill{background:#fff;border:1px solid var(--b);color:var(--b);border-radius:20px;padding:5px 12px;font-weight:600;} .arrow{color:var(--mut);font-weight:700;}
-.kpi{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;} .kpi div{flex:1;min-width:130px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;} .kpi b{display:block;font-size:24px;color:var(--b);} .kpi span{font-size:12px;color:var(--mut);}
-.bcard{border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid var(--line);background:#fff;} .bcard.pos{border-left:6px solid var(--g);} .bcard.neg{border-left:6px solid var(--r);} .bcard.flat{border-left:6px solid var(--mut);}
-.bcard h3{margin:0 0 8px;color:var(--ink);} .metric{display:inline-block;margin:4px 16px 4px 0;font-size:13px;} .metric b{font-size:18px;display:block;}
-.foot{margin-top:40px;color:var(--mut);font-size:13px;text-align:center;}
+:root{--b:#0066cc;--b-focus:#0071e3;--b-dark:#2997ff;--g:#248a3d;--r:#d70015;--o:#6e6e73;
+--line:#e0e0e0;--soft:#f0f0f0;--ink:#1d1d1f;--mut:#6e6e73;--mut48:#7a7a7a;
+--canvas:#ffffff;--parchment:#f5f5f7;--pearl:#fafafc;--tile:#272729;}
+*{box-sizing:border-box;}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+color:var(--ink);line-height:1.47;letter-spacing:-0.374px;font-size:17px;margin:0;background:var(--parchment);}
+.wrap{max-width:980px;margin:0 auto;padding:40px 22px 80px;}
+h1{font-size:40px;font-weight:600;line-height:1.1;letter-spacing:-0.28px;margin:0 0 6px;}
+.sub{color:var(--mut);font-size:17px;font-weight:400;margin:0 0 32px;}
+h2{font-size:28px;font-weight:600;line-height:1.14;letter-spacing:-0.374px;margin:48px 0 16px;}
+h3{font-size:17px;font-weight:600;letter-spacing:-0.374px;margin:20px 0 8px;color:var(--ink);}
+.card{background:var(--canvas);border:1px solid var(--line);border-radius:18px;padding:24px;margin:16px 0;}
+code{background:var(--parchment);padding:2px 7px;border-radius:5px;font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:13px;color:var(--ink);}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px;letter-spacing:-0.224px;}
+th,td{border:0;border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;}
+th{font-size:12px;font-weight:600;color:var(--mut);text-transform:none;background:transparent;}
+.ok{color:var(--g);font-weight:600;} .no{color:var(--r);font-weight:600;} .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:9999px;margin-right:6px;background:var(--parchment);color:var(--ink);}
+.t-try{background:var(--parchment);color:var(--mut);} .t-win{background:var(--parchment);color:var(--b);}
+.tip{background:var(--parchment);border:0;border-left:3px solid var(--b);padding:14px 18px;border-radius:0 12px 12px 0;margin:14px 0;font-size:14px;letter-spacing:-0.224px;}
+.warn{background:var(--parchment);border:0;padding:14px 18px;border-radius:12px;margin:14px 0;font-size:14px;color:var(--mut);letter-spacing:-0.224px;}
+.win{background:var(--canvas);border:1px solid var(--line);border-left:3px solid var(--b);padding:14px 18px;border-radius:0 12px 12px 0;margin:14px 0;font-size:14px;letter-spacing:-0.224px;}
+ol,ul{margin:8px 0;padding-left:22px;} li{margin:5px 0;font-size:14px;letter-spacing:-0.224px;}
+.timeline{position:relative;margin:14px 0 14px 8px;padding-left:26px;border-left:1px solid var(--line);} .ev{position:relative;margin:0 0 20px;}
+.ev::before{content:'';position:absolute;left:-33px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--canvas);border:2px solid var(--b);}
+.ev.good::before{border-color:var(--b);} .ev.fail::before{border-color:var(--mut);}
+.ev h4{margin:0 0 4px;font-size:15px;font-weight:600;} .ev p{margin:3px 0;font-size:14px;letter-spacing:-0.224px;}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;font-size:13px;}
+.pill{background:var(--canvas);border:1px solid var(--b);color:var(--b);border-radius:9999px;padding:6px 14px;font-weight:400;} .arrow{color:var(--mut);}
+.kpi{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0;}
+.kpi div{flex:1;min-width:140px;background:var(--canvas);border:1px solid var(--line);border-radius:18px;padding:20px 16px;text-align:center;}
+.kpi b{display:block;font-size:26px;font-weight:600;letter-spacing:-0.374px;color:var(--ink);}
+.kpi b.ok{color:var(--g);} .kpi span{font-size:12px;color:var(--mut);letter-spacing:-0.12px;}
+.bcard{border-radius:18px;padding:20px 24px;margin:14px 0;border:1px solid var(--line);background:var(--canvas);}
+.bcard.pos{border-left:3px solid var(--b);} .bcard.neg{border-left:3px solid var(--ink);} .bcard.flat{border-left:3px solid var(--line);}
+.bcard h3{margin:0 0 8px;color:var(--ink);} .metric{display:inline-block;margin:4px 18px 4px 0;font-size:12px;color:var(--mut);letter-spacing:-0.12px;}
+.metric b{font-size:19px;display:block;color:var(--ink);font-weight:600;letter-spacing:-0.374px;}
+button,.btn{font-family:inherit;}
+input,select{font-family:inherit;letter-spacing:-0.224px;outline:none;}
+input:focus,select:focus{outline:2px solid var(--b-focus);outline-offset:1px;}
+.foot{margin-top:64px;color:var(--mut48);font-size:12px;letter-spacing:-0.12px;text-align:center;}
 </style></head><body><div class="wrap">
 <h1>📊 육식사관학교 매출 분석 대시보드</h1><p class="sub">배민 6개월</p>
   <div class="kpi">
@@ -46,12 +66,12 @@ function initDashboard(){
   if(_dashDone)return; _dashDone=true;
   const won=v=>v.toLocaleString();
   new Chart(c1,{type:'bar',data:{labels:DASH.months,datasets:[
-    {label:'배민매출',data:DASH.bm,backgroundColor:'#1a8c34'},
-    {label:'전체매출',type:'line',data:DASH.tot,borderColor:'#e8590c',backgroundColor:'#e8590c',tension:.3}]},
+    {label:'배민매출',data:DASH.bm,backgroundColor:'#0066cc'},
+    {label:'전체매출',type:'line',data:DASH.tot,borderColor:'#1d1d1f',backgroundColor:'#1d1d1f',tension:.3}]},
     options:{scales:{y:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+won(c.parsed.y)+'원'}}}}});
   const chTot=DASH.chV.reduce((a,b)=>a+b,0);
   new Chart(c2,{type:'doughnut',data:{labels:DASH.chL,datasets:[{data:DASH.chV,
-    backgroundColor:['#1a8c34','#e03131','#f08c00','#1971c2','#ae3ec9','#868e96','#adb5bd']}]},
+    backgroundColor:['#0066cc','#2997ff','#1d1d1f','#6e6e73','#aeaeb2','#8fb8e6','#d2d2d7']}]},
     plugins:[ChartDataLabels],
     options:{plugins:{
       datalabels:{color:'#fff',font:{weight:'bold',size:12},
@@ -60,11 +80,11 @@ function initDashboard(){
       legend:{position:'right',labels:{generateLabels:ch=>ch.data.labels.map((l,i)=>({
         text:l+' '+(ch.data.datasets[0].data[i]/chTot*100).toFixed(1)+'%',
         fillStyle:ch.data.datasets[0].backgroundColor[i],index:i}))}}}}});
-  new Chart(c3,{type:'bar',data:{labels:DASH.topL,datasets:[{label:'배민매출',data:DASH.topV,backgroundColor:'#1971c2'}]},
+  new Chart(c3,{type:'bar',data:{labels:DASH.topL,datasets:[{label:'배민매출',data:DASH.topV,backgroundColor:'#0066cc'}]},
     options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)+'원'}}},scales:{x:{ticks:{callback:v=>(v/1e8).toFixed(1)+'억'}}}}});
   new Chart(c4,{type:'bar',data:{labels:DASH.eL,datasets:[
-    {label:'매출효과(중앙값,%)',data:DASH.eAmt,backgroundColor:'#74c0fc'},
-    {label:'추세보정 DiD(%)',data:DASH.eDid,backgroundColor:'#1971c2'}]},
+    {label:'매출효과(중앙값,%)',data:DASH.eAmt,backgroundColor:'#2997ff'},
+    {label:'추세보정 DiD(%)',data:DASH.eDid,backgroundColor:'#0066cc'}]},
     options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}}}});
 }
 initDashboard();</script></body></html>
