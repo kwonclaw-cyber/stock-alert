@@ -170,13 +170,12 @@ export default function MinePage() {
   const gatherList = decoratedAll.filter((s) => s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   const brews = decoratedAll.filter((s) => s.m.kind === "brew");
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
-  const ports = decoratedAll.filter((s) => s.m.kind === "port");
 
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = decoratedAll.filter((s) => s.ip).length;
 
-  // 출발지(선택한 전초/항구 우선, 없으면 내 위치) 좌표/마커 계산
-  const startOutpost = [...outposts, ...ports].find((o) => o.m.id === startOutpostId)?.m;
+  // 출발지(선택한 전초 우선, 없으면 내 위치) 좌표/마커 계산
+  const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
   const startGame: { x: number; y: number } | null =
     startOutpost && hasCoords(startOutpost)
       ? { x: numOr(startOutpost.cx)!, y: numOr(startOutpost.cz)! }
@@ -381,9 +380,6 @@ export default function MinePage() {
         <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "outpost").length + 1; d.mine.mines.push({ id: uid(), name: `전초${n}`, kind: "outpost", cooldownMin: 0, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 전초 추가
         </Btn>
-        <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "port").length + 1; d.mine.mines.push({ id: uid(), name: `항구${n}`, kind: "port", cooldownMin: 0, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
-          + 항구 추가
-        </Btn>
         <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
           <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
         </div>
@@ -464,39 +460,7 @@ export default function MinePage() {
           🌿 채집장 출발
         </button>
         {tripKind && <button onClick={() => setTripKind("")} className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/45 hover:text-white">동선 끄기</button>}
-        {tripKind && !startName && <span className="text-[11px] text-amber-300/80">전초·항구를 선택하거나 내 위치를 입력하면 출발지부터 동선이 그려져요.</span>}
-      </div>
-
-      {/* 출발: 항구 선택 후 광산/채집장 한바퀴 동선 생성 (전초와 동일) */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-400/[0.05] px-3 py-2 text-sm">
-        <span className="font-semibold text-blue-200">🚢 출발 항구</span>
-        {ports.length === 0 ? (
-          <span className="text-xs text-white/35">‘+ 항구 추가’로 항구(최대 3개)를 만들어 좌표/마커를 지정하세요.</span>
-        ) : (
-          ports.map((o) => (
-            <button
-              key={o.m.id}
-              onClick={() => setStartOutpostId((id) => (id === o.m.id ? "" : o.m.id))}
-              className={`rounded-md border px-2 py-1 text-xs transition ${startOutpostId === o.m.id ? "border-blue-400/60 bg-blue-400/15 text-blue-200" : "border-white/15 text-white/50 hover:text-white"}`}
-            >
-              {o.m.name}
-            </button>
-          ))
-        )}
-        <span className="mx-1 h-4 w-px bg-white/10" />
-        <button
-          onClick={() => setTripKind((k) => (k === "mine" ? "" : "mine"))}
-          className={`rounded-md border px-2.5 py-1 text-xs font-bold transition ${tripKind === "mine" ? "border-emerald-400/60 bg-emerald-400/15 text-emerald-200" : "border-white/15 text-white/55 hover:text-white"}`}
-        >
-          ⛏ 광산 출발
-        </button>
-        <button
-          onClick={() => setTripKind((k) => (k === "gather" ? "" : "gather"))}
-          className={`rounded-md border px-2.5 py-1 text-xs font-bold transition ${tripKind === "gather" ? "border-rose-400/60 bg-rose-400/15 text-rose-200" : "border-white/15 text-white/55 hover:text-white"}`}
-        >
-          🌿 채집장 출발
-        </button>
-        {tripKind && <button onClick={() => setTripKind("")} className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/45 hover:text-white">동선 끄기</button>}
+        {tripKind && !startName && <span className="text-[11px] text-amber-300/80">전초를 선택하거나 내 위치를 입력하면 출발지부터 동선이 그려져요.</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -574,33 +538,6 @@ export default function MinePage() {
             </div>
           )}
 
-          {/* 항구 (출발점) */}
-          {ports.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <div className="text-xs font-bold text-blue-300">🚢 항구 (동선 출발점)</div>
-              {ports.map(({ m }) => {
-                const gi = mine.mines.findIndex((x) => x.id === m.id);
-                return (
-                  <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-400/30 bg-blue-400/[0.05] px-3 py-2">
-                    <span className="shrink-0 rounded-md border border-blue-400/60 bg-blue-400/15 px-1.5 py-0.5 text-[11px] font-bold text-blue-200">🚢 항구</span>
-                    <button
-                      onClick={() => toggleMarker(m.id)}
-                      className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
-                      title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
-                    >📍</button>
-                    <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-28 font-semibold" />
-                    <div className="flex items-center gap-1 text-xs text-white/40">
-                      <span className="text-blue-300/70">좌표</span>
-                      <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
-                    </div>
-                    <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* 광산 지도 */}
