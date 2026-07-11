@@ -257,6 +257,27 @@ export default function SkinPage() {
         </div>
       </details>
 
+      <details className="mb-2 rounded-lg bg-[#15171c] p-3">
+        <summary className="cursor-pointer text-sm font-bold text-white/85">🔍 내 스킨 파일 따오는 법</summary>
+        <div className="mt-2 space-y-2 text-sm leading-relaxed text-white/60">
+          <div>
+            <b className="text-white/80">방법 1 — 마인크래프트 공식 사이트 (자바판)</b>
+            <p>1. minecraft.net 로그인 → 우측 상단 프로필 → <b className="text-white/80">Profile(프로필)</b></p>
+            <p>2. Skins 탭에서 지금 스킨 위의 <b className="text-white/80">⋯ → Download(다운로드)</b></p>
+          </div>
+          <div>
+            <b className="text-white/80">방법 2 — NameMC (닉네임만 알면 됨)</b>
+            <p>1. namemc.com 에서 내 닉네임 검색</p>
+            <p>2. 내 프로필의 스킨 이미지 클릭 → 우측 <b className="text-white/80">Download</b> 버튼</p>
+          </div>
+          <div>
+            <b className="text-white/80">방법 3 — 런처</b>
+            <p>자바판 런처 → 스킨 탭에서 쓰던 스킨에 마우스 올려 나오는 메뉴에서 복제/저장</p>
+          </div>
+          <p className="mt-1 rounded-md bg-black/30 px-2.5 py-1.5 text-xs">💡 어떤 방법이든 <b className="text-white/70">64×64 PNG</b>면 돼요. 오래된 64×32 스킨도 넣을 수 있어요.</p>
+        </div>
+      </details>
+
       {/* 입력 카드 */}
       <div className="rounded-xl border border-white/10 bg-[#15171c] p-4">
         <div
