@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.58.0",
+    date: "2026-06-28",
+    changes: [
+      "'도포 스킨 생성기' 탭 추가 — 마크 스킨 PNG를 넣으면 몸을 도포(도복)로 변환(머리 유지·손색 자동)",
+      "스킨 컨셉을 팔레트 단위로 관리 — '도복(진한하늘)' 저장, 새 컨셉은 드롭다운으로 선택",
+    ],
+  },
+  {
     version: "1.57.0",
     date: "2026-06-28",
     changes: [
