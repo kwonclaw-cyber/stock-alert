@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.59.0",
+    date: "2026-06-28",
+    changes: [
+      "스킨 생성기: 컨셉 3종 추가 — 흑천 예복(은자수·겹깃), 청강 갑주(흉갑이 엉덩이까지·요갑), 예장 제복(금술 견장·금줄)",
+      "컨셉마다 디자인(모양)이 달라짐 — 드롭다운에서 선택",
+    ],
+  },
+  {
     version: "1.58.0",
     date: "2026-06-28",
     changes: [
