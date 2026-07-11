@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.60.0",
+    date: "2026-07-11",
+    changes: [
+      "스킨 생성기: '천람무복 · 은룡' 컨셉 추가 — 진한 하늘 도포 + 은 이마띠·겹깃 + 남색 허리끈 + 옥패 + 등 은룡 자수 + 은장 장화",
+    ],
+  },
+  {
     version: "1.59.0",
     date: "2026-06-28",
     changes: [
