@@ -34,6 +34,13 @@ const DARK_W: RGB = [74, 96, 124], DARK_B: RGB = [36, 48, 68];       // 흑천 �
 const STEEL_W: RGB = [152, 166, 180], STEEL_B: RGB = [104, 120, 136]; // 강철 흉갑
 const STEEL_DK: RGB = [74, 88, 102];
 const DEEP_W: RGB = [120, 160, 205], DEEP_B: RGB = [54, 78, 112];     // 제복 바탕
+const CH_W: RGB = [168, 208, 240], CH_B: RGB = [52, 96, 146];         // 천람무복 도포 바탕
+const CH_EDGE: RGB = [32, 54, 84], CH_INNER: RGB = [240, 246, 252];
+const SILV2: RGB = [200, 212, 224], SILV2_D: RGB = [142, 154, 168];   // 은룡 자수·트림
+const NVC: RGB = [46, 66, 98], NVC_D: RGB = [28, 40, 62];             // 남색 허리끈
+const JADE: RGB = [110, 196, 140], JADE_D: RGB = [68, 148, 98];       // 옥패
+const PANT: RGB = [30, 38, 52], BOOT: RGB = [46, 50, 60], BOOT_D: RGB = [28, 30, 38];
+const PLATE: RGB = [178, 188, 198], INSLV: RGB = [28, 38, 56];
 
 // 픽셀 헬퍼
 const alphaAt = (d: Uint8ClampedArray, x: number, y: number) => d[(y * 64 + x) * 4 + 3];
@@ -182,6 +189,57 @@ const CONCEPTS: Concept[] = [
         for (let i = 0; i < lw; i++) setPx(d, lx + i, ly + 11, shade(BLACK, SH[n])); }
       const [bxx, byy] = tf.back;
       for (let j = 1; j < 8; j++) setPx(d, bxx + 3, byy + j, shade(DEEP_B, 0.85));
+    },
+  },
+  {
+    id: "eunryong", name: "천람무복 · 은룡", desc: "진한 하늘 도포 + 은 이마띠·겹깃 + 남색 허리끈 + 옥패 + 등 은룡 자수",
+    band: [SILV2, NVC],
+    base: { torso: box(0.25, 0.8, CH_W, CH_B), arm: box(0.2, 0.75, CH_W, CH_B), leg: box(0.55, 0.95, CH_W, CH_B) },
+    overlay(d, { tf, arms, legs }) {
+      const [fx, fy] = tf.front;
+      const F = (i: number, j: number, c: RGB) => setPx(d, fx + i, fy + j, c);
+      // 겹깃: 흰 안깃 + 짙은 겉깃 사선
+      F(3, 0, CH_INNER); F(4, 0, CH_INNER); F(4, 1, CH_INNER);
+      for (const [i, j] of [[1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [5, 5]]) F(i, j, CH_EDGE);
+      for (const [i, j] of [[2, 0], [3, 1], [4, 2], [5, 3]]) F(i, j, shade(CH_EDGE, 1.5));
+      for (const [i, j] of [[6, 0], [5, 1], [6, 2]]) F(i, j, CH_EDGE);
+      F(6, 1, SILV2); F(6, 3, SILV2); // 은구슬 장식
+      // 허리끈(꼬임) + 밑단 — 사방
+      for (const n of SIDES) { const [bx, by, bw] = tf[n];
+        for (let i = 0; i < bw; i++) {
+          setPx(d, bx + i, by + 7, shade(i % 2 === 0 ? NVC : NVC_D, SH[n]));
+          setPx(d, bx + i, by + 8, shade(i % 2 === 1 ? NVC : NVC_D, SH[n]));
+          setPx(d, bx + i, by + 11, shade(CH_EDGE, SH[n]));
+        } }
+      F(3, 8, shade(NVC_D, 0.8)); F(4, 8, shade(NVC_D, 0.8)); // 매듭
+      F(2, 9, NVC_D); F(2, 10, NVC); // 끈 늘어짐
+      F(5, 9, JADE); F(5, 10, JADE_D); // 옥패
+      // 등: 은룡 자수(굽이치는 획)
+      const [bxx, byy] = tf.back;
+      for (const [i, j] of [[2, 1], [3, 1], [4, 2], [3, 3], [2, 4], [3, 5], [4, 5], [5, 4], [5, 2], [4, 6]]) setPx(d, bxx + i, byy + j, SILV2);
+      for (const [i, j] of [[5, 1], [2, 2], [4, 3], [2, 5], [5, 6]]) setPx(d, bxx + i, byy + j, SILV2_D);
+      // 팔: 어깨 은트림 + 소매단 + 안소매(흑)
+      for (const af of arms) for (const n of SIDES) { const [ax, ay, aw] = af[n];
+        for (let i = 0; i < aw; i++) {
+          setPx(d, ax + i, ay + 0, shade(SILV2, SH[n] * 0.95));
+          setPx(d, ax + i, ay + 8, shade(CH_EDGE, SH[n]));
+          setPx(d, ax + i, ay + 9, shade(INSLV, SH[n]));
+        } }
+      // 다리: 끈 마감 + 자락 밑단 + 흑바지 + 은장 장화
+      for (const lf of legs) for (const n of SIDES) { const [lx, ly, lw] = lf[n];
+        for (let i = 0; i < lw; i++) {
+          setPx(d, lx + i, ly + 0, shade(NVC_D, SH[n]));
+          setPx(d, lx + i, ly + 6, shade(CH_EDGE, SH[n]));
+          setPx(d, lx + i, ly + 7, shade(PANT, SH[n]));
+          setPx(d, lx + i, ly + 8, shade(PANT, SH[n] * 0.92));
+          setPx(d, lx + i, ly + 9, shade(PLATE, SH[n]));
+          setPx(d, lx + i, ly + 10, shade(BOOT, SH[n]));
+          setPx(d, lx + i, ly + 11, shade(BOOT_D, SH[n]));
+        } }
+      // 앞자락 중앙 트임
+      const [r, l] = legs;
+      { const [rx, ry] = r.front; for (let j = 1; j < 6; j++) setPx(d, rx + 3, ry + j, CH_EDGE); }
+      { const [lx2, ly2] = l.front; for (let j = 1; j < 6; j++) setPx(d, lx2 + 0, ly2 + j, CH_EDGE); }
     },
   },
 ];
