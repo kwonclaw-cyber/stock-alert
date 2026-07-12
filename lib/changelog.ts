@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.61.0",
+    date: "2026-07-11",
+    changes: [
+      "스킨 생성기: '하늘고구마' 코스튬 컨셉 추가 — 내 얼굴 위에 새싹 달린 고구마 후드 + 연한 하늘 슈트 + 역삼각 자락",
+    ],
+  },
+  {
     version: "1.60.0",
     date: "2026-07-11",
     changes: [

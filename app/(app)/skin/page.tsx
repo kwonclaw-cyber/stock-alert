@@ -19,6 +19,7 @@ type Concept = {
   band: [RGB, RGB] | null; // 머리띠 [기본, 포인트] (null=이 컨셉엔 머리띠 없음)
   base: { torso: BoxCfg; arm: BoxCfg; leg: BoxCfg };
   overlay: (d: Uint8ClampedArray, g: Geo) => void;
+  head?: (d: Uint8ClampedArray) => void; // 풀 코스튬: 머리(후드)까지 통째로 교체
 };
 
 const SH: Record<string, number> = { top: 1.04, bottom: 0.75, right: 0.88, front: 1.0, left: 0.84, back: 0.92 };
@@ -41,6 +42,11 @@ const NVC: RGB = [46, 66, 98], NVC_D: RGB = [28, 40, 62];             // 남색 
 const JADE: RGB = [110, 196, 140], JADE_D: RGB = [68, 148, 98];       // 옥패
 const PANT: RGB = [30, 38, 52], BOOT: RGB = [46, 50, 60], BOOT_D: RGB = [28, 30, 38];
 const PLATE: RGB = [178, 188, 198], INSLV: RGB = [28, 38, 56];
+const GG: RGB = [88, 158, 210], GG_D: RGB = [62, 124, 176], GG_L: RGB = [118, 182, 226]; // 하늘고구마 슈트
+const GPALE: RGB = [236, 244, 252], GPALE_S: RGB = [216, 230, 243], GPALE_D: RGB = [196, 214, 232];
+const GLEAF: RGB = [86, 148, 84], GLEAF_D: RGB = [56, 108, 60], GLEAF_L: RGB = [118, 178, 108];
+// 고구마 세로 결무늬: 열 위치에 따라 미묘한 명암
+const ggCol = (x0: number, i: number, base: RGB): RGB => { const k = (x0 + i) % 4; return k === 0 ? shade(base, 0.92) : k === 2 ? shade(base, 1.07) : base; };
 
 // 픽셀 헬퍼
 const alphaAt = (d: Uint8ClampedArray, x: number, y: number) => d[(y * 64 + x) * 4 + 3];
@@ -242,6 +248,66 @@ const CONCEPTS: Concept[] = [
       { const [lx2, ly2] = l.front; for (let j = 1; j < 6; j++) setPx(d, lx2 + 0, ly2 + j, CH_EDGE); }
     },
   },
+  {
+    id: "goguma", name: "하늘고구마", desc: "연한 하늘 고구마 코스튬 — 내 얼굴 위에 새싹 달린 고구마 후드를 씌움 (역삼각 자락)",
+    band: null,
+    base: { torso: box(0, 0.5, GG_L, GG_D), arm: box(0, 0.5, GPALE, GPALE_D), leg: box(0.5, 1, GPALE, GPALE_D) },
+    head(d) {
+      // 본인 얼굴은 그대로 두고 둘레에 고구마 후드를 씌운다 (모자층은 새싹으로 교체)
+      for (let y = 0; y < 16; y++) for (let x = 32; x < 64; x++) d[(y * 64 + x) * 4 + 3] = 0;
+      const H = faces(0, 0, 8, 8, 8);
+      const put = (f: number[], fn: (i: number, j: number) => RGB | null) => {
+        const [x0, y0, w, h] = f;
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const c = fn(i, j); if (c) setPx(d, x0 + i, y0 + j, c); }
+      };
+      put(H.top, (i) => shade(ggCol(0, i, GG), SH.top));
+      put(H.bottom, () => shade(GG_D, SH.bottom));
+      for (const key of ["right", "left", "back"] as const) put(H[key], (i, j) => shade(ggCol(0, i, j < 1 ? GG_L : GG), SH[key]));
+      // 앞: 얼굴 구멍(1~6열 × 2~7행, 모서리 라운드)만 원본 유지, 나머지는 후드
+      put(H.front, (i, j) => {
+        const opening = i >= 1 && i <= 6 && j >= 2 && !((j === 2 || j === 7) && (i === 1 || i === 6));
+        return opening ? null : ggCol(0, i, j < 1 ? GG_L : GG);
+      });
+      // 모자층: 정수리 새싹
+      const HT = faces(32, 0, 8, 8, 8);
+      const leaf: [number, number, RGB][] = [[3, 3, GLEAF], [4, 3, GLEAF_L], [2, 4, GLEAF_D], [3, 4, GLEAF], [4, 4, GLEAF], [5, 4, GLEAF_D], [3, 5, GLEAF_L], [4, 5, GLEAF], [2, 2, GLEAF_L], [5, 2, GLEAF]];
+      { const [x0, y0] = HT.top; for (const [i, j, c] of leaf) setPx(d, x0 + i, y0 + j, c); }
+      { const [x0, y0] = HT.front; setPx(d, x0 + 3, y0 + 0, GLEAF); setPx(d, x0 + 4, y0 + 0, GLEAF_D); }
+      { const [x0, y0] = HT.back; setPx(d, x0 + 3, y0 + 0, GLEAF_D); setPx(d, x0 + 4, y0 + 0, GLEAF); }
+      { const [x0, y0] = HT.right; setPx(d, x0 + 4, y0 + 0, GLEAF); }
+      { const [x0, y0] = HT.left; setPx(d, x0 + 3, y0 + 0, GLEAF_L); }
+    },
+    overlay(d, { tf, arms, legs }) {
+      // 몸통: 고구마 결 + 허리 음영
+      for (const n of SIDES) { const [x0, y0, w, h] = tf[n];
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+          const base = j >= 10 ? GG_D : j < 1 ? GG_L : GG;
+          setPx(d, x0 + i, y0 + j, shade(ggCol(x0, i, base), SH[n]));
+        } }
+      { const [x0, y0] = tf.front; for (let j = 3; j < 8; j++) for (let i = 2; i < 6; i++) setPx(d, x0 + i, y0 + j, ggCol(x0, i, shade(GG, 1.12))); } // 배 하이라이트
+      // 팔: 어깨만 슈트, 아래는 연한 맨팔
+      for (const af of arms) for (const n of SIDES) { const [x0, y0, w, h] = af[n];
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+          const c = j < 1 ? GG : j < 2 ? GG_D : (i + j) % 5 === 0 ? GPALE_S : GPALE;
+          setPx(d, x0 + i, y0 + j, shade(c, SH[n]));
+        } }
+      // 다리: 역삼각(V) 자락 — 안쪽으로 갈수록 깊게
+      legs.forEach((lf, idx) => { const isR = idx === 0;
+        for (const n of SIDES) { const [x0, y0, w, h] = lf[n];
+          for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+            let cut: number;
+            if (n === "front" || n === "back") {
+              let inner = isR ? 3 : 0; if (n === "back") inner = 3 - inner;
+              cut = [6, 4, 2, 1][Math.abs(i - inner)];
+            } else {
+              cut = (isR && n === "left") || (!isR && n === "right") ? 6 : 1;
+            }
+            const c = j < cut ? (j === cut - 1 ? GG_D : ggCol(x0, i, GG)) : (i + j) % 6 === 0 ? GPALE_S : GPALE;
+            setPx(d, x0 + i, y0 + j, shade(c, SH[n]));
+          } }
+      });
+    },
+  },
 ];
 
 export default function SkinPage() {
@@ -311,6 +377,9 @@ export default function SkinPage() {
     const out = octx.createImageData(64, 64);
     const d = out.data;
     for (let y = 0; y < 16; y++) for (let x = 0; x < 64; x++) { const i = (y * 64 + x) * 4; d[i] = src[i]; d[i + 1] = src[i + 1]; d[i + 2] = src[i + 2]; d[i + 3] = src[i + 3]; }
+
+    // 풀 코스튬 컨셉: 머리(후드)까지 교체
+    if (concept.head) concept.head(d);
 
     // 머리띠 (컨셉 색)
     if (useBand && concept.band) {
