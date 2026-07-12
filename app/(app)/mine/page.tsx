@@ -41,8 +41,8 @@ const NAV_BADGE: Record<number, string> = {
   5: "border-orange-400/60 bg-orange-400/15 text-orange-200",
 };
 
-// 종류별 색 테마. 광산=초록, 채집장=분홍(rose), 양조장=금색(amber), 전초=청록(teal), 항구=파랑(blue).
-type Kind = "mine" | "gather" | "brew" | "outpost" | "port";
+// 종류별 색 테마. 광산=초록, 채집장=분홍(rose), 양조장=금색(amber), 전초=청록(teal), 항구=파랑(blue), 던전=보라(violet).
+type Kind = "mine" | "gather" | "brew" | "outpost" | "port" | "dungeon";
 const KIND: Record<Kind, {
   label: string; icon: string;
   markerReady: string; // 지도 마커(완료 가능) 배경
@@ -90,6 +90,14 @@ const KIND: Record<Kind, {
     text: "text-blue-300",
     pill: "border-blue-400/60 bg-blue-400/15 text-blue-200",
     readyWord: "항구",
+  },
+  dungeon: {
+    label: "던전", icon: "🏰",
+    markerReady: "bg-violet-500 border-violet-200",
+    rowReady: "border-violet-400/50 bg-violet-400/[0.06]",
+    text: "text-violet-300",
+    pill: "border-violet-400/60 bg-violet-400/15 text-violet-200",
+    readyWord: "입장 가능",
   },
 };
 const kindOf = (m: Mine): (typeof KIND)[Kind] => KIND[(m.kind ?? "mine") as Kind] ?? KIND.mine;
@@ -170,12 +178,15 @@ export default function MinePage() {
   const gatherList = decoratedAll.filter((s) => s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
   const brews = decoratedAll.filter((s) => s.m.kind === "brew");
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
+  // 던전: 입장 쿨타임 타이머 + 동선 출발점으로도 사용 가능
+  const dungeons = decoratedAll.filter((s) => s.m.kind === "dungeon").sort((a, z) => a.r.ms - z.r.ms);
 
   const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = decoratedAll.filter((s) => s.ip).length;
 
-  // 출발지(선택한 전초 우선, 없으면 내 위치) 좌표/마커 계산
-  const startOutpost = outposts.find((o) => o.m.id === startOutpostId)?.m;
+  // 출발지(선택한 전초·던전 우선, 없으면 내 위치) 좌표/마커 계산
+  const startCands = [...outposts, ...dungeons];
+  const startOutpost = startCands.find((o) => o.m.id === startOutpostId)?.m;
   const startGame: { x: number; y: number } | null =
     startOutpost && hasCoords(startOutpost)
       ? { x: numOr(startOutpost.cx)!, y: numOr(startOutpost.cz)! }
@@ -314,19 +325,21 @@ export default function MinePage() {
           <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
         </div>
         <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
-        <div className="flex items-center gap-1" title="네비 동선 그룹(1~5)에 등록 / 다시 누르면 해제">
-          <span className="text-[10px] text-white/35">네비</span>
-          {NAV_GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setNav(m.id, g)}
-              title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
-              className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
+        {m.kind !== "dungeon" && (
+          <div className="flex items-center gap-1" title="네비 동선 그룹(1~5)에 등록 / 다시 누르면 해제">
+            <span className="text-[10px] text-white/35">네비</span>
+            {NAV_GROUPS.map((g) => (
+              <button
+                key={g}
+                onClick={() => setNav(m.id, g)}
+                title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
+                className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
         <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
         <button
           onClick={() => setPresetFor((p) => (p === m.id ? null : m.id))}
@@ -353,7 +366,7 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 문파/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 문파/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요. <b className="text-violet-300">🏰 던전</b>은 입장 쿨타임 타이머를 돌리면서 <b>동선 출발지</b>로도 쓸 수 있어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -379,6 +392,9 @@ export default function MinePage() {
         </Btn>
         <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "outpost").length + 1; d.mine.mines.push({ id: uid(), name: `전초${n}`, kind: "outpost", cooldownMin: 0, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 전초 추가
+        </Btn>
+        <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "dungeon").length + 1; d.mine.mines.push({ id: uid(), name: `던전${n}`, kind: "dungeon", cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
+          + 던전 추가
         </Btn>
         <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
           <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
@@ -426,19 +442,23 @@ export default function MinePage() {
         <span className="text-[11px] text-white/35">파티마다 네비가 따로 공유돼요. 같은 파티원끼리 같은 번호를 고르면 네비를 함께 봐요. (쿨타임은 전체 공유)</span>
       </div>
 
-      {/* 출발: 전초(또는 내 위치) 선택 후 광산/채집장 한바퀴 동선 생성 */}
+      {/* 출발: 전초·던전(또는 내 위치) 선택 후 광산/채집장 한바퀴 동선 생성 */}
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-teal-400/25 bg-teal-400/[0.05] px-3 py-2 text-sm">
-        <span className="font-semibold text-teal-200">🚩 출발 전초</span>
-        {outposts.length === 0 ? (
-          <span className="text-xs text-white/35">‘+ 전초 추가’로 출발점을 만들어 좌표/마커를 지정하세요.</span>
+        <span className="font-semibold text-teal-200">🚩 출발지 <span className="font-normal text-teal-300/60">(전초·던전)</span></span>
+        {startCands.length === 0 ? (
+          <span className="text-xs text-white/35">‘+ 전초 추가’ 또는 ‘+ 던전 추가’로 출발점을 만들어 좌표/마커를 지정하세요.</span>
         ) : (
-          outposts.map((o) => (
+          startCands.map((o) => (
             <button
               key={o.m.id}
               onClick={() => setStartOutpostId((id) => (id === o.m.id ? "" : o.m.id))}
-              className={`rounded-md border px-2 py-1 text-xs transition ${startOutpostId === o.m.id ? "border-teal-400/60 bg-teal-400/15 text-teal-200" : "border-white/15 text-white/50 hover:text-white"}`}
+              className={`rounded-md border px-2 py-1 text-xs transition ${
+                startOutpostId === o.m.id
+                  ? o.m.kind === "dungeon" ? "border-violet-400/60 bg-violet-400/15 text-violet-200" : "border-teal-400/60 bg-teal-400/15 text-teal-200"
+                  : "border-white/15 text-white/50 hover:text-white"
+              }`}
             >
-              {o.m.name}
+              {o.m.kind === "dungeon" ? "🏰 " : ""}{o.m.name}
             </button>
           ))
         )}
@@ -480,6 +500,14 @@ export default function MinePage() {
           )}
           {mineList.length === 0 && gatherList.length === 0 && (
             <p className="rounded-lg border border-dashed border-white/15 py-10 text-center text-sm text-white/30">광산·채집장이 없습니다. “광산 일괄 생성” 또는 “+ 채집장 추가”를 눌러보세요.</p>
+          )}
+
+          {/* 던전 (입장 쿨타임 타이머 + 출발점) */}
+          {dungeons.length > 0 && (
+            <>
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-violet-300">🏰 던전 <span className="font-normal text-white/35">임박순 · {dungeons.length}곳 · 출발지로도 사용 가능</span></div>
+              {dungeons.map(timerRow)}
+            </>
           )}
 
           {/* 양조장 (도착지) */}
@@ -729,7 +757,7 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
             : s.m.kind === "outpost" ? "bg-teal-400 border-teal-100 text-black"
             : s.m.kind === "port" ? "bg-blue-400 border-blue-100 text-black"
             : s.r.ready ? `${kindOf(s.m).markerReady} text-black` : "bg-amber-500/90 border-amber-200 text-black";
-          const glyph = s.m.kind === "brew" ? "🍶" : s.m.kind === "outpost" ? "🚩" : s.m.kind === "port" ? "🚢" : label(s.m, s.idx);
+          const glyph = s.m.kind === "brew" ? "🍶" : s.m.kind === "outpost" ? "🚩" : s.m.kind === "port" ? "🚢" : s.m.kind === "dungeon" ? "🏰" : label(s.m, s.idx);
           return (
             <div
               key={s.m.id}
@@ -853,7 +881,7 @@ function MarkerLayer({
           : r.ready
           ? `${kindOf(m).markerReady} text-black`
           : "bg-amber-500/90 border-amber-200 text-black";
-        const glyph = m.kind === "brew" ? "🍶" : m.kind === "outpost" ? "🚩" : m.kind === "port" ? "🚢" : label(m, idx);
+        const glyph = m.kind === "brew" ? "🍶" : m.kind === "outpost" ? "🚩" : m.kind === "port" ? "🚢" : m.kind === "dungeon" ? "🏰" : label(m, idx);
         return (
           <button
             key={m.id}

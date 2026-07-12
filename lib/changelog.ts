@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.0",
+    date: "2026-07-11",
+    changes: [
+      "광산&채집: '🏰 던전' 추가 — 입장 쿨타임 타이머(완료/⏱ 남은시간 프리셋) + 지도 마커",
+      "던전을 동선 출발지로 선택 가능 (출발지: 전초·던전)",
+    ],
+  },
+  {
     version: "1.61.0",
     date: "2026-07-11",
     changes: [

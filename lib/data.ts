@@ -121,7 +121,7 @@ export type IronState = {
 export type Mine = {
   id: string;
   name: string; // 광산1 ...
-  kind: "mine" | "gather" | "brew" | "outpost" | "port"; // 광산 / 채집장 / 양조장(도착지) / 전초(출발) / 항구(출발)
+  kind: "mine" | "gather" | "brew" | "outpost" | "port" | "dungeon"; // 광산 / 채집장 / 양조장(도착지) / 전초(출발) / 항구(제거됨) / 던전(타이머+출발)
   cooldownMin: number; // 쿨타임(분)
   lastDoneAt: string | null; // 마지막 완료(ISO)
   x: number | null; // 지도(이미지)상 위치 X (0~100%)
@@ -428,9 +428,9 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
     mines: (input.mine?.mines ?? []).filter((m) => (m as { kind?: unknown }).kind !== "port").map((m) => ({
       id: m.id || uid(),
       name: m.name ?? "",
-      kind: ((): "mine" | "gather" | "brew" | "outpost" | "port" => {
+      kind: ((): "mine" | "gather" | "brew" | "outpost" | "port" | "dungeon" => {
         const k = (m as { kind?: unknown }).kind;
-        return k === "gather" || k === "brew" || k === "outpost" ? k : "mine";
+        return k === "gather" || k === "brew" || k === "outpost" || k === "dungeon" ? k : "mine";
       })(),
       cooldownMin: Number(m.cooldownMin) || 0,
       lastDoneAt: m.lastDoneAt ?? null,
