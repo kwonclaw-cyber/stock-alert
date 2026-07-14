@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.2",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 좌표 거점에도 Y(높이) 입력 추가 (X·Z·Y 순서, 기록용)",
+    ],
+  },
+  {
     version: "1.62.1",
     date: "2026-07-11",
     changes: [

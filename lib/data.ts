@@ -133,7 +133,7 @@ export type Mine = {
 };
 
 /** 지도 좌표 보정 거점 (게임좌표 ↔ 지도 마커 위치) */
-export type CalibPoint = { cx: string; cz: string; x: number | null; y: number | null };
+export type CalibPoint = { cx: string; cz: string; cy: string; x: number | null; y: number | null }; // cy=게임 높이(기록용, 보정엔 미사용)
 
 /** 광산타이머 상태 */
 export type MineState = {
@@ -309,7 +309,7 @@ export function defaultData(): AppData {
         memo: "",
       },
     ],
-    mine: { mines: [], defaultCooldownMin: 60, mapImage: null, calib: { p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } } },
+    mine: { mines: [], defaultCooldownMin: 60, mapImage: null, calib: { p1: { cx: "", cz: "", cy: "", x: null, y: null }, p2: { cx: "", cz: "", cy: "", x: null, y: null } } },
     iron: { guildId: MAIN_GUILD, cooldownMin: 0, manualMembers: [], records: {} },
     daily: {
       guildId: MAIN_GUILD,
@@ -452,6 +452,7 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       const pt = (p: Partial<CalibPoint> | undefined): CalibPoint => ({
         cx: p?.cx ?? "",
         cz: p?.cz ?? "",
+        cy: p?.cy ?? "",
         x: typeof p?.x === "number" ? p.x : null,
         y: typeof p?.y === "number" ? p.y : null,
       });
