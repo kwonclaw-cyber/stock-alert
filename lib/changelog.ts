@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.3",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 거점1을 '🏠마을'로 표기 (지도 마커·입력줄·툴팁)",
+    ],
+  },
+  {
     version: "1.62.2",
     date: "2026-07-14",
     changes: [
