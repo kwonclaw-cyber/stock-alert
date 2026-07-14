@@ -408,7 +408,7 @@ export default function MinePage() {
           const p = calibPts[w];
           return (
             <span key={w} className="flex items-center gap-1 text-xs text-white/45">
-              <b className="text-amber-300">거점{i + 1}</b>
+              <b className="text-amber-300">{i === 0 ? "거점1(마을)" : `거점${i + 1}`}</b>
               X<TextInput value={p.cx} onChange={(v) => setCalibCoord(w, "cx", v)} placeholder="X" className="w-14 !px-1 !py-1" />
               Z<TextInput value={p.cz} onChange={(v) => setCalibCoord(w, "cz", v)} placeholder="Z" className="w-14 !px-1 !py-1" />
               Y<TextInput value={p.cy} onChange={(v) => setCalibCoord(w, "cy", v)} placeholder="Y" className="w-14 !px-1 !py-1" />
@@ -932,14 +932,14 @@ function CalibLayer({ calib, editMode, onMove }: {
         return (
           <button
             key={w}
-            title={`좌표 거점${i + 1} (X ${p.cx || "?"} · Z ${p.cz || "?"})${editMode ? " — 드래그로 위치 맞추기" : ""}`}
+            title={`${w === "p1" ? "마을(거점1)" : `좌표 거점${i + 1}`} (X ${p.cx || "?"} · Z ${p.cz || "?"})${editMode ? " — 드래그로 위치 맞추기" : ""}`}
             onPointerDown={(e) => { if (!editMode) return; e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDrag({ which: w, x: p.x!, y: p.y! }); }}
             onPointerMove={(e) => { if (drag?.which === w) setDrag({ which: w, ...toPct(e.clientX, e.clientY) }); }}
             onPointerUp={(e) => { if (drag?.which === w) { onMove(w, drag.x, drag.y); setDrag(null); } (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); }}
             style={{ left: `${x}%`, top: `${y}%` }}
             className={`pointer-events-auto absolute flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-400 px-1 text-[11px] font-bold text-black shadow ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
           >
-            🎯{i + 1}
+            {w === "p1" ? "🏠마을" : `🎯${i + 1}`}
           </button>
         );
       })}
