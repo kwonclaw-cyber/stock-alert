@@ -36,12 +36,12 @@ const STEEL_W: RGB = [152, 166, 180], STEEL_B: RGB = [104, 120, 136]; // 강철 
 const STEEL_DK: RGB = [74, 88, 102];
 const DEEP_W: RGB = [120, 160, 205], DEEP_B: RGB = [54, 78, 112];     // 제복 바탕
 const CH_W: RGB = [168, 208, 240], CH_B: RGB = [52, 96, 146];         // 천람무복 도포 바탕
-const CH_EDGE: RGB = [32, 54, 84], CH_INNER: RGB = [240, 246, 252];
+const CH_EDGE: RGB = [46, 52, 60], CH_INNER: RGB = [240, 246, 252];
 const SILV2: RGB = [200, 212, 224], SILV2_D: RGB = [142, 154, 168];   // 은룡 자수·트림
-const NVC: RGB = [46, 66, 98], NVC_D: RGB = [28, 40, 62];             // 남색 허리끈
+const NVC: RGB = [60, 65, 72], NVC_D: RGB = [40, 44, 50];             // 짙은 회흑색 허리끈 (저채도)
 const JADE: RGB = [110, 196, 140], JADE_D: RGB = [68, 148, 98];       // 옥패
-const PANT: RGB = [30, 38, 52], BOOT: RGB = [46, 50, 60], BOOT_D: RGB = [28, 30, 38];
-const PLATE: RGB = [178, 188, 198], INSLV: RGB = [28, 38, 56];
+const PANT: RGB = [36, 40, 46], BOOT: RGB = [46, 50, 60], BOOT_D: RGB = [28, 30, 38];
+const PLATE: RGB = [178, 188, 198], INSLV: RGB = [34, 38, 44];
 const GG: RGB = [88, 158, 210], GG_D: RGB = [62, 124, 176], GG_L: RGB = [118, 182, 226]; // 하늘고구마 슈트
 const GPALE: RGB = [236, 244, 252], GPALE_S: RGB = [216, 230, 243], GPALE_D: RGB = [196, 214, 232];
 const GLEAF: RGB = [86, 148, 84], GLEAF_D: RGB = [56, 108, 60], GLEAF_L: RGB = [118, 178, 108];
@@ -285,9 +285,9 @@ const CONCEPTS: Concept[] = [
           setPx(d, x0 + i, y0 + j, shade(ggCol(x0, i, base), SH[n]));
         } }
       { const [x0, y0] = tf.front; for (let j = 3; j < 8; j++) for (let i = 2; i < 6; i++) setPx(d, x0 + i, y0 + j, ggCol(x0, i, shade(GG, 1.12))); } // 배 하이라이트
-      // 팔: 어깨만 슈트, 아래는 연한 맨팔
+      // 팔: 어깨만 슈트, 아래는 연한 맨팔 — 손(10~11행)은 내 피부색 유지
       for (const af of arms) for (const n of SIDES) { const [x0, y0, w, h] = af[n];
-        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+        for (let j = 0; j < Math.min(h, 10); j++) for (let i = 0; i < w; i++) {
           const c = j < 1 ? GG : j < 2 ? GG_D : (i + j) % 5 === 0 ? GPALE_S : GPALE;
           setPx(d, x0 + i, y0 + j, shade(c, SH[n]));
         } }
@@ -364,13 +364,15 @@ export default function SkinPage() {
     const slim = mode === "auto" ? detected === "slim" : mode === "slim";
     const AW = slim ? 3 : 4;
 
-    // 손 색
+    // 손 색: 얼굴 아래쪽(볼·턱)에서 피부색 추출 — 앞머리가 얼굴 위를 덮어도 머리색이 손이 되지 않게
     const cnt: Record<string, number> = {};
-    for (let y = 8; y < 16; y++) for (let x = 8; x < 16; x++) {
+    for (let y = 10; y < 16; y++) for (let x = 9; x < 15; x++) {
       if (alphaAt(src, x, y) > 0) { const p = pxAt(src, x, y); const k = p.join(","); cnt[k] = (cnt[k] || 0) + 1; }
     }
     let HAND: RGB = [231, 222, 175]; let best = 0;
-    for (const k in cnt) if (cnt[k] > best) { best = cnt[k]; HAND = k.split(",").map(Number) as RGB; }
+    const skinish = (p: RGB) => p[0] >= p[2] && p[0] > 90; // 붉은기 있는 밝은 색 = 피부 후보
+    for (const k in cnt) { const p = k.split(",").map(Number) as RGB; if (skinish(p) && cnt[k] > best) { best = cnt[k]; HAND = p; } }
+    if (best === 0) for (const k in cnt) if (cnt[k] > best) { best = cnt[k]; HAND = k.split(",").map(Number) as RGB; }
 
     const outCanvas = document.createElement("canvas"); outCanvas.width = 64; outCanvas.height = 64;
     const octx = outCanvas.getContext("2d")!;
