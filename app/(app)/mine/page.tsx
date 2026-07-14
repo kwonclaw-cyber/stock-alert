@@ -760,7 +760,7 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
               key={s.m.id}
               style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
               title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz})${isLoc ? "" : ` · ${s.r.text}`}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
-              className={`absolute flex h-5 min-w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[10px] font-bold ${fill} ${!isLoc && s.r.ready ? "animate-pulse" : ""}`}
+              className={`absolute flex h-4 min-w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[9px] font-bold ${fill} ${!isLoc && s.r.ready ? "animate-pulse" : ""}`}
             >
               {glyph}
             </div>
@@ -771,7 +771,7 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
             key={`start-${i}`}
             style={{ left: `${toX(st.x)}%`, top: `${toY(st.y)}%` }}
             title={`출발지 (X ${st.x} · Z ${st.y})`}
-            className="absolute -translate-x-1/2 -translate-y-1/2 text-sm"
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-xs"
           >
             🧍
           </div>
@@ -867,7 +867,7 @@ function MarkerLayer({
         const draggable = editMode && hasMarker(m); // 좌표로 찍힌 지점은 좌표가 우선이라 드래그 비활성
         const x = drag?.id === m.id ? drag.x : ip.x;
         const y = drag?.id === m.id ? drag.y : ip.y;
-        const size = large ? "h-7 min-w-7 text-xs" : "h-5 min-w-5 text-[10px]";
+        const size = large ? "h-6 min-w-6 text-[11px]" : "h-4 min-w-4 text-[9px]";
         const isLoc = m.kind === "brew" || m.kind === "outpost" || m.kind === "port";
         const color = m.kind === "brew"
           ? "bg-amber-400 border-amber-100 text-black"
@@ -933,7 +933,7 @@ function CalibLayer({ calib, editMode, onMove }: {
             onPointerMove={(e) => { if (drag?.which === w) setDrag({ which: w, ...toPct(e.clientX, e.clientY) }); }}
             onPointerUp={(e) => { if (drag?.which === w) { onMove(w, drag.x, drag.y); setDrag(null); } (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); }}
             style={{ left: `${x}%`, top: `${y}%` }}
-            className={`pointer-events-auto absolute flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-400 px-1 text-[11px] font-bold text-black shadow ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+            className={`pointer-events-auto absolute flex h-4 min-w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-amber-200 bg-amber-400 px-1 text-[9px] font-bold text-black shadow ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
           >
             {w === "p1" ? "🏠마을" : `🎯${i + 1}`}
           </button>

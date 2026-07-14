@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.5",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 지도·미니맵 마커 크기 축소 (거점 마커 포함)",
+    ],
+  },
+  {
     version: "1.62.4",
     date: "2026-07-14",
     changes: [
