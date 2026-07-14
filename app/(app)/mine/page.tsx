@@ -152,7 +152,7 @@ export default function MinePage() {
   const mine = data.mine;
 
   // 지도 보정: '좌표 거점 2곳'(좌표+마커)으로 게임좌표→지도(%) 변환식을 도출한다.
-  const calibPts = mine.calib ?? { p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } };
+  const calibPts = mine.calib ?? { p1: { cx: "", cz: "", cy: "", x: null, y: null }, p2: { cx: "", cz: "", cy: "", x: null, y: null } };
   const calib: ((cx: number, cz: number) => { x: number; y: number }) | null = (() => {
     const a = calibPts.p1, b = calibPts.p2;
     const ax = numOr(a.cx), az = numOr(a.cz), bx = numOr(b.cx), bz = numOr(b.cz);
@@ -289,8 +289,8 @@ export default function MinePage() {
   };
   const pickParty = (p: string) => { setParty(p); try { localStorage.setItem("mine-party", p); } catch { /* 무시 */ } };
   // 좌표 거점(보정)
-  const emptyCalib = () => ({ p1: { cx: "", cz: "", x: null, y: null }, p2: { cx: "", cz: "", x: null, y: null } });
-  const setCalibCoord = (which: "p1" | "p2", axis: "cx" | "cz", v: string) => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); d.mine.calib[which][axis] = v; });
+  const emptyCalib = () => ({ p1: { cx: "", cz: "", cy: "", x: null, y: null }, p2: { cx: "", cz: "", cy: "", x: null, y: null } });
+  const setCalibCoord = (which: "p1" | "p2", axis: "cx" | "cz" | "cy", v: string) => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); d.mine.calib[which][axis] = v; });
   const toggleCalibMarker = (which: "p1" | "p2") => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); const p = d.mine.calib[which]; if (p.x == null) { p.x = 50; p.y = 50; } else { p.x = null; p.y = null; } });
   const moveCalibMarker = (which: "p1" | "p2", x: number, y: number) => update((d) => { if (!d.mine.calib) d.mine.calib = emptyCalib(); d.mine.calib[which].x = x; d.mine.calib[which].y = y; });
   const setNav = (id: string, g: number) => saveNav({ ...navMap, [id]: (navMap[id] ?? 0) === g ? 0 : g });
@@ -411,6 +411,7 @@ export default function MinePage() {
               <b className="text-amber-300">거점{i + 1}</b>
               X<TextInput value={p.cx} onChange={(v) => setCalibCoord(w, "cx", v)} placeholder="X" className="w-14 !px-1 !py-1" />
               Z<TextInput value={p.cz} onChange={(v) => setCalibCoord(w, "cz", v)} placeholder="Z" className="w-14 !px-1 !py-1" />
+              Y<TextInput value={p.cy} onChange={(v) => setCalibCoord(w, "cy", v)} placeholder="Y" className="w-14 !px-1 !py-1" />
               <button
                 onClick={() => toggleCalibMarker(w)}
                 className={`rounded-md border px-2 py-1 text-xs transition ${p.x != null ? "border-amber-400/60 bg-amber-400/15 text-amber-200" : "border-white/15 text-white/50 hover:text-white"}`}
