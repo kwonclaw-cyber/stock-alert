@@ -321,8 +321,8 @@ export default function MinePage() {
         <div className="flex items-center gap-1 text-xs text-white/40">
           <span className="text-amber-300/70">좌표</span>
           <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-          <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
           <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+          <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
         </div>
         <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
         {m.kind !== "dungeon" && (
@@ -528,8 +528,8 @@ export default function MinePage() {
                     <div className="flex items-center gap-1 text-xs text-white/40">
                       <span className="text-amber-300/70">좌표</span>
                       <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                     </div>
                     <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
                   </div>
@@ -556,8 +556,8 @@ export default function MinePage() {
                     <div className="flex items-center gap-1 text-xs text-white/40">
                       <span className="text-teal-300/70">좌표</span>
                       <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                       <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
+                      <TextInput value={m.cy} onChange={(v) => update((d) => { d.mine.mines[gi].cy = v; })} placeholder="Y" className="w-12 !px-1 !py-1" />
                     </div>
                     <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
                   </div>
