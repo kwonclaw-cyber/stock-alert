@@ -6,6 +6,15 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.63.0",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 타이머 기능 제거 — 쿨타임·완료·남은시간 표시를 없애고 위치 관리 중심으로 개편",
+      "행을 컴팩트하게(이름·좌표·네비만) 줄이고 광산·채집장·양조장·던전·전초를 3열 카드로 배치",
+      "탭 이름 '광산&채집 타이머' → '광산&채집 지도'",
+    ],
+  },
+  {
     version: "1.62.8",
     date: "2026-07-14",
     changes: [
