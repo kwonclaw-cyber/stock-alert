@@ -43,7 +43,7 @@ const JADE: RGB = [110, 196, 140], JADE_D: RGB = [68, 148, 98];       // 옥패
 const PANT: RGB = [36, 40, 46], BOOT: RGB = [46, 50, 60], BOOT_D: RGB = [28, 30, 38];
 const PLATE: RGB = [178, 188, 198], INSLV: RGB = [34, 38, 44];
 const GG: RGB = [88, 158, 210], GG_D: RGB = [62, 124, 176], GG_L: RGB = [118, 182, 226]; // 하늘고구마 슈트
-const GPALE: RGB = [236, 244, 252], GPALE_S: RGB = [216, 230, 243], GPALE_D: RGB = [196, 214, 232];
+const GPALE: RGB = [236, 244, 252], GPALE_D: RGB = [196, 214, 232];
 const GLEAF: RGB = [86, 148, 84], GLEAF_D: RGB = [56, 108, 60], GLEAF_L: RGB = [118, 178, 108];
 // 고구마 세로 결무늬: 열 위치에 따라 미묘한 명암
 const ggCol = (x0: number, i: number, base: RGB): RGB => { const k = (x0 + i) % 4; return k === 0 ? shade(base, 0.92) : k === 2 ? shade(base, 1.07) : base; };
@@ -277,7 +277,7 @@ const CONCEPTS: Concept[] = [
       { const [x0, y0] = HT.right; setPx(d, x0 + 4, y0 + 0, GLEAF); }
       { const [x0, y0] = HT.left; setPx(d, x0 + 3, y0 + 0, GLEAF_L); }
     },
-    overlay(d, { tf, arms, legs }) {
+    overlay(d, { tf, arms, legs, HAND }) {
       // 몸통: 고구마 결 + 허리 음영
       for (const n of SIDES) { const [x0, y0, w, h] = tf[n];
         for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -285,13 +285,13 @@ const CONCEPTS: Concept[] = [
           setPx(d, x0 + i, y0 + j, shade(ggCol(x0, i, base), SH[n]));
         } }
       { const [x0, y0] = tf.front; for (let j = 3; j < 8; j++) for (let i = 2; i < 6; i++) setPx(d, x0 + i, y0 + j, ggCol(x0, i, shade(GG, 1.12))); } // 배 하이라이트
-      // 팔: 어깨만 슈트, 아래는 연한 맨팔 — 손(10~11행)은 내 피부색 유지
+      // 팔: 어깨만 슈트, 아래는 전부 맨팔(내 피부색)
       for (const af of arms) for (const n of SIDES) { const [x0, y0, w, h] = af[n];
-        for (let j = 0; j < Math.min(h, 10); j++) for (let i = 0; i < w; i++) {
-          const c = j < 1 ? GG : j < 2 ? GG_D : (i + j) % 5 === 0 ? GPALE_S : GPALE;
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+          const c = j < 1 ? GG : j < 2 ? GG_D : HAND;
           setPx(d, x0 + i, y0 + j, shade(c, SH[n]));
         } }
-      // 다리: 역삼각(V) 자락 — 안쪽으로 갈수록 깊게
+      // 다리: 역삼각(V) 자락 아래는 전부 맨다리(내 피부색)
       legs.forEach((lf, idx) => { const isR = idx === 0;
         for (const n of SIDES) { const [x0, y0, w, h] = lf[n];
           for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -302,7 +302,7 @@ const CONCEPTS: Concept[] = [
             } else {
               cut = (isR && n === "left") || (!isR && n === "right") ? 6 : 1;
             }
-            const c = j < cut ? (j === cut - 1 ? GG_D : ggCol(x0, i, GG)) : (i + j) % 6 === 0 ? GPALE_S : GPALE;
+            const c = j < cut ? (j === cut - 1 ? GG_D : ggCol(x0, i, GG)) : HAND;
             setPx(d, x0 + i, y0 + j, shade(c, SH[n]));
           } }
       });
