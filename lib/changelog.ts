@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.7",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 지도 영역을 전체 폭의 80%로 조정 (가운데 정렬)",
+    ],
+  },
+  {
     version: "1.62.6",
     date: "2026-07-14",
     changes: [
