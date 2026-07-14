@@ -482,9 +482,126 @@ export default function MinePage() {
         {tripKind && !startName && <span className="text-[11px] text-amber-300/80">전초를 선택하거나 내 위치를 입력하면 출발지부터 동선이 그려져요.</span>}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* 광산 리스트 */}
+      <div className="space-y-5">
+        {/* 광산 지도 (전체 폭) */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-semibold text-white/70">
+              🗺️ 광산 지도 <span className="text-xs font-normal text-white/35">(표시 {placedCount}/{mine.mines.length})</span>
+              <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${calib ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`} title={calib ? "기준점 2곳으로 좌표→지도 변환 적용됨" : "마커+좌표를 둘 다 가진 기준점 2곳이 있으면 좌표만으로 지도에 정확히 찍혀요"}>
+                {calib ? "좌표보정 ✅" : "좌표보정 필요"}
+              </span>
+            </span>
+            {mine.mapImage && (
+              <button
+                onClick={() => setEditMarkers((v) => !v)}
+                className={`rounded-md border px-2 py-1 text-xs transition ${editMarkers ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
+              >
+                {editMarkers ? "편집 완료" : "📍 마커 편집"}
+              </button>
+            )}
+          </div>
+          <MapPanel
+            image={mine.mapImage}
+            onFiles={setMap}
+            onZoom={() => setZoom(true)}
+            onRemove={() => { if (confirmDelete("지도 이미지를 삭제할까요?")) update((d) => { d.mine.mapImage = null; }); }}
+          >
+            {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
+            <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
+            <CalibLayer calib={calibPts} editMode={editMarkers} onMove={moveCalibMarker} />
+          </MapPanel>
+          {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
+
+          {/* 좌표 미니맵 + 추천 동선 (지도 아래 2열) */}
+          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div>
+            <CoordMap mines={decoratedAll} routes={coordRoutes} />
+          </div>
+
+          {/* 네비게이션 / 추천 동선 */}
+          <div className="rounded-xl border border-white/10 bg-[#15171c] p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-white/70">
+                🧭 추천 동선{" "}
+                <span className={`text-xs font-medium ${tripKind ? "text-teal-300" : usingNav ? "text-amber-300" : "text-white/35"}`}>
+                  {tripKind
+                    ? `${tripKind === "mine" ? "광산" : "채집장"} 출발${startName ? ` · ${startName}부터` : ""} · ${totalRouteCount}곳`
+                    : usingNav ? `네비 ${usedGroups.length}개 · ${totalRouteCount}곳` : `전체 ${totalRouteCount}곳`}
+                </span>
+              </span>
+              <div className="flex items-center gap-2 text-xs text-white/45">
+                {usingNav && (
+                  <button onClick={clearNav} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
+                    네비 전체해제
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowRoute((v) => !v)}
+                  className={`rounded-md border px-2 py-1 transition ${showRoute ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
+                >
+                  지도선 {showRoute ? "ON" : "OFF"}
+                </button>
+              </div>
+            </div>
+            {totalRouteCount === 0 ? (
+              <p className="py-3 text-center text-xs text-white/30">
+                각 광산·채집장의 <b className="text-amber-300">네비 1~3</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {routeGroups.map((g) =>
+                  g.route.length === 0 ? null : (
+                    <div key={g.nav}>
+                      {usingNav && (
+                        <div className="mb-1 flex items-center gap-1.5 text-xs font-bold" style={{ color: g.color }}>
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                          네비{g.nav} · {g.route.length}곳
+                        </div>
+                      )}
+                      <ol className="space-y-1">
+                        {g.startName && (
+                          <li className="flex items-center gap-2 text-sm">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-400 text-[11px] font-bold text-black">🚩</span>
+                            <span className="truncate font-bold text-teal-200">{g.startName} <span className="text-teal-300/70">(출발)</span></span>
+                          </li>
+                        )}
+                        {g.route.map((c, i) => {
+                          const isBrew = c.m.kind === "brew";
+                          return (
+                          <li key={c.m.id} className="flex items-center gap-2 text-sm">
+                            <span
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-black"
+                              style={{ backgroundColor: isBrew ? "#fbbf24" : g.color }}
+                            >
+                              {isBrew ? "🍶" : i + 1}
+                            </span>
+                            {isBrew ? (
+                              <span className="truncate font-bold text-amber-200">{c.m.name} <span className="text-amber-300/70">(도착지)</span></span>
+                            ) : (
+                              <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 완료했으면 클릭">
+                                <span className="mr-0.5">{kindOf(c.m).icon}</span>{c.m.name}
+                              </button>
+                            )}
+                            <span className={`ml-auto shrink-0 text-xs ${isBrew ? "text-amber-300" : c.r.ready ? kindOf(c.m).text : "text-amber-300"}`}>
+                              {isBrew ? "🍶 양조장" : c.r.ready ? kindOf(c.m).readyWord : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
+                            </span>
+                          </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+          </div>
+        </div>
+
+        {/* 광산·채집 리스트 (지도 아래) */}
         <div className="space-y-2">
+
           {mineList.length > 0 && (
             <>
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">⛏ 광산 <span className="font-normal text-white/35">임박순 · {mineList.length}곳</span></div>
@@ -562,121 +679,6 @@ export default function MinePage() {
               })}
             </div>
           )}
-
-        </div>
-
-        {/* 광산 지도 */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold text-white/70">
-              🗺️ 광산 지도 <span className="text-xs font-normal text-white/35">(표시 {placedCount}/{mine.mines.length})</span>
-              <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${calib ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`} title={calib ? "기준점 2곳으로 좌표→지도 변환 적용됨" : "마커+좌표를 둘 다 가진 기준점 2곳이 있으면 좌표만으로 지도에 정확히 찍혀요"}>
-                {calib ? "좌표보정 ✅" : "좌표보정 필요"}
-              </span>
-            </span>
-            {mine.mapImage && (
-              <button
-                onClick={() => setEditMarkers((v) => !v)}
-                className={`rounded-md border px-2 py-1 text-xs transition ${editMarkers ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
-              >
-                {editMarkers ? "편집 완료" : "📍 마커 편집"}
-              </button>
-            )}
-          </div>
-          <MapPanel
-            image={mine.mapImage}
-            onFiles={setMap}
-            onZoom={() => setZoom(true)}
-            onRemove={() => { if (confirmDelete("지도 이미지를 삭제할까요?")) update((d) => { d.mine.mapImage = null; }); }}
-          >
-            {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
-            <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
-            <CalibLayer calib={calibPts} editMode={editMarkers} onMove={moveCalibMarker} />
-          </MapPanel>
-          {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
-
-          {/* 좌표 미니맵 (지도 이미지 없어도 좌표로 위치/동선 표시) */}
-          <div className="mt-3">
-            <CoordMap mines={decoratedAll} routes={coordRoutes} />
-          </div>
-
-          {/* 네비게이션 / 추천 동선 */}
-          <div className="mt-3 rounded-xl border border-white/10 bg-[#15171c] p-3">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-white/70">
-                🧭 추천 동선{" "}
-                <span className={`text-xs font-medium ${tripKind ? "text-teal-300" : usingNav ? "text-amber-300" : "text-white/35"}`}>
-                  {tripKind
-                    ? `${tripKind === "mine" ? "광산" : "채집장"} 출발${startName ? ` · ${startName}부터` : ""} · ${totalRouteCount}곳`
-                    : usingNav ? `네비 ${usedGroups.length}개 · ${totalRouteCount}곳` : `전체 ${totalRouteCount}곳`}
-                </span>
-              </span>
-              <div className="flex items-center gap-2 text-xs text-white/45">
-                {usingNav && (
-                  <button onClick={clearNav} className="rounded-md border border-white/15 px-2 py-1 text-white/55 hover:text-white">
-                    네비 전체해제
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowRoute((v) => !v)}
-                  className={`rounded-md border px-2 py-1 transition ${showRoute ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-white/15 text-white/55 hover:text-white"}`}
-                >
-                  지도선 {showRoute ? "ON" : "OFF"}
-                </button>
-              </div>
-            </div>
-            {totalRouteCount === 0 ? (
-              <p className="py-3 text-center text-xs text-white/30">
-                각 광산·채집장의 <b className="text-amber-300">네비 1~3</b> 버튼을 누르면 사람별로 동선을 나눠 그려줘요. (없으면 전체 기준)
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {routeGroups.map((g) =>
-                  g.route.length === 0 ? null : (
-                    <div key={g.nav}>
-                      {usingNav && (
-                        <div className="mb-1 flex items-center gap-1.5 text-xs font-bold" style={{ color: g.color }}>
-                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
-                          네비{g.nav} · {g.route.length}곳
-                        </div>
-                      )}
-                      <ol className="space-y-1">
-                        {g.startName && (
-                          <li className="flex items-center gap-2 text-sm">
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-400 text-[11px] font-bold text-black">🚩</span>
-                            <span className="truncate font-bold text-teal-200">{g.startName} <span className="text-teal-300/70">(출발)</span></span>
-                          </li>
-                        )}
-                        {g.route.map((c, i) => {
-                          const isBrew = c.m.kind === "brew";
-                          return (
-                          <li key={c.m.id} className="flex items-center gap-2 text-sm">
-                            <span
-                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-black"
-                              style={{ backgroundColor: isBrew ? "#fbbf24" : g.color }}
-                            >
-                              {isBrew ? "🍶" : i + 1}
-                            </span>
-                            {isBrew ? (
-                              <span className="truncate font-bold text-amber-200">{c.m.name} <span className="text-amber-300/70">(도착지)</span></span>
-                            ) : (
-                              <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 완료했으면 클릭">
-                                <span className="mr-0.5">{kindOf(c.m).icon}</span>{c.m.name}
-                              </button>
-                            )}
-                            <span className={`ml-auto shrink-0 text-xs ${isBrew ? "text-amber-300" : c.r.ready ? kindOf(c.m).text : "text-amber-300"}`}>
-                              {isBrew ? "🍶 양조장" : c.r.ready ? kindOf(c.m).readyWord : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
-                            </span>
-                          </li>
-                          );
-                        })}
-                      </ol>
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

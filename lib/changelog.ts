@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.6",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 지도를 전체 폭으로 확대(약 4배), 광산·채집 리스트는 지도 아래로 이동",
+      "좌표 미니맵·추천 동선은 지도 아래 2열 배치 (마커 크기는 유지)",
+    ],
+  },
+  {
     version: "1.62.5",
     date: "2026-07-14",
     changes: [
