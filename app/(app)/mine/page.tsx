@@ -120,13 +120,8 @@ export default function MinePage() {
   const [tripKind, setTripKind] = useState<"" | "mine" | "gather">("");
   const [navMap, setNavMap] = useState<Record<string, number>>({}); // 파티 공유 네비(/api/nav)
   const [party, setParty] = useState("1"); // 내가 속한 파티(로컬 선택)
-  const [presetFor, setPresetFor] = useState<string | null>(null); // 남은시간 프리셋 펼친 행
   const navEditedAt = useRef(0); // 최근 네비 편집 시각(편집 직후 폴링 덮어쓰기 방지)
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
   // 저장된 파티 선택 불러오기
   useEffect(() => {
     try { const p = localStorage.getItem("mine-party"); if (p && /^[1-6]$/.test(p)) setParty(p); } catch { /* 무시 */ }
@@ -187,15 +182,13 @@ export default function MinePage() {
   const decoratedAll = mine.mines.map((m, idx) => ({ m: { ...m, nav: navMap[m.id] ?? 0 }, idx, r: remain(m.lastDoneAt, m.cooldownMin, now), ip: imgPos(m) }));
   // 타이머 대상(광산·채집장)만 시간순 정렬. 양조장·전초는 위치 지점이라 타이머에서 제외.
   const sorted = decoratedAll.filter((s) => s.m.kind === "mine" || s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
-  // 목록은 광산/채집장을 각각 임박순으로 따로 정렬해 구분 표시
-  const mineList = decoratedAll.filter((s) => s.m.kind === "mine").sort((a, z) => a.r.ms - z.r.ms);
-  const gatherList = decoratedAll.filter((s) => s.m.kind === "gather").sort((a, z) => a.r.ms - z.r.ms);
+  // 목록: 종류별 (저장 순서 유지)
+  const mineList = decoratedAll.filter((s) => s.m.kind === "mine");
+  const gatherList = decoratedAll.filter((s) => s.m.kind === "gather");
   const brews = decoratedAll.filter((s) => s.m.kind === "brew");
   const outposts = decoratedAll.filter((s) => s.m.kind === "outpost");
-  // 던전: 입장 쿨타임 타이머 + 동선 출발점으로도 사용 가능
-  const dungeons = decoratedAll.filter((s) => s.m.kind === "dungeon").sort((a, z) => a.r.ms - z.r.ms);
+  const dungeons = decoratedAll.filter((s) => s.m.kind === "dungeon"); // 동선 출발점으로도 사용
 
-  const readyCount = sorted.filter((x) => x.r.ready).length;
   const placedCount = decoratedAll.filter((s) => s.ip).length;
 
   // 출발지(선택한 전초·던전 우선, 없으면 내 위치) 좌표/마커 계산
@@ -285,16 +278,6 @@ export default function MinePage() {
       ];
     });
   }
-  const complete = (id: string) => update((d) => { const m = d.mine.mines.find((x) => x.id === id); if (m) m.lastDoneAt = new Date().toISOString(); });
-  // 남은시간(분)을 직접 맞춘다. 게임에서 "N분 남음"을 보고 1탭으로 동기화. 0이하=지금 가능.
-  const setRemain = (id: string, minutes: number) => update((d) => {
-    const m = d.mine.mines.find((x) => x.id === id);
-    if (!m) return;
-    const cd = m.cooldownMin || 0;
-    if (minutes <= 0 || cd <= 0) { m.lastDoneAt = null; return; }
-    const left = Math.min(minutes, cd); // 남은시간은 쿨타임을 넘을 수 없음
-    m.lastDoneAt = new Date(Date.now() - (cd - left) * 60_000).toISOString();
-  });
   // 네비는 별도 키(/api/nav?party=)로 파티별 공유 저장 — 쿨타임 저장과 충돌하지 않음
   const saveNav = (next: Record<string, number>) => {
     navEditedAt.current = Date.now();
@@ -316,62 +299,36 @@ export default function MinePage() {
     if (m.x == null) { m.x = 50; m.y = 50; } else { m.x = null; m.y = null; }
   });
 
-  // 광산·채집장 타이머 행 (목록에서 종류별 섹션으로 재사용)
-  function timerRow({ m, idx, r }: Decorated) {
+  // 지점 행 (이름·좌표·네비만 있는 컴팩트 카드 — 타이머 없음)
+  function pointRow({ m, idx }: Decorated) {
     const gi = mine.mines.findIndex((x) => x.id === m.id);
     const k = kindOf(m);
     void idx;
     return (
-      <div key={m.id} className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 ${r.ready ? k.rowReady : "border-white/10 bg-[#15171c]"}`}>
+      <div key={m.id} className={`flex flex-wrap items-center gap-1.5 rounded-lg border px-2 py-1.5 ${k.rowReady}`}>
         <button
           onClick={() => toggleMarker(m.id)}
-          className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
+          className={`text-sm transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
           title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
         >📍</button>
-        <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-24 font-semibold" />
-        <label className="flex items-center gap-1 text-xs text-white/45">
-          쿨<TextInput type="number" value={m.cooldownMin} onChange={(v) => update((d) => { d.mine.mines[gi].cooldownMin = Number(v) || 0; })} className="w-14" />분
-        </label>
-        <div className="flex items-center gap-1 text-xs text-white/40">
-          <span className="text-amber-300/70">좌표</span>
-          <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-          <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
-        </div>
-        <span className={`ml-auto min-w-24 text-right font-mono text-base font-bold ${r.ready ? k.text : "text-white"}`}>{r.ready ? k.readyWord : r.text}</span>
-        {m.kind !== "dungeon" && (
-          <div className="flex items-center gap-1" title="네비 동선 그룹(1~5)에 등록 / 다시 누르면 해제">
-            <span className="text-[10px] text-white/35">네비</span>
+        <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-20 !px-1.5 !py-1 text-sm font-semibold" />
+        <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1 text-xs" />
+        <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1 text-xs" />
+        {(m.kind === "mine" || m.kind === "gather") && (
+          <div className="ml-auto flex items-center gap-1" title="네비 동선 그룹에 등록 / 다시 누르면 해제">
             {NAV_GROUPS.map((g) => (
               <button
                 key={g}
                 onClick={() => setNav(m.id, g)}
                 title={m.nav === g ? `네비${g} 해제` : `네비${g}에 등록`}
-                className={`h-7 w-7 rounded-md border text-xs transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
+                className={`h-6 w-6 rounded-md border text-[11px] transition ${m.nav === g ? NAV_BADGE[g] : "border-white/15 text-white/40 hover:text-white"}`}
               >
                 {g}
               </button>
             ))}
           </div>
         )}
-        <Btn variant="primary" onClick={() => complete(m.id)} className="!py-1 !text-xs">완료</Btn>
-        <button
-          onClick={() => setPresetFor((p) => (p === m.id ? null : m.id))}
-          className={`text-sm transition ${presetFor === m.id ? "text-amber-300" : "text-white/40 hover:text-white"}`}
-          title="게임에 보이는 남은시간으로 맞추기"
-        >⏱</button>
-        <button onClick={() => update((d) => { d.mine.mines[gi].lastDoneAt = null; })} className="text-sm text-white/40 hover:text-white" title="리셋(쿨타임 초기화)">↩️</button>
-        <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="text-red-300/50 hover:text-red-300" title="삭제">×</button>
-
-        {presetFor === m.id && (
-          <div className="flex w-full items-center gap-1.5 border-t border-white/10 pt-2 text-xs">
-            <span className="text-white/45">남은시간 →</span>
-            <button onClick={() => { complete(m.id); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">방금</button>
-            {[5, 10, 15, 30].map((min) => (
-              <button key={min} onClick={() => { setRemain(m.id, min); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">{min}분</button>
-            ))}
-            <button onClick={() => { update((d) => { d.mine.mines[gi].lastDoneAt = null; }); setPresetFor(null); }} className="rounded-md border border-white/15 px-2 py-1 text-white/70 hover:border-emerald-400/50 hover:text-emerald-300">지금 가능</button>
-          </div>
-        )}
+        <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className={`${m.kind === "mine" || m.kind === "gather" ? "" : "ml-auto "}text-red-300/50 hover:text-red-300`} title="삭제">×</button>
       </div>
     );
   }
@@ -379,16 +336,10 @@ export default function MinePage() {
   return (
     <div>
       <PageHelp>
-        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>을 함께 관리해요. <b>완료</b>를 누르면 쿨타임만큼 잠기고 <b>가능 → 남은시간순</b> 정렬돼요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>쿨타임</b>·<b>네비</b>는 문파/파티에 <b>실시간 공유</b>돼요. <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나오고, <b className="text-amber-300">🍶 양조장</b>을 지정하면 채집 동선은 <b>가장 가까운 양조장</b>이 도착지로 붙어요. <b className="text-violet-300">🏰 던전</b>은 입장 쿨타임 타이머를 돌리면서 <b>동선 출발지</b>로도 쓸 수 있어요.
+        <b className="text-emerald-300">⛏ 광산</b>·<b className="text-rose-300">🌿 채집장</b>·<b className="text-amber-300">🍶 양조장</b> 위치를 지도에서 관리해요. <b className="text-amber-300">📌 지도 보정(처음 1회)</b>: 아래 <b>🎯 좌표 거점</b>에서 서버 입장 후 잘 아는 <b>2곳의 좌표(X·Z)</b>를 넣고, <b>📍마커 생성</b> 후 <b>마커 편집</b>에서 지도 위 그 위치로 드래그하세요. 그러면 <b>이후엔 좌표만 입력해도 실제 지도 위 정확한 위치</b>에 자동으로 찍혀요. <b>네비</b>는 파티에 <b>실시간 공유</b>되고, <b>네비 1~3</b>으로 동선을 나누면 <b>광산·채집장이 섞여</b> 한 동선에 나와요. 채집 동선엔 <b>가장 가까운 양조장</b>이 도착지로 붙고, <b className="text-violet-300">🏰 던전</b>·<b className="text-teal-300">🚩 전초</b>는 <b>동선 출발지</b>로 쓸 수 있어요.
       </PageHelp>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-sm text-white/50">
-          기본 쿨타임
-          <TextInput type="number" value={mine.defaultCooldownMin} onChange={(v) => update((d) => { d.mine.defaultCooldownMin = Number(v) || 0; })} className="w-20" />
-          분
-        </label>
-        <span className="h-4 w-px bg-white/10" />
         <label className="flex items-center gap-1.5 text-sm text-white/50">
           <TextInput type="number" value={genCount} onChange={(v) => setGenCount(Number(v) || 0)} className="w-16" />
           개 생성
@@ -409,9 +360,6 @@ export default function MinePage() {
         <Btn variant="ghost" onClick={() => update((d) => { const n = d.mine.mines.filter((m) => m.kind === "dungeon").length + 1; d.mine.mines.push({ id: uid(), name: `던전${n}`, kind: "dungeon", cooldownMin: d.mine.defaultCooldownMin, lastDoneAt: null, x: null, y: null, cx: "", cy: "", cz: "", nav: 0 }); })}>
           + 던전 추가
         </Btn>
-        <div className="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm">
-          <span className="text-white/60">완료 가능</span> <b className="text-emerald-300">{readyCount}</b> / {sorted.length}
-        </div>
       </div>
 
       {/* 좌표 거점(지도 보정): 거점 2곳에 좌표 입력 + 지도 마커 → 좌표만으로 지도에 정확히 표시 */}
@@ -528,7 +476,7 @@ export default function MinePage() {
             onRemove={() => { if (confirmDelete("지도 이미지를 삭제할까요?")) update((d) => { d.mine.mapImage = null; }); }}
           >
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
-            <MarkerLayer mines={decoratedAll} now={now} editMode={editMarkers} onMove={moveMarker} onComplete={complete} />
+            <MarkerLayer mines={decoratedAll} editMode={editMarkers} onMove={moveMarker} />
             <CalibLayer calib={calibPts} editMode={editMarkers} onMove={moveCalibMarker} />
           </MapPanel>
           {editMarkers && <p className="mt-1.5 text-xs text-emerald-300/70">마커를 드래그해 위치를 맞추세요.</p>}
@@ -599,13 +547,10 @@ export default function MinePage() {
                             {isBrew ? (
                               <span className="truncate font-bold text-amber-200">{c.m.name} <span className="text-amber-300/70">(도착지)</span></span>
                             ) : (
-                              <button onClick={() => complete(c.m.id)} className="truncate font-medium text-white/85 hover:text-white" title="도착해서 완료했으면 클릭">
+                              <span className="truncate font-medium text-white/85">
                                 <span className="mr-0.5">{kindOf(c.m).icon}</span>{c.m.name}
-                              </button>
+                              </span>
                             )}
-                            <span className={`ml-auto shrink-0 text-xs ${isBrew ? "text-amber-300" : c.r.ready ? kindOf(c.m).text : "text-amber-300"}`}>
-                              {isBrew ? "🍶 양조장" : c.r.ready ? kindOf(c.m).readyWord : `약 ${Math.ceil(c.r.ms / 60000)}분 후`}
-                            </span>
                           </li>
                           );
                         })}
@@ -624,79 +569,41 @@ export default function MinePage() {
 
           {mineList.length > 0 && (
             <>
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">⛏ 광산 <span className="font-normal text-white/35">임박순 · {mineList.length}곳</span></div>
-              {mineList.map(timerRow)}
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">⛏ 광산 <span className="font-normal text-white/35">{mineList.length}곳</span></div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">{mineList.map(pointRow)}</div>
             </>
           )}
           {gatherList.length > 0 && (
             <>
-              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-rose-300">🌿 채집장 <span className="font-normal text-white/35">임박순 · {gatherList.length}곳</span></div>
-              {gatherList.map(timerRow)}
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-rose-300">🌿 채집장 <span className="font-normal text-white/35">{gatherList.length}곳</span></div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">{gatherList.map(pointRow)}</div>
             </>
           )}
           {mineList.length === 0 && gatherList.length === 0 && (
             <p className="rounded-lg border border-dashed border-white/15 py-10 text-center text-sm text-white/30">광산·채집장이 없습니다. “광산 일괄 생성” 또는 “+ 채집장 추가”를 눌러보세요.</p>
           )}
 
-          {/* 던전 (입장 쿨타임 타이머 + 출발점) */}
+          {/* 던전 (동선 출발점) */}
           {dungeons.length > 0 && (
             <>
-              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-violet-300">🏰 던전 <span className="font-normal text-white/35">임박순 · {dungeons.length}곳 · 출발지로도 사용 가능</span></div>
-              {dungeons.map(timerRow)}
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-violet-300">🏰 던전 <span className="font-normal text-white/35">{dungeons.length}곳 · 출발지로도 사용 가능</span></div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">{dungeons.map(pointRow)}</div>
             </>
           )}
 
           {/* 양조장 (도착지) */}
           {brews.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <div className="text-xs font-bold text-amber-300">🍶 양조장 (채집장 동선의 도착지)</div>
-              {brews.map(({ m }) => {
-                const gi = mine.mines.findIndex((x) => x.id === m.id);
-                return (
-                  <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/[0.05] px-3 py-2">
-                    <span className="shrink-0 rounded-md border border-amber-400/60 bg-amber-400/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-200">🍶 양조장</span>
-                    <button
-                      onClick={() => toggleMarker(m.id)}
-                      className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
-                      title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
-                    >📍</button>
-                    <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-28 font-semibold" />
-                    <div className="flex items-center gap-1 text-xs text-white/40">
-                      <span className="text-amber-300/70">좌표</span>
-                      <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
-                    </div>
-                    <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
-                  </div>
-                );
-              })}
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-bold text-amber-300">🍶 양조장 <span className="font-normal text-white/35">{brews.length}곳 · 채집 동선의 도착지</span></div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">{brews.map(pointRow)}</div>
             </div>
           )}
 
           {/* 전초 (출발점) */}
           {outposts.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <div className="text-xs font-bold text-teal-300">🚩 전초 (동선 출발점)</div>
-              {outposts.map(({ m }) => {
-                const gi = mine.mines.findIndex((x) => x.id === m.id);
-                return (
-                  <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-teal-400/30 bg-teal-400/[0.05] px-3 py-2">
-                    <span className="shrink-0 rounded-md border border-teal-400/60 bg-teal-400/15 px-1.5 py-0.5 text-[11px] font-bold text-teal-200">🚩 전초</span>
-                    <button
-                      onClick={() => toggleMarker(m.id)}
-                      className={`text-base transition ${m.x != null ? "opacity-100" : "opacity-30 grayscale hover:opacity-60"}`}
-                      title={m.x != null ? "지도에서 제거" : "지도에 마커 올리기"}
-                    >📍</button>
-                    <TextInput value={m.name} onChange={(v) => update((d) => { d.mine.mines[gi].name = v; })} className="w-28 font-semibold" />
-                    <div className="flex items-center gap-1 text-xs text-white/40">
-                      <span className="text-teal-300/70">좌표</span>
-                      <TextInput value={m.cx} onChange={(v) => update((d) => { d.mine.mines[gi].cx = v; })} placeholder="X" className="w-12 !px-1 !py-1" />
-                      <TextInput value={m.cz} onChange={(v) => update((d) => { d.mine.mines[gi].cz = v; })} placeholder="Z" className="w-12 !px-1 !py-1" />
-                    </div>
-                    <button onClick={() => { if (confirmDelete("삭제할까요?")) update((d) => { d.mine.mines.splice(gi, 1); }); }} className="ml-auto text-red-300/50 hover:text-red-300" title="삭제">×</button>
-                  </div>
-                );
-              })}
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-bold text-teal-300">🚩 전초 <span className="font-normal text-white/35">{outposts.length}곳 · 동선 출발점</span></div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">{outposts.map(pointRow)}</div>
             </div>
           )}
         </div>
@@ -709,7 +616,7 @@ export default function MinePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={mine.mapImage} alt="광산 지도" className="max-h-[88vh] max-w-full rounded-lg" />
             {showRoute && imgRoutes.map((g, i) => <RouteLayer key={i} coords={g.line} color={g.color} />)}
-            <MarkerLayer mines={decoratedAll} now={now} editMode={false} onMove={moveMarker} onComplete={complete} large />
+            <MarkerLayer mines={decoratedAll} editMode={false} onMove={moveMarker} large />
             <CalibLayer calib={calibPts} editMode={false} onMove={moveCalibMarker} />
             <button onClick={() => setZoom(false)} className="absolute right-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">닫기 ✕</button>
           </div>
@@ -771,18 +678,14 @@ function CoordMap({ mines, routes }: { mines: Decorated[]; routes: { color: stri
           )}
         </svg>
         {pts.map(({ s, gx, gz }) => {
-          const isLoc = s.m.kind === "brew" || s.m.kind === "outpost" || s.m.kind === "port";
-          const fill = s.m.kind === "brew" ? "bg-amber-400 border-amber-100 text-black"
-            : s.m.kind === "outpost" ? "bg-teal-400 border-teal-100 text-black"
-            : s.m.kind === "port" ? "bg-blue-400 border-blue-100 text-black"
-            : s.r.ready ? `${kindOf(s.m).markerReady} text-black` : "bg-amber-500/90 border-amber-200 text-black";
+          const fill = `${kindOf(s.m).markerReady} text-black`;
           const glyph = s.m.kind === "brew" ? "🍶" : s.m.kind === "outpost" ? "🚩" : s.m.kind === "port" ? "🚢" : s.m.kind === "dungeon" ? "🏰" : label(s.m, s.idx);
           return (
             <div
               key={s.m.id}
               style={{ left: `${toX(gx)}%`, top: `${toY(gz)}%`, boxShadow: s.m.nav ? `0 0 0 2px ${NAV_COLOR[s.m.nav]}` : undefined }}
-              title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz})${isLoc ? "" : ` · ${s.r.text}`}${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
-              className={`absolute flex h-4 min-w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[9px] font-bold ${fill} ${!isLoc && s.r.ready ? "animate-pulse" : ""}`}
+              title={`${kindOf(s.m).label} · ${s.m.name} (X ${gx} · Z ${gz})${s.m.nav ? ` · 네비${s.m.nav}` : ""}`}
+              className={`absolute flex h-4 min-w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 text-[9px] font-bold ${fill}`}
             >
               {glyph}
             </div>
@@ -864,18 +767,15 @@ function RouteLayer({ coords, color = "#34d399" }: { coords: { x: number; y: num
 }
 
 function MarkerLayer({
-  mines, now, editMode, onMove, onComplete, large = false,
+  mines, editMode, onMove, large = false,
 }: {
   mines: Decorated[];
-  now: number;
   editMode: boolean;
   onMove: (id: string, x: number, y: number) => void;
-  onComplete: (id: string) => void;
   large?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
-  void now;
 
   function toPct(clientX: number, clientY: number) {
     const r = ref.current!.getBoundingClientRect();
@@ -884,27 +784,18 @@ function MarkerLayer({
 
   return (
     <div ref={ref} className="pointer-events-none absolute inset-0">
-      {mines.map(({ m, idx, r, ip }) => {
+      {mines.map(({ m, idx, ip }) => {
         if (!ip) return null;
         const draggable = editMode && hasMarker(m); // 좌표로 찍힌 지점은 좌표가 우선이라 드래그 비활성
         const x = drag?.id === m.id ? drag.x : ip.x;
         const y = drag?.id === m.id ? drag.y : ip.y;
         const size = large ? "h-6 min-w-6 text-[11px]" : "h-4 min-w-4 text-[9px]";
-        const isLoc = m.kind === "brew" || m.kind === "outpost" || m.kind === "port";
-        const color = m.kind === "brew"
-          ? "bg-amber-400 border-amber-100 text-black"
-          : m.kind === "outpost"
-          ? "bg-teal-400 border-teal-100 text-black"
-          : m.kind === "port"
-          ? "bg-blue-400 border-blue-100 text-black"
-          : r.ready
-          ? `${kindOf(m).markerReady} text-black`
-          : "bg-amber-500/90 border-amber-200 text-black";
+        const color = `${kindOf(m).markerReady} text-black`;
         const glyph = m.kind === "brew" ? "🍶" : m.kind === "outpost" ? "🚩" : m.kind === "port" ? "🚢" : m.kind === "dungeon" ? "🏰" : label(m, idx);
         return (
           <button
             key={m.id}
-            title={`${kindOf(m).label} · ${m.name}${isLoc ? "" : ` · ${r.text}`}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : isLoc ? "" : " (클릭=완료)"}`}
+            title={`${kindOf(m).label} · ${m.name}${m.nav ? ` · 네비${m.nav}` : ""}${editMode ? " (드래그로 이동)" : ""}`}
             onPointerDown={(e) => {
               if (!draggable) return;
               e.preventDefault();
@@ -916,9 +807,8 @@ function MarkerLayer({
               if (drag?.id === m.id) { onMove(m.id, drag.x, drag.y); setDrag(null); }
               (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
             }}
-            onClick={() => { if (!editMode && !isLoc) onComplete(m.id); }}
             style={{ left: `${x}%`, top: `${y}%`, boxShadow: m.nav ? `0 0 0 2px ${NAV_COLOR[m.nav]}` : undefined }}
-            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${draggable ? "cursor-grab active:cursor-grabbing" : isLoc ? "cursor-default" : "cursor-pointer"} ${!m.nav && editMode && hasMarker(m) ? "ring-2 ring-white/40" : ""} ${!isLoc && r.ready ? "animate-pulse" : ""} flex`}
+            className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border px-1 font-bold shadow ${size} ${color} ${draggable ? "cursor-grab active:cursor-grabbing" : "cursor-default"} ${!m.nav && editMode && hasMarker(m) ? "ring-2 ring-white/40" : ""} flex`}
           >
             {glyph}
           </button>
