@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.62.8",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 거점 보정 품질 경고 추가 — 두 거점이 X 또는 Z로 너무 가까우면 마커가 한 줄로 눌리는 원인을 안내",
+    ],
+  },
+  {
     version: "1.62.7",
     date: "2026-07-14",
     changes: [

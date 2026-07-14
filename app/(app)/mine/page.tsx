@@ -163,6 +163,20 @@ export default function MinePage() {
       y: clamp(a.y! + ((cz - az) * (b.y! - a.y!)) / (bz - az)),
     });
   })();
+  // 거점 품질 진단: 두 거점이 어느 축으로든 너무 가까우면 그 축 배율이 무너져 마커가 한 줄로 눌린다
+  const calibWarn: string | null = (() => {
+    if (!calib) return null;
+    const a = calibPts.p1, b = calibPts.p2;
+    const dZ = Math.abs(numOr(a.cz)! - numOr(b.cz)!);
+    const dX = Math.abs(numOr(a.cx)! - numOr(b.cx)!);
+    const dy = Math.abs((a.y ?? 0) - (b.y ?? 0)); // 지도상 세로 간격(%)
+    const dx = Math.abs((a.x ?? 0) - (b.x ?? 0)); // 지도상 가로 간격(%)
+    if (dZ < 30 || dy < 5)
+      return "두 거점의 Z(남북) 간격이 너무 좁아요 — 좌표 마커가 위/아래 가장자리 한 줄로 눌립니다. 거점2를 Z로도 멀리 떨어진 곳으로 바꾸고, Z칸에는 높이(Y)가 아니라 F3 좌표의 세 번째 값을 넣었는지 확인하세요. 지도 마커 두 개도 세로로 벌어져 있어야 해요.";
+    if (dX < 30 || dx < 5)
+      return "두 거점의 X(동서) 간격이 너무 좁아요 — 거점2를 X로도 멀리 떨어진 곳으로 바꿔주세요. 지도 마커 두 개도 가로로 벌어져 있어야 해요.";
+    return null;
+  })();
   // 지도 이미지 상 위치(%): 마커가 있으면 마커, 없으면 좌표(보정 시) 환산
   const imgPos = (m: Mine): { x: number; y: number } | null =>
     hasMarker(m) ? { x: m.x as number, y: m.y as number }
@@ -425,6 +439,12 @@ export default function MinePage() {
         </span>
         <span className="text-[11px] text-white/30">서버 입장 후 잘 아는 2곳의 좌표를 넣고 지도에 마커를 맞추세요. (마커 편집 모드에서 드래그)</span>
       </div>
+
+      {calibWarn && (
+        <div className="mb-3 rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-2 text-xs leading-relaxed text-rose-200">
+          ⚠️ <b>거점 보정 주의:</b> {calibWarn}
+        </div>
+      )}
 
       {/* 내 파티 선택 (파티별로 네비가 따로 공유됨) */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/25 bg-sky-400/[0.05] px-3 py-2 text-sm">
