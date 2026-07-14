@@ -483,8 +483,8 @@ export default function MinePage() {
       </div>
 
       <div className="space-y-5">
-        {/* 광산 지도 (전체 폭) */}
-        <div>
+        {/* 광산 지도 (전체 폭의 80%, 가운데 정렬) */}
+        <div className="mx-auto w-full lg:w-[80%]">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-semibold text-white/70">
               🗺️ 광산 지도 <span className="text-xs font-normal text-white/35">(표시 {placedCount}/{mine.mines.length})</span>
