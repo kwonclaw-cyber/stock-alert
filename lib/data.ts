@@ -132,6 +132,39 @@ export type Mine = {
   nav: number; // 네비 동선 그룹 (0=미등록, 1·2·3)
 };
 
+
+/** 실제 서버 채굴장(=광산) 목록: [번호, X, Y, Z] — 2026-07 게임 화면 기준 */
+const MINE_SITES: [number, number, number, number][] = [
+  [1, -1094, 69, -701],
+  [2, -1038, 68, -15],
+  [3, -1837, 64, -943],
+  [4, -1732, 63, -340],
+  [5, -1121, 77, 376],
+  [6, -1766, 17, 809],
+  [7, -2445, 84, 600],
+  [9, -2013, 79, 135],
+  [10, -2081, 80, -1651],
+  [13, -2035, 69, -3664],
+  [15, -3586, 71, -1845],
+  [16, -4466, 130, -1643],
+  [17, -4033, 87, -1055],
+  [19, -3753, 177, -123],
+  [20, -3280, 182, 451],
+  [21, -3960, 239, 1241],
+  [25, -3382, 83, 1681],
+  [27, -3941, 120, 1948],
+  [28, -4421, 73, 1001],
+  [30, -2535, 183, -679],
+  [31, -3516, 141, -1221],
+  [32, -2671, 87, -1892],
+  [33, -1340, 68, -1451],
+  [35, -3197, 71, -2510],
+  [36, -4458, 106, -2309],
+  [37, -2406, 93, -3560],
+  [39, -2304, 77, -4282],
+  [40, -3004, 196, -1],
+];
+
 /** 지도 좌표 보정 거점 (게임좌표 ↔ 지도 마커 위치) */
 export type CalibPoint = { cx: string; cz: string; cy: string; x: number | null; y: number | null }; // cy=게임 높이(기록용, 보정엔 미사용)
 
@@ -459,6 +492,26 @@ export function normalizeData(input: Partial<AppData> | null | undefined): AppDa
       return { p1: pt(c?.p1), p2: pt(c?.p2) };
     })(),
   };
+  // 2026-07: 광산 목록을 실제 서버 채굴장 번호(1~40번)로 1회 교체 — 채집장·양조장·전초·던전·거점은 유지.
+  // 이미 "N번" 이름의 광산이 있으면(교체 완료) 다시 건드리지 않는다.
+  if (!mine.mines.some((m) => m.kind === "mine" && /^\d+번$/.test(m.name))) {
+    mine.mines = [
+      ...MINE_SITES.map(([n, x, y, z]) => ({
+        id: `mine-site-${n}`,
+        name: `${n}번`,
+        kind: "mine" as const,
+        cooldownMin: mine.defaultCooldownMin,
+        lastDoneAt: null,
+        x: null,
+        y: null,
+        cx: String(x),
+        cy: String(y),
+        cz: String(z),
+        nav: 0,
+      })),
+      ...mine.mines.filter((m) => m.kind !== "mine"),
+    ];
+  }
 
   const iron: IronState = {
     guildId: input.iron?.guildId ?? base.iron.guildId,
