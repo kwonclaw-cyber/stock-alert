@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.63.1",
+    date: "2026-07-14",
+    changes: [
+      "광산&채집: 광산 목록을 실제 서버 채굴장 28곳(1~40번)으로 교체 — 각 번호에 게임 좌표(X·Z) 입력됨",
+      "채집장·양조장·전초·던전·좌표 거점은 그대로 유지",
+    ],
+  },
+  {
     version: "1.63.0",
     date: "2026-07-14",
     changes: [
