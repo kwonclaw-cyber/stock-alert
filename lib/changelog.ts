@@ -6,6 +6,14 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.64.0",
+    date: "2026-07-14",
+    changes: [
+      "저장 유실 수정: 오래된 화면이 최신 저장본을 통째로 덮어쓰던 문제 — 버전 충돌을 감지해 서버 최신본에 내 수정만 다시 얹어 저장하도록 개선 (내실현황판 등 전체 적용)",
+      "탭 정리: 공부할것·문파별 멤버현황·보스타이머·마을지도·전달·일정·긴급라이브정리·패치노트 삭제 (첫 화면은 내실현황판)",
+    ],
+  },
+  {
     version: "1.63.1",
     date: "2026-07-14",
     changes: [

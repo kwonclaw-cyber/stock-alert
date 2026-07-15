@@ -7,14 +7,10 @@ import { useEffect, useRef, useState } from "react";
 type Tab = { href: string; label: string; timer?: boolean };
 
 const TABS: Tab[] = [
-  { href: "/guide", label: "📖 공부할것" },
-  { href: "/", label: "문파별 멤버현황" },
   { href: "/baksajang", label: "천박 내실현황판" },
-  { href: "/boss", label: "보스타이머", timer: true },
   { href: "/mine", label: "광산&채집 지도", timer: false },
   { href: "/iron", label: "철타이머", timer: true },
   { href: "/daily", label: "일숙" },
-  { href: "/villagemap", label: "마을지도" },
   { href: "/dwelling", label: "영단" },
   { href: "/crafting", label: "제작 및 재료 정보" },
   { href: "/amulet", label: "부적" },
@@ -22,10 +18,6 @@ const TABS: Tab[] = [
   { href: "/skin", label: "도포 스킨 생성기" },
   { href: "/hidden", label: "히든추리용" },
   { href: "/info", label: "정보공유" },
-  { href: "/relay", label: "전달" },
-  { href: "/calendar", label: "일정" },
-  { href: "/live", label: "긴급라이브정리" },
-  { href: "/changelog", label: "패치노트" },
 ];
 
 /** 저장된 순서(href 배열)로 탭 정렬. 빠진/추가된 탭은 보정. */

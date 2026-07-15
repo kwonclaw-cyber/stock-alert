@@ -37,6 +37,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const savedAt = useRef(0); // 마지막으로 저장 완료된 dirty 값
   const lastVersion = useRef(0); // 마지막으로 알고 있는 서버 버전
   const latest = useRef<AppData | null>(null); // 최신 로컬 데이터(저장용)
+  const pending = useRef<((d: AppData) => void)[]>([]); // 저장 완료 전의 내 수정들(충돌 시 재적용)
   const syncing = useRef(false); // 동기화 재진입 방지
 
   const isIdle = () => dirty.current === savedAt.current;
@@ -123,15 +124,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const snapshotDirty = dirty.current;
+      const pendCount = pending.current.length;
       try {
         const res = await fetch("/api/data", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-base-version": String(lastVersion.current) },
           body: JSON.stringify(latest.current),
         });
+        if (res.status === 409) {
+          // 다른 사람이 먼저 저장함 → 통째로 덮어쓰지 말고, 서버 최신본에 내 수정만 다시 적용 후 재시도
+          const json = (await res.json()) as { version: number; data: AppData };
+          const fresh = structuredClone(json.data) as AppData;
+          for (const mut of pending.current) mut(fresh);
+          latest.current = fresh;
+          lastVersion.current = json.version;
+          setData(fresh);
+          scheduleSave();
+          return;
+        }
         const json = (await res.json()) as { ok: boolean; version?: number };
         if (res.ok && json.ok) {
           savedAt.current = snapshotDirty;
+          pending.current.splice(0, pendCount);
           if (json.version) lastVersion.current = json.version;
           setSaveState(isIdle() ? "saved" : "saving");
         } else {
@@ -172,6 +186,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const next = structuredClone(prev) as AppData;
         mutator(next);
         latest.current = next;
+        pending.current.push(mutator);
         dirty.current += 1;
         scheduleSave();
         return next;
