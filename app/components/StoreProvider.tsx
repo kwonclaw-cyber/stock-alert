@@ -42,21 +42,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const isIdle = () => dirty.current === savedAt.current;
 
-  // 최초 로드
+  // 최초 로드: 버전을 먼저 알아내고 ?v=버전으로 요청 → 같은 버전은 엣지 캐시에서 재사용(서버 전송량 절약)
   useEffect(() => {
     let alive = true;
-    fetch("/api/data", { cache: "no-store" })
-      .then(async (r) => {
-        lastVersion.current = Number(r.headers.get("x-data-version")) || 0;
-        return r.json();
-      })
-      .then((d: AppData) => {
+    (async () => {
+      try {
+        let v = 0;
+        try {
+          const vr = await fetch("/api/version");
+          v = ((await vr.json()) as { version: number }).version || 0;
+        } catch { /* 버전 조회 실패 시 캐시 없이 로드 */ }
+        const r = await fetch(v ? `/api/data?v=${v}` : "/api/data", v ? {} : { cache: "no-store" });
+        lastVersion.current = Number(r.headers.get("x-data-version")) || v;
+        const d = (await r.json()) as AppData;
         if (!alive) return;
         latest.current = d;
         setData(d);
         setSaveState("saved");
-      })
-      .catch(() => alive && setSaveState("error"));
+      } catch {
+        if (alive) setSaveState("error");
+      }
+    })();
     return () => {
       alive = false;
     };
@@ -71,7 +77,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const r = await fetch("/api/version");
       const { version } = (await r.json()) as { version: number };
       if (version === lastVersion.current || !isIdle()) return;
-      const dr = await fetch("/api/data", { cache: "no-store" });
+      const dr = await fetch(`/api/data?v=${version}`);
       const dv = Number(dr.headers.get("x-data-version")) || version;
       const fresh = (await dr.json()) as AppData;
       if (!isIdle()) return; // 받는 사이 편집을 시작했으면 버림
@@ -163,7 +169,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     syncing.current = true;
     setRefreshing(true);
     try {
-      const dr = await fetch("/api/data", { cache: "no-store" });
+      const vr = await fetch("/api/version", { cache: "no-store" }).catch(() => null);
+      const v = vr ? (((await vr.json()) as { version: number }).version || 0) : 0;
+      const dr = await fetch(v ? `/api/data?v=${v}` : "/api/data", v ? {} : { cache: "no-store" });
       const dv = Number(dr.headers.get("x-data-version")) || lastVersion.current;
       const fresh = (await dr.json()) as AppData;
       if (isIdle()) {

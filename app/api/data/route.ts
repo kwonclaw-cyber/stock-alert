@@ -5,9 +5,14 @@ import { normalizeData } from "@/lib/data";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const [data, version] = await Promise.all([readData(), readVersion()]);
-  return NextResponse.json(data, { headers: { "x-data-version": String(version) } });
+  const v = Number(req.nextUrl.searchParams.get("v")) || 0;
+  const headers: Record<string, string> = { "x-data-version": String(version) };
+  // 버전 주소화(?v=현재버전) 요청은 엣지에 길게 캐시 → 같은 버전을 몇 명이 받아도 서버 전송(Fast Origin Transfer)은 1회.
+  // 버전이 다르거나 없으면 캐시하지 않고 항상 최신을 준다.
+  headers["Cache-Control"] = v && v === version ? "public, s-maxage=31536000, immutable" : "no-store";
+  return NextResponse.json(data, { headers });
 }
 
 export async function PUT(req: NextRequest) {
