@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.64.2",
+    date: "2026-07-14",
+    changes: [
+      "서버 전송량 대폭 절감: 데이터를 버전 주소(?v=)로 요청해 같은 버전은 엣지 캐시에서 재사용 — Fast Origin Transfer 초과(30GB/10GB)로 인한 정지 재발 방지",
+    ],
+  },
+  {
     version: "1.64.1",
     date: "2026-07-14",
     changes: [
