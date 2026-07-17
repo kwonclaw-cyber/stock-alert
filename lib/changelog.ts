@@ -6,6 +6,13 @@ export type ChangeEntry = { version: string; date: string; changes: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: "1.64.1",
+    date: "2026-07-14",
+    changes: [
+      "서버 사용량 절감: 변경 감지 폴링 2초 → 15초 (탭 복귀 시엔 즉시 동기화) — Vercel 무료 한도 초과로 인한 일시정지 방지",
+    ],
+  },
+  {
     version: "1.64.0",
     date: "2026-07-14",
     changes: [
