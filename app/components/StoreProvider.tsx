@@ -25,7 +25,7 @@ type StoreContext = {
 const Ctx = createContext<StoreContext | null>(null);
 
 const SAVE_DEBOUNCE = 250; // ms (변경을 빠르게 서버로 반영)
-const POLL_INTERVAL = 2000; // ms (타이머 페이지 라이브 동기화 주기)
+const POLL_INTERVAL = 15000; // ms (변경 감지 폴링 — 탭 복귀/포커스 시엔 즉시 동기화되므로 길게 잡아 Vercel 사용량 절약)
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);

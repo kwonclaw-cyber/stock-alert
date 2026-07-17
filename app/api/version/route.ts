@@ -12,6 +12,6 @@ export async function GET() {
   const version = await readVersion();
   return NextResponse.json(
     { version },
-    { headers: { "Cache-Control": "public, s-maxage=3, stale-while-revalidate=10" } },
+    { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" } },
   );
 }
